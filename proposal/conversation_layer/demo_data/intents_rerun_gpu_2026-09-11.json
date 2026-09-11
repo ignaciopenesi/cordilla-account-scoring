@@ -1,0 +1,264 @@
+{
+  "_warning": "SYNTHETIC demo data. Not Cordilla data. See demo_data/README.md.",
+  "extracted_with": "qwen3:14b",
+  "metrics_vs_ground_truth": {
+    "n_extracted": 20,
+    "ready_to_act_exact": 1.0,
+    "ready_to_act_false_cold": 0,
+    "ready_to_act_false_hot": 0,
+    "next_step_exact": 1.0,
+    "intent_level_exact": 0.75,
+    "intent_level_within_one": 1.0,
+    "hot_vs_cold_correct": 1.0,
+    "mean_confidence": 0.9450000000000001
+  },
+  "failures": {},
+  "intents": {
+    "ACC-00109": {
+      "ready_to_act": true,
+      "ready_because": "budget_approved",
+      "evidence_quote": "Board approved the spend. We want to be in production by Q4, so whatever your onboarding looks like, we need it to fit that.",
+      "next_step_agreed": true,
+      "objections": [
+        "needs proof of effectiveness; previous vendors failed to deliver"
+      ],
+      "intent_level": "A",
+      "confidence": 0.95,
+      "next_step": "find time in the next couple of weeks"
+    },
+    "ACC-00160": {
+      "ready_to_act": true,
+      "ready_because": "budget_approved",
+      "evidence_quote": "We've got budget approved for this fiscal year, it came through in June.",
+      "next_step_agreed": true,
+      "objections": [
+        "Proof, mostly. We've been told yes before and it didn't hold up."
+      ],
+      "intent_level": "A",
+      "confidence": 0.95,
+      "next_step": "Find time in the next couple of weeks for a working session with the ops lead"
+    },
+    "ACC-00270": {
+      "ready_to_act": false,
+      "ready_because": "neither",
+      "evidence_quote": "We're building the business case. Nothing's approved yet but my director asked me to get numbers together for the planning cycle.",
+      "next_step_agreed": true,
+      "objections": [
+        "Proof, mostly. We've been told yes before and it didn't hold up"
+      ],
+      "intent_level": "C",
+      "confidence": 1,
+      "next_step": "Schedule a meeting in the next couple of weeks"
+    },
+    "ACC-00272": {
+      "ready_to_act": false,
+      "ready_because": "neither",
+      "evidence_quote": "It's on the roadmap for sometime next year maybe. Not this quarter.",
+      "next_step_agreed": false,
+      "objections": [
+        "Proof, mostly. We've been told yes before and it didn't hold up",
+        "I wouldn't expect much movement"
+      ],
+      "intent_level": "D",
+      "confidence": 1
+    },
+    "ACC-00275": {
+      "ready_to_act": true,
+      "ready_because": "budget_approved",
+      "evidence_quote": "We've got budget approved for this fiscal year, it came through in June.",
+      "next_step_agreed": true,
+      "objections": [
+        "Proof, mostly. We've been told yes before and it didn't hold up.",
+        "We're just deciding between you and two others."
+      ],
+      "intent_level": "A",
+      "confidence": 0.95,
+      "next_step": "Let's find time in the next couple of weeks."
+    },
+    "ACC-00313": {
+      "ready_to_act": false,
+      "ready_because": "neither",
+      "evidence_quote": "It's on the roadmap for sometime next year maybe. Not this quarter.",
+      "next_step_agreed": false,
+      "objections": [
+        "Proof is needed before commitment",
+        "Past experiences with unfulfilled promises"
+      ],
+      "intent_level": "D",
+      "confidence": 0.95
+    },
+    "ACC-00369": {
+      "ready_to_act": false,
+      "ready_because": "neither",
+      "evidence_quote": "I'd need to justify this internally. If you can help me with an ROI story I can take it to my VP next month.",
+      "next_step_agreed": false,
+      "objections": [
+        "Need to justify internally and build an ROI case",
+        "Requires proof to move forward",
+        "Skeptical of past commitments ('we've been told yes before and it didn't hold up')",
+        "Expressed low expectation of movement ('I wouldn't expect much movement')"
+      ],
+      "intent_level": "C",
+      "confidence": 0.95
+    },
+    "ACC-00414": {
+      "ready_to_act": false,
+      "ready_because": "neither",
+      "evidence_quote": "We're not interested.",
+      "next_step_agreed": false,
+      "objections": [
+        "Need proof before committing",
+        "Previous commitments didn't hold up",
+        "Not interested in moving forward"
+      ],
+      "intent_level": "F",
+      "confidence": 1
+    },
+    "ACC-00481": {
+      "ready_to_act": false,
+      "ready_because": "neither",
+      "evidence_quote": "You can, but I wouldn't expect much movement.",
+      "next_step_agreed": false,
+      "objections": [
+        "Need proof to proceed",
+        "Previous commitments didn't materialize"
+      ],
+      "intent_level": "E",
+      "confidence": 0.8
+    },
+    "ACC-00561": {
+      "ready_to_act": true,
+      "ready_because": "budget_approved",
+      "evidence_quote": "There's money allocated.",
+      "next_step_agreed": true,
+      "objections": [
+        "I'm comparing three vendors and I need to see the multi-region piece work before I commit."
+      ],
+      "intent_level": "B",
+      "confidence": 0.9,
+      "next_step": "scheduling a meeting in the next couple of weeks"
+    },
+    "ACC-00602": {
+      "ready_to_act": true,
+      "ready_because": "budget_approved",
+      "evidence_quote": "Board approved the spend. We want to be in production by Q4, so whatever your onboarding looks like, we need it to fit that.",
+      "next_step_agreed": true,
+      "objections": [
+        "Proof, mostly. We've been told yes before and it didn't hold up."
+      ],
+      "intent_level": "A",
+      "confidence": 1,
+      "next_step": "find time in the next couple of weeks"
+    },
+    "ACC-00730": {
+      "ready_to_act": false,
+      "ready_because": "neither",
+      "evidence_quote": "We're building the business case. Nothing's approved yet but my director asked me to get numbers together for the planning cycle.",
+      "next_step_agreed": true,
+      "objections": [
+        "Need proof to proceed",
+        "Previous approvals didn't hold up"
+      ],
+      "intent_level": "B",
+      "confidence": 1,
+      "next_step": "Schedule a working session with the ops lead in the next couple of weeks"
+    },
+    "ACC-00806": {
+      "ready_to_act": false,
+      "ready_because": "neither",
+      "evidence_quote": "You can, but I wouldn't expect much movement.",
+      "next_step_agreed": false,
+      "objections": [
+        "We just renewed with our current vendor for three years.",
+        "Proof, mostly. We've been told yes before and it didn't hold up."
+      ],
+      "intent_level": "E",
+      "confidence": 1
+    },
+    "ACC-00915": {
+      "ready_to_act": false,
+      "ready_because": "neither",
+      "evidence_quote": "You can, but I wouldn't expect much movement.",
+      "next_step_agreed": false,
+      "objections": [
+        "Proof, mostly. We've been told yes before and it didn't hold up.",
+        "I wouldn't expect much movement."
+      ],
+      "intent_level": "E",
+      "confidence": 0.9
+    },
+    "ACC-00935": {
+      "ready_to_act": false,
+      "ready_because": "neither",
+      "evidence_quote": "Nothing's driving this right now, I'm keeping an eye on the space.",
+      "next_step_agreed": false,
+      "objections": [
+        "Proof, mostly. We've been told yes before and it didn't hold up.",
+        "I wouldn't expect much movement."
+      ],
+      "intent_level": "D",
+      "confidence": 0.9
+    },
+    "ACC-00972": {
+      "ready_to_act": false,
+      "ready_because": "neither",
+      "evidence_quote": "We looked at this category two years ago and decided to build internally. That's still where we are.",
+      "next_step_agreed": false,
+      "objections": [
+        "Proof, mostly. We've been told yes before and it didn't hold up",
+        "I wouldn't expect much movement"
+      ],
+      "intent_level": "D",
+      "confidence": 0.8
+    },
+    "ACC-01128": {
+      "ready_to_act": true,
+      "ready_because": "budget_approved",
+      "evidence_quote": "We signed off on the budget last week and we need this live before the fiscal year closes in November.",
+      "next_step_agreed": true,
+      "objections": [
+        "Proof, mostly. We've been told yes before and it didn't hold up."
+      ],
+      "intent_level": "A",
+      "confidence": 1,
+      "next_step": "Scheduling a meeting in the next couple of weeks"
+    },
+    "ACC-01145": {
+      "ready_to_act": true,
+      "ready_because": "budget_approved",
+      "evidence_quote": "There's money allocated. I'm comparing three vendors and I need to see the multi-region piece work before I commit.",
+      "next_step_agreed": true,
+      "objections": [
+        "Need to see the multi-region piece work before committing",
+        "Comparing three vendors"
+      ],
+      "intent_level": "B",
+      "confidence": 1,
+      "next_step": "Schedule a working session with the ops lead in the next couple of weeks"
+    },
+    "ACC-01282": {
+      "ready_to_act": true,
+      "ready_because": "budget_approved",
+      "evidence_quote": "We signed off on the budget last week and we need this live before the fiscal year closes in November.",
+      "next_step_agreed": true,
+      "objections": [
+        "We've been told yes before and it didn't hold up"
+      ],
+      "intent_level": "A",
+      "confidence": 0.95,
+      "next_step": "Schedule a working session with the ops lead in the next couple of weeks"
+    },
+    "ACC-01414": {
+      "ready_to_act": false,
+      "ready_because": "neither",
+      "evidence_quote": "",
+      "next_step_agreed": false,
+      "objections": [
+        "Proof, mostly. We've been told yes before and it didn't hold up.",
+        "I wouldn't expect much movement."
+      ],
+      "intent_level": "E",
+      "confidence": 0.9
+    }
+  }
+}

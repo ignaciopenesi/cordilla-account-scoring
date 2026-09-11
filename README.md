@@ -4,25 +4,24 @@ Take-home for the AI Transformation Analyst role at Dialpad. Five lines:
 
 1. **The inherited model does not work, and the reason is inside the pickle.** Fitted with no holdout; its in-sample AUC (0.759) is what the same architecture scores on random labels (0.762); its list of 90 converts at **31% scored from memory and 6.7% out of fold** — random is 7.3%. → `audit/README.md`
 2. **It reads effort as intent.** Its strongest feature is our own contact count; its #1 account has 5 fruitless contacts and a 290-day-old snapshot; on accounts nobody has called it is worse than random. → `audit/README.md` §1
-3. **Where the next hour changes most is measurable — as an upper bound — and it is the first call on an untouched trial account: +10 points on every cut.** Web-only and MQL-only accounts: calling never helped. → `audit/uplift.py`
-4. **`serving/` ranks every account by that, cuts at the budget into three arms with a control, asks the rep before the sixth call, skips where calling never helped, and splits the untouched trials at random so day 90 measures the +10 without the bias.** Fifteen nodes, fourteen run today, one human signature before anything writes. → `serving/README.md`
+3. **Where the next hour changes most is measurable — as an upper bound — and it is the first call on an untouched trial account: positive on every cut, +10 points overall.** Web-only and MQL-only accounts: calling never helped. → `audit/uplift.py`
+4. **`serving/` ranks every account by that, coin-flips a third of the batch to the rep as control before any rule runs, cuts the rest at the budget, asks the rep before the sixth call, skips where calling never helped, and splits the untouched trials at random so day 90 measures the +10 without the bias.** Fifteen nodes, fourteen run today, one human signature before anything writes. → `serving/README.md`
 5. **The conversation layer — the one input not a function of Cordilla's own effort — is designed, measured, and deliberately not wired.** → `proposal/conversation_layer/`
 
 ## Where things live
 
 | file | role |
 |---|---|
-| `PROPOSAL.md` | the proposal, 1,199 words, the four areas the brief asks for |
-| `audit/README.md` | the audit: eleven conclusions on the model, why it is not used, eleven hypotheses with status; `01_model_audit.ipynb` is the evidence, the four scripts beside it the outcome tests |
-| `serving/README.md` | the agent: the fifteen nodes, arms and cohorts, configuration, outputs |
-| `ROLLOUT.md` | the future: six phases with the result that stops each, the loops that learn, the proposed extension |
+| `PROPOSAL.md` | the proposal, 1,190 words, the four areas the brief asks for |
+| `audit/README.md` | the audit: eleven conclusions on the model, why it is not used, eleven hypotheses with status; `01_model_audit.ipynb` is the evidence, the three scripts and one artifact beside it the outcome tests |
+| `serving/README.md` | the agent: the fifteen nodes, arms and cohorts, configuration, outputs — **and how the improvement is measured, the rollout phases, and the additional lines of improvement** |
 | `proposal/conversation_layer/` | the conversation layer: design, measured contract, how to wire it back |
 | `RESEARCH-LOG.md` | how it was done — 27 entries, timestamped, never rewritten |
 
 ## Run
 
 ```
-python serving/check.sh                              # everything: six modes, three audit scripts, protected shas (~1 min)
+bash serving/check.sh                                # everything: six modes, three audit scripts, protected shas (~1 min)
 python serving/pipeline.py                           # real mode: 14 of 15 nodes, ~4 s → serving/out/
 python serving/pipeline.py --demo --cycles 4 --reset-cycles   # + simulated day-90 outcomes: READOUT and the loop, four cycles
 python serving/pipeline.py --llm live                # the wired agent drafts on the local model (config.toml)

@@ -1714,3 +1714,45 @@ brief's own format and word count, with its evidence in the audit; the **hypothe
 **future** in `ROLLOUT.md` — phases with stop conditions, the loops, the proposed extension — with
 `proposal/conversation_layer/` as its first item; the **how** here, never rewritten. Entries in this
 log that mention `RESULTS.md` are left as written: they were true when written.
+
+## Entry 28 — 2026-09-11 · Three agents, two design flaws, one correction of my own claim
+
+Three subagents ran in parallel on the finished repo, each with a self-contained brief.
+
+**A — alignment.** Twenty-one factual fixes across six documents (counts, names, positions, a
+garbled sentence in the proposal, a commit hash that no longer resolved), and eleven judgment items
+handed back rather than changed. Two of those mattered. First: `intents.json` was modified in the
+working tree with metrics *different* from what I had reported — I had compared the GPU re-run to
+its cache before the background job had finished writing, and called it byte-identical. The truth,
+saved as `intents_rerun_gpu_2026-09-11.json`: the two fields the pipeline would route on reproduced
+exactly (`ready_to_act` 1.00, 0 of 20 changed; `next_step_agreed` 1.00), the six-level grade moved
+on 7 of 20 (0.80 → 0.75), mean confidence 0.975 → 0.945. Sampling variance in the secondary field,
+none in the routed ones — the design's assumption, observed. The commit message of `4b67c64` says
+"identical"; it is wrong on the grade, right on the routing field, and stays as written. Second:
+the code still emitted old names in several strings; all gone.
+
+**C — from experiments to a number.** Designed the ladder (week-1 arithmetic → day-90 randomised
+comparison → cumulative arms → the north star), the formula I = (p_system − p_control) × N with its
+variance, the one-page mock, the sentence, the failure modes — and found **two design flaws** while
+grounding itself. (1) `rep_worklist.csv` showed the rep the `arm` column: a rep who knows "this one
+is the system's" works it harder, and the rate rises for a reason the policy did not earn. Removed.
+(2) Control was drawn from what was left *after* the system had picked — a sample of what the system
+rejected, not a control. `BUDGET` now flips a coin over the whole batch before any rule runs: two
+thirds to the system, one third to the rep as usual; on the 300, 207 vs 93. `READOUT` compares the
+two thirds intention-to-treat, every account counted. That is the causal line the north star rests
+on, and it did not exist until tonight. Consequences on the 300: ask 19, observe 9, skip 50, idle
+69; 38 rep-hours held or not spent instead of 51; of the model's top 30, five called as-is and ten
+in the control third. The first `--demo` run of the new line — a simulation with no true difference
+— returned +4.3 points [+1.6, +7.1]: a false positive at one cycle, now flagged in the output and
+used in the docs as the argument for pre-registered readout dates.
+
+**B — additional lines.** Ten ranked, three rejected, and two corrections to my brief (the no-signal
+pool is 10 accounts, not 23; a stale position range in the audit). Its first line resolves the
+blocking question by recomputation rather than by asking: a timestamped contact log, counted before
+and after each snapshot; the definition that reproduces the column settles it. Its second costs a
+day and no data: write the comparison list and interim-look schedule before outcomes exist and
+validate the plan against the `--demo` null. Both went into `serving/README.md`.
+
+**Consolidation.** `ROLLOUT.md` is gone; its phases, C's measurement section and B's lines now live
+in `serving/README.md`, which the user asked to be the single place the agent is reported. The brief
+gained *How this becomes a number*. Six documents remain.

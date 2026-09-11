@@ -43,19 +43,19 @@ decides whether it is real or leakage. **Ship the scores?** No. Give me a holdou
 If the data measures Cordilla rather than the account, a better model cannot help. What can is a
 system that **produces the missing data while it runs** — a control group, the rep's knowledge, the
 prospect's own words. `serving/` is a graph of fifteen nodes with one human approval before any
-write. **Eleven run on the two CSVs in four seconds**; the rest are **declared bypassed with what
-unblocks them**, not stubbed.
+write. **Fourteen run on the two CSVs in four seconds**; the last is **declared bypassed with what
+unblocks it**, not stubbed.
 
 **The model is one voice of three, never the decision.** `RECONCILE` compares the score, our
 logged effort, and what the prospect said. Agreement teaches nothing; **disagreement is the new
 data** — 24 ranked high that nobody contacted, 22 absorbing effort with no result,
-9 the rep works anyway. `RANK` then places every account by **where the next hour changes most**: for each intent segment, conversion with 1–4 contacts minus conversion with none, estimated on the older rows only. Trial is +10 points on every cut (an upper bound — reps chose whom to call); web-only and MQL-only are ≤ 0 and never called. `BUDGET` cuts at the budget into **continue**, **first-call** and the rep's **control**, and splits the untouched trials at random — half called, half observed — so day 90 measures the +10 unbiased. **Of the model's top 30, nine are called as-is.**6%). **Of the model's top 30, six are called as-is; eleven are asked first.**
+9 the rep works anyway. `RANK` then places every account by **where the next hour changes most**: for each intent segment, conversion with 1–4 contacts minus conversion with none, estimated on the older rows only. Trial is positive on every cut, +10 points overall (an upper bound — reps chose whom to call); web-only and MQL-only are ≤ 0 and never called. `BUDGET` cuts at the budget into **continue**, **first-call** and the rep's **control** — a third of the batch by coin flip, drawn before any rule runs — and splits the untouched trials at random, half called, half observed, so day 90 measures the +10 unbiased. **Of the model's top 30, nine are called as-is; nine are asked first.**
 
 **Conversation completes the intent vendor, it does not replace it.** Vendor *coverage* predicts conversion (8.22% vs 3.94%); its *score* does not. **197 of 481 logged contacts (41%) are with accounts the vendor never covered.** A conversation layer — the one input not a function of Cordilla's own effort — is designed, measured on synthetic transcripts (**1.00 on `ready_to_act`**) and **deliberately not wired** until real transcripts with outcomes exist.
 
 **`VALUE` prices the result in hours and counts only decisions it changed.** With transcripts the score is
 **inverted** — 6.9% mean for those that said *no*, 5.5% for *yes* — because dead accounts absorbed more contacts, its strongest feature. One said *"we just renewed with
-our current vendor for three years, take us off your list"* and scores above the median. Agreement is logged at **zero value on purpose**: a correct score that changes no decision buys nothing. At full transcript
+our current vendor for three years, take us off your list"* and scores above the median. Agreement is logged at **zero value on purpose**: a score that changes no decision buys nothing. At full transcript
 coverage that is ≈41 rep-hours a cycle, labelled as the extrapolation it is.
 
 ## 4. Productionization, trust, and the metric
@@ -67,21 +67,14 @@ no result*. An unexplained individual error kills adoption in weeks. Findings ca
 typographic.** The north star is **conversions per 100 contacts, by arm, read cumulatively** — the
 only thing that proves the system works, and it is not readable yet:
 detecting a 50% relative lift at the field rate needs **2,515 accounts per arm**, which at today's
-30-per-arm cycle is **84 weeks**. Assigning the whole batch
+15-per-arm pace is **168 weeks**. Assigning the whole batch
 instead of a third (97 per arm) lands it in two quarters at no extra rep-hours: taking the metric
 seriously changed the allocation.
 
-The weekly headline is **rep-hours redirected off accounts that stated a decline**, filed as a
-**bet** carrying the date it settles and the result that falsifies it — so it cannot be read as an
-outcome. Day 90 marks each won, lost, or *underpowered*: zero conversions needs n ≥ 99 to mean
-anything at a 3% base rate, and this cycle returns `UNDERPOWERED 0/2` rather than a win. The stock
-is declared decaying — 789 contacts of historical waste is spent once, so a falling number is the
-system working, not dying. And **proxy validity** is scheduled: if redirected hours stop predicting
-conversions, the weekly metric is retired in the same report. Nobody ever wrote up why the last
-scores stopped matching the field; this is that writeup, scheduled before it is needed. Three
+The weekly headline is **rep-hours held or not spent** — 38 this week, arithmetic on the row, not a result — and beneath it the one bet, filed with its date: that the system's third converts more per hour than the control third. It is marked OPEN until the interval excludes zero; a null simulation at one cycle produced +4.3 points [+1.6, +7.1], which is what a false positive looks like and why the readout dates are fixed in advance. The stock decays by design — 789 contacts of historical waste is spent once — and **proxy validity** is scheduled: if held hours stop predicting conversions, the headline is retired in the same report. Nobody wrote up why the last scores stopped matching the field; this is that writeup, scheduled in advance. Three
 gated loops in `READOUT` read the accumulated cycles — arm sizes move only once intervals
-separate, never below a 20% floor; the agent's real precision replaces its synthetic score;
-the weekly metric retires if it stops tracking the north star (`ROLLOUT.md`).
+separate, never below a 10% floor; the agent's real precision replaces its synthetic score;
+the weekly metric retires if it stops tracking the north star (`serving/README.md`).
 
 **Salesforce or outside.** Inside wins adoption and loses trust; outside wins control and loses use.
 So **hybrid, conditioned on validation**: flags, `intent_known` and the snapshot date become fields
