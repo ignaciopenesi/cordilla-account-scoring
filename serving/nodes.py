@@ -26,6 +26,7 @@ RANGES = {"intent_score": (0, 100), "employee_count": (1, 10_000_000),
 def INGEST(s: State) -> State:
     """Load everything. One place where data enters, so the rest of the graph never
     changes when the source does -- today CSVs, tomorrow Salesforce."""
+    OUT.mkdir(exist_ok=True)          # VERDICT writes here before EMIT does
     s.accounts = pd.read_csv(ROOT / "data/accounts_to_score.csv", parse_dates=["snapshot_date"])
     s.training = pd.read_csv(ROOT / "data/training_data.csv", parse_dates=["snapshot_date"])
     with open(ROOT / "model/model.pkl", "rb") as f:
