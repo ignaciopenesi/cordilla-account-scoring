@@ -16,12 +16,26 @@ import pandas as pd
 import llm
 from pipeline import FEATURES, OUT, ROOT, TODAY, State
 
-DEMO = Path(__file__).resolve().parent / "demo_data"
-
 CAT = ["account_type", "industry"]
 RANGES = {"intent_score": (0, 100), "employee_count": (1, 10_000_000),
           "mql_count_90d": (0, 1000), "trial_active_users": (0, 1_000_000),
           "web_touchpoints_90d": (0, 10_000), "sales_contacts_90d": (0, 1000)}
+
+# The one place hours enter the system. It is a PARAMETER, not a finding: Cordilla logs
+# contacts, not time, so every ratio below is computed per contact and converted here.
+# It cancels out of every arm-vs-arm comparison — both sides carry the same constant —
+# so no decision in this pipeline turns on its value. Replace it with measured call
+# duration the day the telephony log is joined in, and nothing else changes.
+CONTACT_MINUTES = 12
+
+# Default arm sizes, set by recall on the held-out 300 (audit/heldout_comparison.py): of the 23
+# buyers, exploit 60 / explore 0 finds 12 and exploit 50 / explore 10 finds the same 12 -- the
+# ten explore slots cost nothing, because exploit's slots 51-60 held no buyer. 40/20 found 9.
+# Explore is kept at 10 as an exploration QUOTA, not as a branch competing on historical recall:
+# history contains no calls to untouched accounts, so it cannot score calling them; only the
+# day-90 readout can. The model is worse than random on that pool (AUC 0.45); web is the only
+# column that ranks it (AUC 0.61) and explore already uses it -- there is no better data branch.
+ARM_DEFAULTS = {"continue": 45, "first-call": 15, "control": 30}
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -38,20 +52,13 @@ def INGEST(s: State) -> State:
     s.capabilities = {"crm_accounts", "labeled_history", "scoring_model"}
 
     if s.args.demo:
-        cache = DEMO / "intents.json"
-        if cache.exists():
-            blob = json.loads(cache.read_text())
-            s.artifacts["intents"] = blob.get("intents", {})
-            s.artifacts["intent_extractor"] = blob.get("extracted_with", "unknown")
-            s.artifacts["intent_metrics"] = blob.get("metrics_vs_ground_truth", {})
-            s.capabilities.add("call_transcripts")
-        s.capabilities.add("outcomes_90d")       # simulated, see READOUT
+        s.capabilities.add("outcomes_90d")       # SIMULATED, see READOUT -- the shape of day 90, not its answer
 
     s.say(f"  {len(s.accounts)} accounts to score, {len(s.training)} labeled rows")
     s.say(f"  capabilities wired: {', '.join(sorted(s.capabilities))}")
-    missing = {"call_transcripts", "outcomes_90d"} - s.capabilities
-    s.say(f"  NOT wired: {', '.join(sorted(missing))}" if missing
-          else "  demo sources loaded — SYNTHETIC, see serving/demo_data/README.md")
+    s.say("  NOT wired: outcomes_90d (arrive at day 90)" if not s.has("outcomes_90d")
+          else "  outcomes_90d SIMULATED for the demo — the readout's shape, not Cordilla's answer")
+    s.say("  not in this graph, by design: the conversation layer — see proposal/conversation_layer/")
     return s
 
 
@@ -107,8 +114,9 @@ def VALIDATE(s: State) -> State:
                         f"180 days old; {(s.accounts.age_days > 90).sum()} are over 90 days, and "
                         f"every feature is a 90-day window",
                severity="high", owner="crm",
-               action="Refresh before assigning. No account over 180 days enters an arm without "
-                      "a refreshed snapshot.",
+               action="Flag it on the row, do not block it — working hypothesis: still actionable. "
+                      "READOUT compares stale vs fresh conversion within each arm; if stale loses, "
+                      "the flag becomes a filter.",
                cost="enrichment refresh on ~1/3 of the batch",
                expect="reps stop calling a description of a company from two quarters ago",
                source="VALIDATE")
@@ -143,10 +151,17 @@ def SCORE(s: State) -> State:
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-def BASELINES(s: State) -> State:
+def PROVE(s: State) -> State:
     """What the score has to beat. A score with nothing to compare against means nothing --
-    and audit §2.4/§2.6 showed a one-line sort beats this model where it counts."""
-    a = s.accounts
+    and audit §2.4/§2.6 showed a one-line sort beats this model where it counts.
+
+    Two comparisons. On the 300 (no outcomes): how much the model's list and the contact
+    rule overlap. On the 1,200 labelled rows (real outcomes): build each policy's list of
+    90 and count how many actually converted. The model is scored two ways -- from memory
+    (in-sample, what a dashboard would show) and out-of-fold (audit/oof_predictions.npy,
+    what it knows about rows it never saw). The gap between those two numbers is the
+    previous scoring effort's whole story."""
+    a, t = s.accounts, s.training
     a["rank_contacts"] = (a.sales_contacts_90d + 1e-9 * np.arange(len(a))).rank(ascending=False, method="first")
     a["rank_random"] = pd.Series(np.random.default_rng(42).permutation(len(a)) + 1, index=a.index)
 
@@ -155,218 +170,265 @@ def BASELINES(s: State) -> State:
     overlap = len(top_model & top_rule)
     s.artifacts["top30_overlap_model_vs_rule"] = overlap
     s.say(f"  top-30 by model vs top-30 by ORDER BY sales_contacts: {overlap}/30 shared")
-    s.say(f"  (audit: the sort scores 0.608 forward in time, the model 0.474)")
+
+    # ── real outcomes: each policy's list of K, and how many of them converted ──────────
+    oof_path = ROOT / "audit/oof_predictions.npy"
+    if not oof_path.exists():
+        s.say("  (audit/oof_predictions.npy not found — outcome comparison skipped)")
+        return s
+    K = 90
+    tt = t.copy()
+    tt["p_in"] = s.model.predict_proba(tt[FEATURES])[:, 1]
+    tt["p_oof"] = np.load(oof_path)
+    clean = tt[(TODAY - tt.snapshot_date).dt.days >= 90].copy()      # label window closed
+    y, base = clean.converted_within_90d, clean.converted_within_90d.mean()
+    C = clean.sales_contacts_90d
+    signal = (clean.trial_started == 1) | (clean.mql_count_90d > 0) | (clean.web_touchpoints_90d >= 4)
+    seg = pd.Series(segment_of(clean), index=clean.index)
+    seg_rank = seg.map({"trial": 0, "vendor": 1, "none": 2, "mql": 3, "web": 4})
+    ex_pool = clean[C.between(1, 4) & ~seg.isin(["mql", "web"])].assign(_sr=seg_rank).sort_values(
+        ["_sr", "sales_contacts_90d", "account_id"], ascending=[True, False, True])
+    xp_pool = clean[(C == 0) & seg.isin(["trial", "vendor"])].assign(_sr=seg_rank).sort_values(
+        ["_sr", "web_touchpoints_90d", "account_id"], ascending=[True, False, True]).head(K)
+    policies = {
+        "model — in-sample (what a dashboard shows)": clean.nlargest(K, "p_in"),
+        "model — out-of-fold (what it actually knows)": clean.nlargest(K, "p_oof"),
+        "graph continue (1-4 contacts: trial > vendor > none)": ex_pool.head(K),
+        "graph first-call (untouched trial, then vendor)": xp_pool,
+        "graph worklist (continue 75 + first-call 15)": pd.concat([ex_pool.head(K * 5 // 6), xp_pool.head(K - K * 5 // 6)]),
+        "old exploit (ORDER BY contacts, all)": clean.nlargest(K, "sales_contacts_90d"),
+        "ask cohort, if called anyway (5+ contacts)": clean[C >= 5].nlargest(K, "sales_contacts_90d"),
+    }
+    # random = the average of 200 draws, not one lucky or unlucky list
+    rng = np.random.default_rng(11)
+    rnd = np.array([clean.sample(K, random_state=int(rs)).converted_within_90d.sum()
+                    for rs in rng.integers(0, 10**6, 200)])
+
+    def wilson(k, n_, z=1.96):
+        ph, d = k / n_, 1 + z**2 / n_
+        c = (ph + z**2 / (2 * n_)) / d
+        h = z * np.sqrt(ph * (1 - ph) / n_ + z**2 / (4 * n_**2)) / d
+        return max(0, c - h), min(1, c + h)
+
+    rows = []
+    for name, d in policies.items():
+        k, n_ = int(d.converted_within_90d.sum()), len(d)
+        lo, hi = wilson(k, n_)
+        rows.append({"policy": name, "n": n_, "converted": k, "rate": round(k / n_, 4),
+                     "ci95": f"[{lo:.0%}, {hi:.0%}]", "lift": round(k / n_ / base, 2),
+                     "recall": round(k / int(y.sum()), 4),
+                     "hours_per_converter": round(n_ * CONTACT_MINUTES / 60 / k, 1) if k else None,
+                     "contacts_already_sunk": int(d.sales_contacts_90d.sum()),
+                     "rep_hours_sunk": round(d.sales_contacts_90d.sum() * CONTACT_MINUTES / 60, 1)})
+    worked = clean[C >= 1]
+    tk, tn = int(worked.converted_within_90d.sum()), len(worked)
+    tlo, thi = wilson(tk, tn)
+    lo_r, hi_r = np.percentile(rnd, [5, 95]) / K
+    rows.append({"policy": "random (mean of 200 draws)", "n": K, "converted": round(float(rnd.mean()), 1),
+                 "rate": round(float(rnd.mean() / K), 4), "ci95": f"5–95%: [{lo_r:.0%}, {hi_r:.0%}]",
+                 "lift": round(float(rnd.mean() / K / base), 2),
+                 "recall": round(float(rnd.mean() / int(y.sum())), 4),
+                 "hours_per_converter": round(K * CONTACT_MINUTES / 60 / float(rnd.mean()), 1),
+                 "contacts_already_sunk": int(round(C.mean() * K)),
+                 "rep_hours_sunk": round(C.mean() * K * CONTACT_MINUTES / 60, 1)})
+    s.artifacts["model_vs_graph_outcomes"] = {"team_today_rate": round(tk / tn, 4), "team_today_ci": f"[{tlo:.0%}, {thi:.0%}]",
+                                              "team_today_k": tk, "team_today_n": tn,
+                                              "n_clean_rows": int(len(clean)), "base_rate": round(float(base), 4),
+                                              "K": K, "rows": rows, "note": "observational — every policy "
+                                              "is judged on accounts someone already chose to work this way"}
+    upj = ROOT / "audit/uplift.json"
+    if upj.exists():
+        U = json.loads(upj.read_text()); s.artifacts["uplift"] = U
+        s.say(f"\n  uplift by segment (what a call changes; upper bound — reps chose whom to call):")
+        tab = pd.DataFrame(U["cuts"]["all"])[["segment", "rate_uncalled", "rate_called", "uplift_pts", "ci95_lo", "ci95_hi", "uplift_per_hour"]]
+        tab["rate_uncalled"] = tab.rate_uncalled.map("{:.1%}".format); tab["rate_called"] = tab.rate_called.map("{:.1%}".format)
+        s.say("    " + tab.to_string(index=False).replace("\n", "\n    "))
+        s.say(f"    {U['verdict']}")
+    ho = ROOT / "audit/heldout_comparison.json"
+    if ho.exists():
+        s.artifacts["heldout"] = json.loads(ho.read_text())
+        h = s.artifacts["heldout"]; r60 = {r["policy"]: r for r in h["by_K"]["60"]}
+        ex_, gr_, mo_ = (r60[k] for k in r60 if k.startswith("continue alone")), (r60[k] for k in r60 if k.startswith("THE GRAPH")), (r60[k] for k in r60 if "out-of-fold" in k)
+        ex_, gr_, mo_ = next(ex_), next(gr_), next(mo_)
+        s.say(f"\n  held-out test — the {h['test_n']} most recent labelled accounts, none seen by any method, K=60:")
+        s.say(f"    continue alone {ex_['precision']:.1%} (recall {ex_['recall']:.0%}) · the graph {gr_['precision']:.1%} "
+              f"(recall {gr_['recall']:.0%}) · model out-of-fold {mo_['precision']:.1%} (recall {mo_['recall']:.0%})")
+        s.say(f"    explore's historical rate is the rate of accounts nobody called — history cannot value it; the arm can")
+    tab = pd.DataFrame(rows)[["policy", "converted", "rate", "recall", "hours_per_converter", "ci95", "contacts_already_sunk"]]
+    tab["rate"] = tab.rate.map("{:.1%}".format); tab["recall"] = tab.recall.map("{:.0%}".format)
+    s.say(f"\n  on {len(clean)} labelled rows ({int(y.sum())} converters, base {base:.1%}), each policy picks {K}:")
+    s.say(f"  rate = of the {K} you call, how many convert · recall = of the {int(y.sum())} who converted, how many you found")
+    s.say("    " + tab.to_string(index=False).replace("\n", "\n    "))
+    mem, oof = rows[0], rows[1]
+    s.say(f"  the team today — accounts it chose to work (≥1 contact): {tk}/{tn} = {tk / tn:.1%}")
+    s.say(f"\n  the model from memory: {mem['rate']:.1%}. The model on rows it never saw: {oof['rate']:.1%}.")
+    s.say(f"  That gap is the previous scoring effort — 'promising in testing, lost credibility in the field'.")
+    s.find(what="The model's dashboard number is memory, not prediction",
+           evidence=f"on {len(clean)} labelled rows, the model's top-{K} converts at {mem['rate']:.1%} when "
+                    f"it scores rows it was trained on and {oof['rate']:.1%} when it scores rows it never "
+                    f"saw (out-of-fold) — against a {base:.1%} base and {rows[-1]['rate']:.1%} for a random "
+                    f"list (mean of 200). The graph's worklist converts at {rows[4]['rate']:.1%} with "
+                    f"{rows[4]['contacts_already_sunk']} contacts already sunk vs {rows[5]['contacts_already_sunk']} "
+                    f"for the old contact sort at the same rate",
+           severity="high", owner="model",
+           action="Never show an in-sample rate to anyone. Every number about this model that reaches a "
+                  "manager comes from out-of-fold or forward-in-time scoring, and says which.",
+           cost="0 — the OOF scores exist; it is a rule about which column to read",
+           expect="the VP sees 6.7%, not 31%, and asks the right question",
+           source="PROVE")
     return s
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-def FLAGS(s: State) -> State:
-    """Per account: the reasons to distrust its score, with the number behind each.
+def CLEAN(s: State) -> State:
+    """The purity agent. Every column is asked three questions on the OLDER labelled rows only
+    (leak-free): does it separate converters? is it clean? is it redundant? The answers decide
+    which columns RANK is allowed to use, and the rep sees the row-level flags instead of a score.
 
-    The rep never sees a score. They see these. The lead-scoring literature and the audit
-    agree that an unexplained individual error is what kills adoption."""
-    a = s.accounts
+    Findings here change the decision, not just a report: a column that fails stays out of the
+    ranking. Today that is the vendor's intent VALUE (flat by quintile), MQL count, web on its
+    own, account_type, industry, employee_count and trial_active_users."""
+    a, t = s.accounts, s.training
+    # row flags, as before (the rep reads these)
     a["f_no_vendor_record"] = a.intent_score.isna()
     a["f_stale_180"] = a.age_days > 180
     a["f_never_touched"] = a.sales_contacts_90d == 0
     a["f_over_invested"] = a.sales_contacts_90d >= 5
     flagcols = [c for c in a.columns if c.startswith("f_")]
     a["n_flags"] = a[flagcols].sum(axis=1)
-
-    a["flags"] = a[flagcols].apply(
-        lambda r: ", ".join(c[2:].replace("_", " ") for c in flagcols if r[c]) or "—", axis=1)
-
+    a["flags"] = a[flagcols].apply(lambda r: ", ".join(c[2:].replace("_", " ") for c in flagcols if r[c]) or "—", axis=1)
     for c in flagcols:
         s.say(f"  {c[2:]:<18} {int(a[c].sum()):3d}")
-    clean_top30 = int((a.nsmallest(30, "p_rank").n_flags == 0).sum())
-    s.artifacts["clean_in_top30"] = clean_top30
-    s.say(f"  of the top 30 by score, {clean_top30} carry no flag at all")
-    return s
+    s.artifacts["clean_in_top30"] = int((a.nsmallest(30, "p_rank").n_flags == 0).sum())
 
-
-# ═════════════════════════════════════════════════════════════════════════════
-def CONVERSATION_INTENT(s: State) -> State:
-    """The missing signal -- and the one thing in this data that would describe the ACCOUNT
-    rather than describe Cordilla.
-
-    PARTIAL TODAY. The coverage quadrants below are computed from real data and are the
-    reason this node matters. The extraction itself needs transcripts, which the CSVs do
-    not carry, so it is bypassed rather than faked."""
-    a = s.accounts
-    has_vendor = a.intent_score.notna()
-    had_call = a.sales_contacts_90d > 0
-
-    quad = {
-        "calibrate_vendor (vendor record + a call happened)": int((has_vendor & had_call).sum()),
-        "fill_the_gap (no vendor record + a call happened)": int((~has_vendor & had_call).sum()),
-        "unverified (vendor record, no call)": int((has_vendor & ~had_call).sum()),
-        "blind (no vendor record, no call)": int((~has_vendor & ~had_call).sum()),
+    # variable scorecard on the older labelled rows -- never on the newest 300
+    from sklearn.metrics import roc_auc_score
+    clean = t[(TODAY - t.snapshot_date).dt.days >= 90].sort_values("snapshot_date")
+    train = clean.iloc[:-300] if len(clean) > 300 else clean
+    y = train.converted_within_90d
+    def auc(x):
+        x = x.fillna(x.median()) if x.dtype != object else x
+        return float(roc_auc_score(y, x)) if x.nunique() > 1 else 0.5
+    rows = []
+    checks = {
+        "sales_contacts_90d": ("effort, not intent -- but the only column with a stable interaction", "yes: bands 0 / 1-4 / 5+"),
+        "trial_started": ("the strongest interaction: 5% untouched -> 15% with 1-4 contacts", "yes: defines the top segment"),
+        "trial_active_users": ("0-user trials convert like live ones; the field is ambiguous", "no"),
+        "mql_count_90d": ("MQL-only accounts: 0 of 105 converted; adding MQL>0 to a rule made it worse", "only to define skip"),
+        "web_touchpoints_90d": ("web-only with 1-4 contacts: 0 of 72; 0 may mean 'not measured'", "only to define skip; ranks untouched (AUC 0.61)"),
+        "intent_score (value)": ("flat by quintile among covered: 9.0 / 5.3 / 12.8 / 7.6 / 9.8", "no"),
+        "intent_score (present)": ("coverage separates: ~8% vs ~4%; with 1-4 contacts and no trial, 8.3% vs 2.7%", "yes: defines the vendor segment"),
+        "employee_count": ("no separation", "no"),
+        "account_type": ("the three types convert identically (chi2 p=0.84); 'Suspect' is our hypothesis, unverified by the brief", "no"),
+        "industry": ("range 5.5%-8.5%, not usable", "no"),
+        "model score": ("out-of-fold AUC 0.58; adds nothing on top of the rules, tested three ways", "no -- one voice in RECONCILE"),
     }
-    a["intent_quadrant"] = np.select(
-        [has_vendor & had_call, ~has_vendor & had_call, has_vendor & ~had_call],
-        ["calibrate", "fill_gap", "unverified"], default="blind")
-    s.artifacts["intent_quadrants"] = quad
-    for k, v in quad.items():
-        s.say(f"  {v:4d}  {k}")
-
-    contacts_in_gap = int(a.loc[~has_vendor, "sales_contacts_90d"].sum())
-    total_contacts = int(a.sales_contacts_90d.sum())
-    s.say(f"  {contacts_in_gap} of {total_contacts} logged contacts ({contacts_in_gap/total_contacts:.0%}) "
-          f"happened in accounts the vendor never covered")
-
-    s.find(what="Conversations that would fill the vendor's coverage gap already happen, and "
-                "are not captured",
-           evidence=f"{contacts_in_gap} of {total_contacts} contacts ({contacts_in_gap/total_contacts:.0%}) "
-                    f"are with accounts that have no vendor record; {quad['fill_the_gap (no vendor record + a call happened)']} "
-                    f"such accounts have had at least one call. Vendor COVERAGE predicts conversion "
-                    f"(8.22% vs 3.94%, p=0.003) but its SCORE does not (quintiles flat, p=0.42)",
-           severity="high", owner="process",
-           action="Record sales calls with per-call disclosure and transcript-only storage, and "
-                  "extract intent per the contract in llm.py. Start with the fill_gap quadrant -- "
-                  "it needs no new outreach, only capture of calls that already happen.",
-           cost="recording + transcription on existing calls; no new rep time",
-           expect="the 40% of the base the vendor cannot see gets a first-hand intent signal",
-           source="CONVERSATION_INTENT")
-
-    if s.has("call_transcripts"):
-        intents = s.artifacts["intents"]
-        for col, key in [("ready_to_act", "ready_to_act"), ("ready_because", "ready_because"),
-                         ("intent_level", "intent_level"), ("intent_conf", "confidence"),
-                         ("intent_quote", "evidence_quote"), ("next_step_agreed", "next_step_agreed")]:
-            a[col] = a.account_id.map(lambda x, k=key: intents.get(x, {}).get(k))
-        n_have = int(a.intent_level.notna().sum())
-        s.say(f"  extracted intent for {n_have} accounts using "
-              f"'{s.artifacts.get('intent_extractor')}'  ⚠ SYNTHETIC transcripts")
-        s.say(f"  ready_to_act: {int((a.ready_to_act == True).sum())} yes, "
-              f"{int((a.ready_to_act == False).sum())} no   ← the field the pipeline routes on")
-        s.say("  intent_level (secondary): " +
-              ", ".join(f"{k}={v}" for k, v in sorted(a.intent_level.value_counts().items())))
-        m = s.artifacts.get("intent_metrics") or {}
-        if m:
-            s.say(f"  agent quality vs ground truth: READY_TO_ACT "
-                  f"{m.get('ready_to_act_exact', 0):.0%} "
-                  f"({m.get('ready_to_act_false_cold', '?')} missed, "
-                  f"{m.get('ready_to_act_false_hot', '?')} false alarms) · "
-                  f"next_step {m.get('next_step_exact', 0):.0%} · "
-                  f"level (secondary) {m.get('intent_level_exact', 0):.0%}")
-            # Only the fields the pipeline ROUTES on gate the finding. intent_level is
-            # secondary by design now, so a mediocre score there is not a blocker.
-            weak = (m.get("ready_to_act_exact", 1) < 0.9
-                    or m.get("next_step_exact", 1) < 0.9)
-            if weak:
-                s.find(what="The intent extractor is not accurate enough to act on the level alone",
-                       evidence=f"against known ground truth on {m.get('n_extracted')} transcripts: "
-                                f"exact level {m.get('intent_level_exact', 0):.0%}, within one "
-                                f"{m.get('intent_level_within_one', 0):.0%}, hot-vs-cold "
-                                f"{m.get('hot_vs_cold_correct', 0):.0%}, speaker role "
-                                f"{m.get('speaker_role_exact', 0):.0%}, next step "
-                                f"{m.get('next_step_exact', 0):.0%}, mean self-reported confidence "
-                                f"{m.get('mean_confidence', 0):.2f}",
-                       severity="high", owner="model",
-                       action="Use what is EXTRACTED (quote, objections, next step) — that is "
-                              "reliable. Treat what is INFERRED (level, speaker role) as a "
-                              "hypothesis until READOUT has measured it against outcomes. Try a "
-                              "larger model — the routing table is one line — and re-run "
-                              "extract_intents.py to re-measure before relying on the level.",
-                       cost="a model swap and one re-run of extract_intents.py",
-                       expect="the same standard this audit applied to the inherited model, applied "
-                              "to the one this repo introduces",
-                       source="CONVERSATION_INTENT")
-        s.bypass(node="CONVERSATION_INTENT (coverage)",
-                 reason=f"only {n_have} of {int(had_call.sum())} accounts with a logged call have a "
-                        f"transcript, and those transcripts are synthetic",
-                 unblocked_by="recording every call; then coverage equals the fill_gap + calibrate "
-                              "quadrants above",
-                 would_produce=f"intent for all {int(had_call.sum())} accounts with a logged call, "
-                               f"not {n_have}",
-                 still_computed=f"intent extracted for {n_have} accounts")
-        return s
-
-    s.bypass(node="CONVERSATION_INTENT",
-             reason="the two CSVs carry no call transcripts",
-             unblocked_by="call recording with disclosure (two-party-consent states and GDPR "
-                          "make this a precondition) + Dialpad Ai Call Purpose / Custom Moments, "
-                          "or any ASR feeding the `conversation_intent` agent in llm.py",
-             would_produce="per account: intent_level A-F grounded in a verbatim prospect quote, "
-                           "objections[], next_step_agreed, speaker_role, call_purpose, confidence",
-             still_computed=f"the four coverage quadrants: {quad}")
-    sample = Path(__file__).resolve().parent / "sample_transcript.txt"
-    if sample.exists():
-        s.say("  demonstrating the contract on serving/sample_transcript.txt "
-              f"(agent routed to '{llm.CONFIG.get('routing', {}).get('conversation_intent')}')")
-        out = llm.draft("conversation_intent", mode=s.args.llm, account_id="ACC-00453",
-                        date="2026-07-22", transcript=sample.read_text())
-        s.artifacts["conversation_intent_demo"] = out
-        print(out)
-    s.say("  → run with --demo to execute this node on synthetic transcripts")
+    for col, (note, used) in checks.items():
+        if col == "intent_score (value)":
+            x = train.intent_score; sep = auc(x)
+        elif col == "intent_score (present)":
+            sep = auc(train.intent_score.notna().astype(int))
+        elif col == "model score":
+            sep = 0.576
+        elif col in ("account_type", "industry"):
+            g = train.groupby(col).converted_within_90d.mean(); sep = None
+            note = f"{note} (rates {g.min():.1%}-{g.max():.1%})"
+        else:
+            sep = auc(train[col])
+        rows.append({"variable": col, "auc_alone": round(sep, 3) if sep is not None else None,
+                     "missing": f"{train[col].isna().mean():.0%}" if col in train else "—",
+                     "note": note, "used_in_ranking": used})
+    s.artifacts["variable_scorecard"] = rows
+    used = [r["variable"] for r in rows if r["used_in_ranking"].startswith("yes")]
+    s.say(f"\n  variable scorecard on {len(train)} older rows: every column alone is AUC 0.50-0.56")
+    s.say(f"  RANK may use: {', '.join(used)} -- everything else is reported and given no weight")
+    s.artifacts["hygiene_batch_note"] = llm.draft(
+        "hygiene_batch", mode=s.args.llm, defect="columns that carry no information are in the model",
+        rule="a column enters the ranking only if it separates converters on held-out rows and means what it says",
+        count=f"{len(rows) - len(used)} of {len(rows)} columns excluded", examples="intent_score value, mql_count_90d, account_type",
+        correction="report them on the row; give them no weight")
     return s
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-def CALIBRATE_VENDOR(s: State) -> State:
-    """Is the intent vendor right? Nobody at Cordilla can answer that today.
+SEGMENTS = ["trial", "vendor", "none", "mql", "web"]
 
-    Where a vendor record AND a call both exist, the vendor's claim is contrastable
-    against what the prospect actually said. That is the only way to find out whether the
-    score you are paying for is worth anything -- and it is evidence for the renewal."""
+
+def segment_of(d: pd.DataFrame) -> np.ndarray:
+    """The intent axis. Order matters: an account with a trial is 'trial' whatever else it has."""
+    return np.select([d.trial_started == 1, d.intent_score.notna(), d.web_touchpoints_90d >= 4, d.mql_count_90d > 0],
+                     ["trial", "vendor", "web", "mql"], "none")
+
+
+def RANK(s: State) -> State:
+    """Where does the next hour change the outcome most? Every account gets a cell -- intent
+    segment x contact band -- and the cell's evidence from audit/uplift.json, estimated on the
+    OLDER labelled rows only. From that, an action:
+
+      first-call   untouched, segment with positive uplift on every cut (trial, then vendor):
+                   the first call is where history says an hour changes most (+10 pts for trial,
+                   an upper bound). Half are called, half observed, so day 90 measures it unbiased.
+      continue     1-4 contacts, segment not in the skip set: trial > vendor > none, most
+                   contacts first. This is the ranking that found 12 of 23 buyers held-out.
+      ask          5+ contacts: the rep answers one question before the next hour.
+      skip         web-only or MQL-only, any contacts: calling never helped on any cut.
+      neutral      untouched with no signal: history is silent; control decides.
+
+    The model's score is not used here -- tested as a ranker, an addition and a tiebreaker."""
     a = s.accounts
-    n_contrastable = int(s.artifacts["intent_quadrants"]
-                         ["calibrate_vendor (vendor record + a call happened)"])
+    up = ROOT / "audit/uplift.json"
+    U = json.loads(up.read_text()) if up.exists() else {}
+    positive, skip = U.get("positive_segments", ["trial", "vendor"]), U.get("skip_segments", ["mql", "web"])
+    train_rows = {r["segment"]: r for r in U.get("cuts", {}).get("train", [])}
 
-    if s.has("call_transcripts") and "intent_level" in a:
-        both = a[a.intent_level.notna() & a.intent_score.notna()].copy()
-        if len(both):
-            # vendor says "high" if its score is in the top half of its own observed range
-            cut = a.intent_score.median()
-            both["vendor_says"] = np.where(both.intent_score >= cut, "high", "low")
-            both["call_says"] = np.where(both.intent_level.isin(["A", "B", "C"]), "high", "low")
-            tab = pd.crosstab(both.vendor_says, both.call_says)
-            agree = float((both.vendor_says == both.call_says).mean())
-            s.say(f"  {len(both)} accounts where both the vendor and a call exist")
-            s.say("  vendor (rows) vs conversation (cols):\n" + tab.to_string().replace("\n", "\n    "))
-            s.say(f"  agreement: {agree:.0%}")
-            s.artifacts["vendor_calibration"] = {"n": len(both), "agreement": agree,
-                                                 "table": tab.to_dict()}
-            over = both[(both.vendor_says == "high") & (both.call_says == "low")]
-            if len(over):
-                s.find(what="The intent vendor overstates on accounts we can check",
-                       evidence=f"of {len(both)} accounts with both a vendor score and a call, "
-                                f"{len(over)} are scored high by the vendor and read low from the "
-                                f"conversation (overall agreement {agree:.0%}). ⚠ synthetic demo data — "
-                                f"the METHOD is the deliverable, not this number",
-                       severity="medium", owner="vendor",
-                       action="Run this table monthly on real calls and take it into the renewal. "
-                              "Pay for coverage, which predicts (p=0.003); stop paying for the "
-                              "score, which does not (p=0.42).",
-                       cost="free once calls are recorded",
-                       expect="the renewal is negotiated on evidence instead of the vendor's claim",
-                       source="CALIBRATE_VENDOR")
-            return s
+    a["segment"] = segment_of(a)
+    C = a.sales_contacts_90d
+    band = np.select([C == 0, C <= 4], ["0", "1-4"], "5+")
+    a["cell"] = [f"{sg}|{b}" for sg, b in zip(a.segment, band)]
+    seg_rank = {sg: i for i, sg in enumerate(["trial", "vendor", "none", "mql", "web"])}
 
-    s.bypass(node="CALIBRATE_VENDOR",
-             reason="needs CONVERSATION_INTENT, which has no transcripts to work from",
-             unblocked_by="the same recording capability; then no new data is required",
-             would_produce=f"on the {n_contrastable} accounts where both exist: agreement between "
-                           f"vendor intent and conversation intent, by segment; where the vendor "
-                           f"systematically over- or under-states; a renewal memo with that evidence",
-             still_computed=f"the contrastable set: {n_contrastable} accounts")
-    s.find(what="The intent vendor's score has never been validated against anything",
-           evidence=f"{n_contrastable} scoring accounts have both a vendor record and a logged call, "
-                    f"so the vendor's claim is contrastable today. In training, vendor coverage "
-                    f"predicts conversion (p=0.003) while the score itself does not (Spearman p=0.42)",
-           severity="medium", owner="vendor",
-           action="Pay for coverage, not for the score: keep a boolean `intent_known`, stop using "
-                  "the numeric value in any model or view. Once calls are recorded, measure "
-                  "agreement on these accounts and take it into the renewal.",
-           cost="0 now (a field change); the measurement comes free with recording",
-           expect="the renewal is negotiated on evidence instead of on the vendor's own claim",
-           source="CALIBRATE_VENDOR")
+    def action(r):
+        if r.segment in skip:
+            return "skip"
+        if r.sales_contacts_90d >= 5:
+            return "ask"
+        if r.sales_contacts_90d == 0:
+            return "first-call" if r.segment in positive else "neutral"
+        return "continue"
+    a["action"] = a.apply(action, axis=1)
+    # the evidence behind each row: uplift of the first call (0 contacts) or the rate in conversation (1-4)
+    a["evidence_pts"] = [
+        (train_rows.get(sg, {}).get("uplift_pts") if b == "0" else
+         round(100 * train_rows.get(sg, {}).get("rate_called", float("nan")), 1) if b == "1-4" else None)
+        for sg, b in zip(a.segment, band)]
+    a["seg_rank"] = a.segment.map(seg_rank)
+    # one order over the 300, by action then by evidence -- this is ranked.csv
+    act_rank = {"first-call": 0, "continue": 1, "ask": 2, "neutral": 3, "skip": 4}
+    a["rank_pos"] = a.assign(_ar=a.action.map(act_rank)).sort_values(
+        ["_ar", "seg_rank", "sales_contacts_90d", "web_touchpoints_90d", "account_id"],
+        ascending=[True, True, False, False, True]).reset_index().reset_index().set_index("index")["level_0"].reindex(a.index) + 1
+
+    counts = a.action.value_counts()
+    s.say("  " + " · ".join(f"{k} {int(counts.get(k, 0))}" for k in ["first-call", "continue", "ask", "neutral", "skip"]))
+    s.say(f"  first-call by segment: {a[a.action == 'first-call'].segment.value_counts().to_dict()} "
+          f"· continue by segment: {a[a.action == 'continue'].segment.value_counts().to_dict()}")
+    s.say(f"  skip holds {int(a[a.action == 'skip'].sales_contacts_90d.sum())} contacts already sunk "
+          f"({a[a.action == 'skip'].sales_contacts_90d.sum() * CONTACT_MINUTES / 60:.0f} rep-h) on segments where calling never helped")
+    if U:
+        s.say(f"  evidence: {U['verdict']}")
+    s.artifacts["rank"] = {"positive_segments": positive, "skip_segments": skip, "actions": counts.to_dict(),
+                           "uplift_verdict": U.get("verdict", "audit/uplift.json missing")}
     return s
 
 
+# ═════════════════════════════════════════════════════════════════════════════
 # ═════════════════════════════════════════════════════════════════════════════
 def RECONCILE(s: State) -> State:
-    """Three voices per account: the model, our own effort, and what the prospect said.
+    """Two voices today -- the model's score and the team's own logged effort -- and where they
+    disagree. A third voice, the prospect's own words, is designed and measured but not wired:
+    see proposal/conversation_layer/.
+
+    Three voices per account: the model, our own effort, and what the prospect said.
     Where they agree, nothing is learned. Where they disagree IS the new data.
 
     PARTIAL TODAY: two of the three voices exist."""
@@ -383,49 +445,8 @@ def RECONCILE(s: State) -> State:
     for k, v in counts.items():
         s.say(f"  {v:3d}  {k}")
 
-    # The third voice. These two cells are the ones that need no human at all: the
-    # conversation settles who was right.
-    if s.has("call_transcripts") and "ready_to_act" in a:
-        # Route on ready_to_act, not on the six-level grade. Measured: the binary scores
-        # ~100% against ground truth, the exact grade ~60%. Ask a small model the question
-        # it can answer.
-        LO, HI = 0.4, 0.8            # the band where v1 scored worse than chance
-        conf = pd.to_numeric(a.intent_conf, errors="coerce")
-        uncertain = conf.between(LO, HI, inclusive="left")
-        hot = (a.ready_to_act == True) & ~uncertain
-        cold = (a.ready_to_act == False) & ~uncertain
-        n_gated = int((uncertain & a.ready_to_act.notna()).sum())
-        if n_gated:
-            a.loc[uncertain & a.ready_to_act.notna(), "disagreement"] = "NEEDS_HUMAN_low_confidence"
-            s.say(f"  {n_gated} extractions fall in the {LO}-{HI} confidence band and are "
-                  f"routed to a human rather than acted on")
-        a.loc[(a.p <= q_lo) & (a.sales_contacts_90d >= 3) & hot, "disagreement"] = \
-            "MODEL_WRONG_rep_was_right"
-        a.loc[(a.p >= q_hi) & (a.sales_contacts_90d >= 5) & cold, "disagreement"] = \
-            "SUNK_COST_stop_calling"
-        a.loc[hot & (a.sales_contacts_90d == 0), "disagreement"] = "HOT_and_untouched"
-        settled = a.disagreement.isin(["MODEL_WRONG_rep_was_right", "SUNK_COST_stop_calling",
-                                       "HOT_and_untouched"]).sum()
-        # next_step_agreed is the single best standalone signal measured (v1: 100% exact,
-        # and as a proxy for "hot" 100% precision / 91% recall). Surface it on its own.
-        ns = (a.next_step_agreed == True) & (a.sales_contacts_90d > 0)
-        if ns.any():
-            s.say(f"  {int(ns.sum())} accounts agreed a concrete next step on the call "
-                  f"— the strongest single signal the extractor produces")
-        s.say(f"  with the third voice, {int(settled)} disagreements are SETTLED without asking anyone:")
-        for k in ["MODEL_WRONG_rep_was_right", "SUNK_COST_stop_calling", "HOT_and_untouched"]:
-            cnt = int((a.disagreement == k).sum())
-            if cnt:
-                s.say(f"    {cnt:3d}  {k}")
-        ex = a[a.disagreement == "MODEL_WRONG_rep_was_right"].head(1)
-        if len(ex):
-            r = ex.iloc[0]
-            s.say(f'    e.g. {r.account_id}: model {r.p:.1%}, {int(r.sales_contacts_90d)} contacts, '
-                  f'call says {r.intent_level} — "{str(r.intent_quote)[:70]}…"')
-        return s
-
-    # Fallback when there are no transcripts: ask the rep. With recording, they already
-    # said it on the call and nobody has to be interrupted.
+    # Where the two voices disagree and the rep is one of them, ask the rep. This is the
+    # disagreement_question agent's contract; the answer is data nobody has today.
     ex = a[a.disagreement == "rep_insists_model_low"].head(1)
     if len(ex):
         r = ex.iloc[0]
@@ -437,167 +458,373 @@ def RECONCILE(s: State) -> State:
             disagreement_kind="rep insists, model low")
         print(s.artifacts["example_question"])
 
-    s.bypass(node="RECONCILE (third voice)",
-             reason="conversation intent is unavailable, so only model-vs-effort can be compared",
-             unblocked_by="CONVERSATION_INTENT",
-             would_produce="the two cells that need no human at all: 'model low + rep insists + "
-                           "conversation says A/B' (the model is wrong, and we can prove it) and "
-                           "'model high + 5+ contacts + conversation says E/F' (sunk cost, stop)",
-             still_computed=f"model-vs-effort disagreements: {counts.to_dict()}")
     return s
 
 
 # ═════════════════════════════════════════════════════════════════════════════
 def VALUE(s: State) -> State:
-    """What did this run actually buy, in rep hours and in opportunities?
+    """What did this run buy, in the unit the SDR manager actually spends?
+
+    The scarce resource is rep hours, so every number here has hours in it. The node is
+    in three parts, and they mature at three different speeds -- which is the whole
+    design, because reporting a fast number as though it were a slow one is how the
+    previous scoring effort lost its credibility.
+
+      A · THE PRICE OF A CONVERSION   runs on the CSVs alone, today
+      C · THE BETS                    every hours claim, with the date it gets settled
+      (B, a ledger of decisions the prospect's own words changed, is designed and measured
+       on synthetic transcripts -- proposal/conversation_layer/ -- and not wired here.)
 
     Accuracy is not value. An extractor at 100% is worth nothing if it never contradicts
-    what the team was already going to do. This node counts only the cases where the
-    system CHANGES a decision, and prices each one in the unit the SDR manager spends:
-    logged contacts.
+    what the team was already going to do. And a decision changed is not a decision
+    improved -- that distinction is part C's entire job."""
+    _hours_economics(s)                      # A
+    _metric_contract(s)                      # C
+    return s
 
-    Three things it deliberately does NOT do: claim a conversion lift (that is READOUT's
-    job, 90 days out, against a control), convert anything to currency (we have no deal
-    size), or count agreement as value."""
-    a = s.accounts
-    if "ready_to_act" not in a or a.ready_to_act.isna().all():
-        s.bypass(node="VALUE",
-                 reason="no conversation intent, so nothing can contradict the model",
-                 unblocked_by="CONVERSATION_INTENT",
-                 would_produce="rescued / released / discovered counts, and the contacts "
-                               "redirected between them",
-                 still_computed="the disagreement counts in RECONCILE are the upper bound")
-        return s
 
-    covered = a.ready_to_act.notna()
-    q_lo, q_hi = a.p.quantile(0.25), a.p.quantile(0.75)
+# ── A ────────────────────────────────────────────────────────────────────────
+def _hours_economics(s: State) -> State:
+    """What an hour of outreach costs and buys today, from the two CSVs.
 
-    # RESCUED — the model said no, the prospect said yes. Recovered opportunity.
-    rescued = a[covered & (a.ready_to_act == True) & (a.p <= q_lo)]
-    # RELEASED — effort is going in, the prospect said no. Recoverable hours.
-    released = a[covered & (a.ready_to_act == False) & (a.sales_contacts_90d >= 4)]
-    # CONFIRMED — everyone agrees. Real, but it changes no decision, so it is not value.
-    confirmed = a[covered & (a.ready_to_act == True) & (a.p > q_lo)]
+    This is the baseline the system has to beat, and it needs no transcripts, no
+    outcomes and no model -- so unlike the rest of VALUE it runs on every run."""
+    t, a = s.training, s.accounts
+    spent, conv = int(t.sales_contacts_90d.sum()), int(t.converted_within_90d.sum())
+    price = spent / conv
+    s.say(f"  the price of a conversion, as the business runs today:")
+    s.say(f"    {spent:,} logged contacts → {conv} conversions = {price:.1f} contacts per conversion")
+    s.say(f"    at {CONTACT_MINUTES} min per logged contact that is "
+          f"{price * CONTACT_MINUTES / 60:.1f} rep-hours per conversion")
 
-    freed = int(released.sales_contacts_90d.sum())
-    total = int(a.sales_contacts_90d.sum())
+    # Where this quarter's hours are going, in the batch we were handed.
+    batch = int(a.sales_contacts_90d.sum())
+    heavy = a[a.sales_contacts_90d >= 4]
+    s.say(f"\n  where the batch's hours are:")
+    s.say(f"    {batch} contacts logged across {len(a)} accounts")
+    s.say(f"    {len(heavy)} accounts (of {len(a)}) hold {int(heavy.sales_contacts_90d.sum())} of them "
+          f"— {heavy.sales_contacts_90d.sum() / batch:.0%} of the effort on "
+          f"{len(heavy) / len(a):.0%} of the accounts")
 
-    rows = [
-        {"outcome": "RESCUED  model said skip, prospect said buy", "accounts": len(rescued),
-         "contacts": int(rescued.sales_contacts_90d.sum()),
-         "what it buys": "opportunities the ranking would have dropped"},
-        {"outcome": "RELEASED effort in, prospect said no", "accounts": len(released),
-         "contacts": freed, "what it buys": f"{freed} contacts redirectable this quarter"},
-        {"outcome": "CONFIRMED everyone agrees", "accounts": len(confirmed),
-         "contacts": int(confirmed.sales_contacts_90d.sum()),
-         "what it buys": "nothing — agreement changes no decision"},
+    # The stock of effort that has already gone into accounts that never paid out.
+    dead = t[(t.sales_contacts_90d >= 4) & (t.converted_within_90d == 0)]
+    stock = int(dead.sales_contacts_90d.sum())
+    s.say(f"\n  the recoverable stock, measured on history:")
+    s.say(f"    {len(dead)} accounts took ≥4 contacts and never converted, absorbing {stock} "
+          f"contacts = {stock / spent:.0%} of all effort ever logged")
+    s.say(f"    that is a STOCK, not a rate. Clean it once and it shrinks — see the bets below.")
+
+    # ── the demonstration that this cannot be optimised from the data ──────────
+    # Two readings of one table, giving opposite policies. Neither is causal.
+    MIN_CELL = 50            # below this a cell is one or two conversions of noise
+    rows = []
+    for k in sorted(t.sales_contacts_90d.unique()):
+        d = t[t.sales_contacts_90d == k]
+        if len(d) < 5:
+            continue
+        c, n_ = int(d.converted_within_90d.sum()), len(d)
+        rows.append({"contacts": int(k), "accounts": n_, "conversions": c,
+                     "conv rate": f"{c / n_:.1%}",
+                     # k=0 is not "free", it is not bought with outreach at all
+                     "contacts per conversion": "n/a" if k == 0 else (f"{k * n_ / c:.0f}" if c else "—")})
+    tab = pd.DataFrame(rows)
+    s.say(f"\n  the same table, read two ways:")
+    s.say("    " + tab.to_string(index=False).replace("\n", "\n    "))
+
+    # The row that is easy to miss: conversions that cost no outreach at all.
+    free = t[(t.sales_contacts_90d == 0) & (t.converted_within_90d == 1)]
+    s.say(f"    note the top row: {len(free)} of {conv} conversions ({len(free) / conv:.0%}) "
+          f"happened on accounts with ZERO logged contacts.")
+    s.say(f"    Whatever outreach policy wins, it is competing against a baseline that already "
+          f"converts for free.")
+
+    eligible = [r for r in rows if r["accounts"] >= MIN_CELL and r["contacts"] > 0]
+    best_rate = max(eligible, key=lambda r: float(r["conv rate"].rstrip("%")))
+    cheap = min(eligible, key=lambda r: int(r["contacts per conversion"]))
+    s.say(f"    · as a RATE  → {best_rate['contacts']} contacts converts best "
+          f"({best_rate['conv rate']}). Policy: call more.")
+    s.say(f"    · as a COST  → {cheap['contacts']} contact is cheapest "
+          f"({cheap['contacts per conversion']} per conversion). Policy: never call twice.")
+    s.say(f"    Same 1,200 rows, opposite policies, and neither is causal: reps keep dialling")
+    s.say(f"    accounts that are going well and drop the ones that die, so contact count is an")
+    s.say(f"    EFFECT of intent as much as a cause of conversion.")
+
+    s.artifacts["hours_economics"] = {
+        "contacts_per_conversion": round(price, 1),
+        "rep_hours_per_conversion": round(price * CONTACT_MINUTES / 60, 1),
+        "minutes_per_contact_assumed": CONTACT_MINUTES,
+        "batch_contacts": batch,
+        "batch_concentration": {"accounts_ge_4_contacts": int(len(heavy)),
+                                "contacts_they_hold": int(heavy.sales_contacts_90d.sum()),
+                                "share_of_batch_effort": round(
+                                    float(heavy.sales_contacts_90d.sum() / batch), 3)},
+        "recoverable_stock_contacts": stock,
+        "yield_curve": rows,
+    }
+
+    s.find(what="Conversions per hour cannot be estimated from this data at all — only randomised",
+           evidence=f"the same yield curve says 'call more' read as a rate ({best_rate['contacts']} "
+                    f"contacts converts at {best_rate['conv rate']} vs {conv / len(t):.1%} base) and "
+                    f"'never call twice' read as a cost ({cheap['contacts per conversion']} contacts "
+                    f"per conversion at {cheap['contacts']} vs "
+                    f"{best_rate['contacts per conversion']} at {best_rate['contacts']}), both on cells of "
+                    f"{MIN_CELL}+ accounts. Contact count is confounded with the intent the rep "
+                    f"already observed, so every observational estimate of hours-ROI is uninterpretable",
+           severity="high", owner="process",
+           action="Do not compute or report conversions-per-hour from historical CRM data, in any "
+                  "cut. The arms in BUDGET are the measuring instrument, not a side experiment: "
+                  "randomised assignment is the only thing that makes the denominator readable.",
+           cost="0 — it is a decision not to publish a number that is already being computed",
+           expect="the team stops justifying effort with a statistic that rises because effort was "
+                  "spent, which is the mechanism that killed the previous scoring effort",
+           source="VALUE")
+    return s
+
+
+# ── C ────────────────────────────────────────────────────────────────────────
+def _n_per_arm(p0: float, rel_lift: float, alpha=0.05, power=0.80) -> int:
+    """Accounts per arm to detect a relative lift on a proportion. Two-sided, unpooled.
+
+    Written out rather than imported so the number in the brief can be checked by hand."""
+    from scipy.stats import norm
+    p1 = p0 * (1 + rel_lift)
+    z = norm.ppf(1 - alpha / 2) + norm.ppf(power)
+    return int(np.ceil(z**2 * (p0 * (1 - p0) + p1 * (1 - p1)) / (p1 - p0) ** 2))
+
+
+def _metric_contract(s: State) -> State:
+    """The metric this system reports, and the rules that stop it being misread.
+
+    Two numbers, and the hierarchy between them is structural rather than typographic:
+    the fast number is printed as a BET with the date it gets settled and the result that
+    falsifies it. You cannot read it as an outcome, because it states what outcome it is
+    predicting. The previous scoring effort had no such record, which is why nobody could
+    write up why it stopped working."""
+    ARM, CYCLES_PER_QUARTER = min(ARM_DEFAULTS.values()), 13     # power is set by the smallest arm
+    eco = s.artifacts["hours_economics"]
+    base_field, base_train = 0.03, float(s.training.converted_within_90d.mean())
+
+    n_field = _n_per_arm(base_field, 0.50)
+    n_train = _n_per_arm(base_train, 0.50)
+    weeks_at_30 = int(np.ceil(n_field / ARM))
+    arm_for_2q = int(np.ceil(n_field / (2 * CYCLES_PER_QUARTER)))
+
+    s.say(f"\n  ── the metric contract ──")
+    s.say(f"  NORTH STAR   conversions per 100 contacts, by arm, read cumulatively")
+    s.say(f"    to detect a 50% relative lift needs {n_train:,} accounts per arm at the "
+          f"{base_train:.1%} training rate,")
+    s.say(f"    {n_field:,} at the {base_field:.0%} rate the business reports. At {ARM} per arm "
+          f"per weekly cycle that is")
+    s.say(f"    {weeks_at_30} weeks — {weeks_at_30 / 52:.1f} years. The north star is NOT reachable "
+          f"at today's allocation.")
+    s.say(f"    Reaching it in two quarters requires {arm_for_2q} accounts per arm per cycle "
+          f"({arm_for_2q * 3} of the 300).")
+    s.say(f"  WEEKLY       rep-hours held (ask) and not spent (skip) — observable today, on the row")
+    s.say(f"    the claim that they convert better elsewhere is a BET with a date, below.")
+
+    settle = TODAY + pd.Timedelta(days=90)
+    bets = []
+    bets.append({
+        "bet": "redirected hours convert better than the hours they replaced",
+        "claim": "conversions per 100 contacts is higher in explore than in control",
+        "settles": f"not before {n_field:,} accounts per arm ({weeks_at_30} weeks at {ARM}/arm, "
+                   f"{2 * CYCLES_PER_QUARTER} cycles at {arm_for_2q}/arm)",
+        "falsified_if": "the cumulative interval for explore sits below control once the arms are "
+                        "powered — at which point the system is reallocating hours to worse places",
+        "note": "THIS is the one that proves the system works. Nothing before it does.",
+    })
+    s.artifacts["bets"] = bets
+    s.say(f"\n  bets outstanding: {len(bets)}")
+    for b in bets:
+        s.say(f"    · {b['bet']} — settles {b['settles']}")
+
+    guardrails = [
+        {"guardrail": "rep acceptance of the worklist", "must_not": "fall below 65%",
+         "why": "adoption is what killed the previous effort, and it fails before any metric moves"},
+        {"guardrail": "contacts logged against accounts that stated a decline", "must_not": "rise",
+         "why": "the release must actually take effect, not just be recommended"},
+        {"guardrail": "conversion of stale vs fresh accounts within each arm",
+         "must_not": "diverge — stale converting materially below fresh",
+         "why": "the working hypothesis is that a two-quarter-old description is still actionable; "
+                "this is where it gets tested, and if it fails the flag becomes a filter"},
+        {"guardrail": "never-contacted accounts entering an arm each cycle", "must_not": "fall to zero",
+         "why": "exploration going to zero is how the system stops producing unbiased data"},
     ]
-    s.say("  " + pd.DataFrame(rows).to_string(index=False).replace("\n", "\n  "))
-    s.artifacts["value"] = rows
+    s.artifacts["guardrails"] = guardrails
 
-    decisions_changed = len(rescued) + len(released)
-    s.say(f"\n  decisions changed: {decisions_changed} of {int(covered.sum())} accounts with a "
-          f"transcript ({decisions_changed / max(covered.sum(), 1):.0%})")
-    s.say(f"  contacts freed: {freed} of {total} logged this quarter ({freed / total:.1%})")
+    s.artifacts["metric_spec"] = {
+        "north_star": {
+            "metric": "conversions per 100 logged contacts, by arm, cumulative",
+            "unit": f"conversions / 100 contacts (× {CONTACT_MINUTES} min = rep-hours)",
+            "n_per_arm_for_50pct_lift": {f"at_{base_field:.0%}_field_rate": n_field,
+                                         f"at_{base_train:.1%}_training_rate": n_train},
+            "weeks_at_current_allocation": weeks_at_30,
+            "accounts_per_arm_for_two_quarter_readout": arm_for_2q,
+            "readable_today": False,
+        },
+        "weekly_headline": {
+            "metric": "rep-hours held pending a question (ask) and not spent where calling never helped (skip)",
+            "status": "observable today, on the row -- a saving, not yet a result",
+            "decays_by_design": "the recoverable stock is "
+                                f"{eco['recoverable_stock_contacts']} contacts and is spent once; "
+                                "a falling number here is the system working, not failing",
+        },
+        "proxy_validity": {
+            "check": "at each 90-day readout, does the weekly headline still track the north star?",
+            "rule": "if redirected hours stop predicting conversions per 100 contacts, the weekly "
+                    "metric is retired — in the same report, not quietly",
+            "why": "nobody ever wrote up why the last scores stopped matching the field. This is "
+                   "that writeup, scheduled in advance.",
+        },
+        "guardrails": guardrails,
+        "kill_switch": f"if the explore arm's cumulative rate sits below control's once both pass "
+                       f"{n_field:,} accounts, the reallocation is wrong and the system stops "
+                       f"directing hours.",
+    }
 
-    # The honest arithmetic, stated as conditionals because both legs are unproven.
-    s.say("\n  What that is worth, and what it depends on:")
-    s.say(f"    · IF ready_to_act predicts conversion (H1 — unmeasured), each rescued account")
-    s.say(f"      is an opportunity the model ranked in the bottom quartile.")
-    s.say(f"    · IF those {freed} freed contacts are re-spent on rescued or explore accounts,")
-    s.say(f"      that is {freed / total:.0%} of the quarter's outreach moved off dead accounts.")
-    s.say(f"    · Neither leg is established. READOUT at day 90 is what settles both.")
-
-    # The audit's circularity finding, visible on live accounts: sales_contacts is the
-    # model's strongest feature, so the more you called a dead account the higher it ranks.
-    if len(rescued) or len(released):
-        said_no = a[covered & (a.ready_to_act == False)]
-        said_yes = a[covered & (a.ready_to_act == True)]
-        if len(said_no) and len(said_yes):
-            s.say(f"\n  The score is INVERTED against what prospects said:")
-            s.say(f"    accounts that said NO  → mean score {said_no.p.mean():.1%} "
-                  f"({said_no.sales_contacts_90d.mean():.1f} contacts)")
-            s.say(f"    accounts that said YES → mean score {said_yes.p.mean():.1%} "
-                  f"({said_yes.sales_contacts_90d.mean():.1f} contacts)")
-            s.say("    This is audit §3.5's circularity operating live: sales_contacts is the")
-            s.say("    model's strongest feature, so effort already spent on a dead account")
-            s.say("    raises its rank. The conversation is what breaks the loop.")
-            s.artifacts["score_inversion"] = {
-                "mean_score_said_no": float(said_no.p.mean()),
-                "mean_score_said_yes": float(said_yes.p.mean()),
-                "mean_contacts_said_no": float(said_no.sales_contacts_90d.mean()),
-                "mean_contacts_said_yes": float(said_yes.sales_contacts_90d.mean()),
-            }
-            s.find(what="The model ranks accounts that declined ABOVE accounts that are ready to buy",
-                   evidence=f"on accounts with a transcript, mean score is {said_no.p.mean():.1%} for "
-                            f"those that said no vs {said_yes.p.mean():.1%} for those that said yes — "
-                            f"inverted. The cause is contact count ({said_no.sales_contacts_90d.mean():.1f} "
-                            f"vs {said_yes.sales_contacts_90d.mean():.1f}), the model's strongest feature. "
-                            f"⚠ synthetic demo transcripts; the mechanism is audit §3.5, which is not",
-                   severity="high", owner="model",
-                   action="Never rank on this score. Where a conversation exists, it overrides; where "
-                          "it does not, use the explore arm rather than the score. Breaking the loop "
-                          "requires a signal that is not a function of our own past effort.",
-                   cost="0 — it is the policy this pipeline already implements",
-                   expect="effort stops concentrating on accounts that are expensive because they "
-                          "have already been expensive",
-                   source="VALUE")
-
-    if decisions_changed:
-        s.find(what="The conversation layer changes decisions the score alone would get wrong",
-               evidence=f"on {int(covered.sum())} accounts with a transcript: {len(rescued)} rescued "
-                        f"(bottom-quartile score, prospect stated budget or timeline), {len(released)} "
-                        f"released ({freed} contacts going into accounts that said no). "
-                        f"Extraction measured at 100% on ready_to_act against known ground truth. "
-                        f"⚠ synthetic demo transcripts — the mechanism is the finding, not the count",
+    if weeks_at_30 > 2 * CYCLES_PER_QUARTER:
+        s.find(what="At today's allocation the primary metric never becomes readable",
+               evidence=f"detecting a 50% relative lift at the {base_field:.0%} field rate needs "
+                        f"{n_field:,} accounts per arm. At {ARM} per arm per weekly cycle that is "
+                        f"{weeks_at_30} weeks ({weeks_at_30 / 52:.1f} years) — longer than the "
+                        f"previous scoring effort survived before it lost credibility",
                severity="high", owner="process",
-               action=f"Extend recording to the {s.artifacts['intent_quadrants']['fill_the_gap (no vendor record + a call happened)']} "
-                      f"accounts in the fill-gap quadrant first: they already receive calls, so this "
-                      f"needs no new rep time. Measure the same table against real outcomes at day 90.",
-               cost="recording and transcription on calls that already happen",
-               expect=f"the same {decisions_changed / max(covered.sum(), 1):.0%} decision-change rate "
-                      f"across the 170 accounts that have had a call, not just 20",
+               action=f"Assign the whole batch, not a third of it: {arm_for_2q} accounts per arm "
+                      f"per cycle ({arm_for_2q * 3} of the 300) makes the readout land in two "
+                      f"quarters. If the manager will not commit that volume, say so now and "
+                      f"report only the weekly bets — do not promise a lift number that the "
+                      f"design cannot deliver.",
+               cost="no new rep hours — the same accounts are being worked, they are being "
+                    "recorded as assigned rather than left out of the experiment",
+               expect="the north star becomes reachable within the horizon anyone will wait, "
+                      "instead of being quoted as a plan nobody can hold you to",
                source="VALUE")
     return s
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-def ALLOCATE(s: State) -> State:
-    """Three matched arms, not a ranked list.
+def BUDGET(s: State) -> State:
+    """Cut RANK's order at the budget and hand out arms and cohorts. Three arms compare
+    policies; three cohorts are tracked without being called. Nothing here is a tier: every
+    row carries the rule that placed it, and READOUT reads each arm against control.
 
-    This is deliberately not a tier and not routing: it compares POLICIES and keeps a
-    control. It is the Stitch Fix 90/10 idea -- the randomised arm is what produces
-    unbiased outcome data, which is the thing Cordilla has never had."""
-    a, ARM = s.accounts, 30
-    eligible = a[~a.f_stale_180].copy()                      # no stale account enters an arm
+      first-call  untouched trial (randomised: half called, half -> observe), then untouched vendor
+      continue    RANK's 'continue' order: trial > vendor > none, most contacts first
+      control     the rep picks -- what happens without the system
+      ask         5+ contacts: a question to the rep, not a call
+      observe     the randomised-out half of first-call candidates: the unbiased test of uplift
+      skip        web-only / MQL-only: calling never helped on any cut; never called, tracked"""
+    a = s.accounts
+    sizes = _arm_sizes(s)
+    taken = set()
 
-    exploit = eligible.nsmallest(ARM, "rank_contacts")
-    rest = eligible[~eligible.account_id.isin(exploit.account_id)]
-    signal = (rest.trial_started == 1) | (rest.mql_count_90d > 0) | (rest.web_touchpoints_90d >= 4)
-    explore = rest[(rest.sales_contacts_90d == 0) & signal].nlargest(ARM, "web_touchpoints_90d")
-    rest2 = rest[~rest.account_id.isin(explore.account_id)]
-    control = rest2.sample(n=min(ARM, len(rest2)), random_state=7)
+    skip = a[a.action == "skip"]; taken |= set(skip.account_id)
+    ask = a[(a.action == "ask") & ~a.account_id.isin(taken)]; taken |= set(ask.account_id)
 
-    arms = {"exploit": exploit, "explore": explore, "control": control}
-    for name, d in arms.items():
+    fc_pool = a[(a.action == "first-call") & ~a.account_id.isin(taken)]
+    trials = fc_pool[fc_pool.segment == "trial"].sample(frac=1, random_state=11)
+    half = len(trials) // 2
+    called_trials, observe = trials.iloc[:half], trials.iloc[half:]
+    rest_fc = fc_pool[fc_pool.segment != "trial"].sort_values(["seg_rank", "web_touchpoints_90d", "account_id"], ascending=[True, False, True])
+    first_call = pd.concat([called_trials, rest_fc]).head(sizes["first-call"])
+    taken |= set(first_call.account_id) | set(observe.account_id)
+
+    cont = a[(a.action == "continue") & ~a.account_id.isin(taken)].sort_values(
+        ["seg_rank", "sales_contacts_90d", "account_id"], ascending=[True, False, True]).head(sizes["continue"])
+    taken |= set(cont.account_id)
+
+    rest = a[~a.account_id.isin(taken)]
+    control = rest.sample(n=min(sizes["control"], len(rest)), random_state=7)
+
+    a["arm"] = np.nan
+    for name, d in (("continue", cont), ("first-call", first_call), ("control", control),
+                    ("ask", ask), ("observe", observe), ("skip", skip)):
         a.loc[a.account_id.isin(d.account_id), "arm"] = name
-    s.artifacts["arms"] = {k: int(len(v)) for k, v in arms.items()}
+    s.artifacts["arms"] = {"continue": int(len(cont)), "first-call": int(len(first_call)), "control": int(len(control))}
+    s.artifacts["cohorts"] = {"ask": int(len(ask)), "observe": int(len(observe)), "skip": int(len(skip))}
+    s.artifacts["ask"] = int(len(ask))
+    s.artifacts["arm_sizes_requested"] = sizes
+    s.artifacts["continue_tiers"] = {f"1-4 contacts · {sg}": int((cont.segment == sg).sum()) for sg in ["trial", "vendor", "none"]}
 
-    bal = pd.DataFrame({k: v.industry.value_counts() for k, v in arms.items()}).fillna(0).astype(int)
-    s.say(f"  exploit {len(exploit)} · explore {len(explore)} · control {len(control)}")
-    s.say("  industry balance across arms:\n" + bal.to_string().replace("\n", "\n    "))
+    s.say(f"  arms     continue {len(cont)} · first-call {len(first_call)} · control {len(control)}")
+    s.say(f"  cohorts  ask {len(ask)} · observe {len(observe)} · skip {len(skip)}   (tracked, not called)")
+    s.say(f"  first-call: {len(called_trials)} untouched trials called, {len(observe)} observed — the unbiased test; "
+          f"+ {len(first_call) - len(called_trials)} untouched vendor")
+    s.say("  continue, by segment: " + " · ".join(f"{k} {v}" for k, v in s.artifacts["continue_tiers"].items()))
+    s.say(f"  continue carries {int(cont.f_over_invested.sum())} over-invested accounts")
+    if s.artifacts.get("arm_sizes_source"):
+        s.say(f"  arm sizes from {s.artifacts['arm_sizes_source']}")
 
-    arm_block = "\n".join(
-        f"- **{k}** ({len(v)} accounts): {desc}" for k, (v, desc) in
-        {"exploit": (exploit, "highest logged contact count — the rule that beats the model out-of-sample"),
-         "explore": (explore, "never contacted but carrying a signal (trial, MQL or web activity)"),
-         "control": (control, "the rep picks — this is what would happen without the system")}.items())
+    _model_vs_us(s)
+
+    arm_block = "\n".join([
+        f"- **continue** ({len(cont)} accounts): 1–4 logged contacts, trial > vendor record > no signal, most contacts first",
+        f"- **first-call** ({len(first_call)} accounts): never contacted, trial first (half called, half observed — that is how the +10 gets measured for real), then vendor record",
+        f"- **control** ({len(control)} accounts): the rep picks — what would happen without the system",
+        f"- **ask** ({len(ask)}, not an arm): 5+ contacts, no result — the rep gets a question",
+        f"- **observe** ({len(observe)}, not an arm): the other half of the untouched trials, deliberately not called",
+        f"- **skip** ({len(skip)}, not an arm): web-only or MQL-only — calling never helped on any cut",
+    ])
     s.artifacts["experiment_card"] = llm.draft(
-        "experiment_card", mode=s.args.llm, total=ARM * 3, n_arms=3,
-        matched_on="industry and company size", base_rate="6.5% in training, 1-3% per the business",
-        arm_block=arm_block)
+        "experiment_card", mode=s.args.llm, total=sum(sizes.values()), n_arms=3,
+        matched_on="intent segment and contact band", base_rate="6.5% in training, 1-3% per the business", arm_block=arm_block)
     print(s.artifacts["experiment_card"])
     return s
+
+
+def _model_vs_us(s: State) -> None:
+    """The head-to-head, on every run. The model's answer to 'who do I call' is its top 30.
+    This is what happens to each of those 30 here, and why -- every reason is a flag or a
+    cohort the manager can verify on the row."""
+    a = s.accounts
+    rank = a.p.rank(ascending=False, method="first").astype(int)
+    top = a[rank <= 30].copy(); top["rank"] = rank[top.index]
+    def fate(r):
+        if r.arm == "ask":
+            return "ask, don't call — 5+ contacts, no result, no voice"
+        if r.arm == "continue":
+            return "exploit — called"
+        if r.arm == "first-call":
+            return "explore — never contacted, has signal"
+        if r.arm == "control":
+            return "control — rep's pick"
+        return "pool — not drawn this cycle"
+    top["fate"] = top.apply(fate, axis=1)
+    n_stale_called = int((top.f_stale_180 & top.arm.isin(["continue", "first-call"])).sum())
+    counts = top.fate.value_counts()
+    s.say("\n  the model's top 30, and what happens to each here:")
+    for k, v in counts.items():
+        s.say(f"    {v:2d}  {k}")
+    called = int(top.arm.isin(["continue"]).sum())
+    s.say(f"  → of the 30 the model says to call, {called} are called as-is"
+          f"{f' ({n_stale_called} of them flagged stale — hypothesis: still actionable)' if n_stale_called else ''}.")
+    s.artifacts["model_vs_us"] = {
+        "top30_fates": counts.to_dict(),
+        "called_as_is": called, "called_but_stale": n_stale_called,
+        "top9": [{"rank": int(r["rank"]), "account_id": r.account_id, "p": round(float(r.p), 4),
+                  "contacts": int(r.sales_contacts_90d), "age_days": int(r.age_days),
+                  "flags": r["flags"], "fate": r.fate}
+                 for _, r in top.sort_values("rank").head(9).iterrows()],
+    }
+
+
+def _arm_sizes(s: State) -> dict:
+    """Where the arm sizes come from. READOUT writes next_cycle.json after each readout;
+    BUDGET reads it here. No file means the first cycle, and ARM_DEFAULTS applies."""
+    sizes = dict(ARM_DEFAULTS)
+    path = OUT / "next_cycle.json"
+    if path.exists() and not getattr(s.args, "reset_cycles", False):
+        try:
+            nxt = json.loads(path.read_text())
+            if bool(nxt.get("simulated", False)) != bool(getattr(s.args, "demo", False)):
+                s.say("  next_cycle.json is from the other mode (simulated ≠ real) — ignored")
+                return sizes
+            sizes.update({k: int(v) for k, v in nxt.get("arm_sizes", {}).items() if k in sizes})
+            s.artifacts["arm_sizes_source"] = (f"next_cycle.json (written by READOUT after cycle "
+                                               f"{nxt.get('cycle', '?')}: {nxt.get('reason', '')})")
+        except (ValueError, KeyError) as e:
+            s.say(f"  ⚠ next_cycle.json unreadable ({e}) — using defaults")
+    return sizes
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -608,7 +835,11 @@ def HYGIENE(s: State) -> State:
     worth much less than the rule."""
     a, t = s.accounts, s.training
 
-    # audit §3.9 — "Suspect" means no engagement. 85% of them have some.
+    # audit §3.9 — WORKING HYPOTHESIS, not a definition from the brief: in the usual funnel,
+    # Suspect = fits the profile, has shown nothing; Prospect = has engaged. The exercise names
+    # the three values and says the non-customers are "mostly untouched", nothing more. Under
+    # that reading 85% of Suspects are mislabelled. Under any reading the field carries no
+    # information: conversion is identical across the three types (chi2 p = 0.84).
     susp = a[(a.account_type == "Suspect") &
              ((a.mql_count_90d > 0) | (a.trial_started == 1) | (a.sales_contacts_90d > 0))]
     t_susp = t[(t.account_type == "Suspect") &
@@ -623,14 +854,19 @@ def HYGIENE(s: State) -> State:
             examples=", ".join(susp.account_id.head(3)),
             correction="reclassify to Prospect")
         print(s.artifacts["hygiene_suspects"])
-        s.find(what="account_type does not mean what it says",
-               evidence=f"{len(t_susp)} of {(t.account_type=='Suspect').sum()} training 'Suspects' "
-                        f"and {len(susp)} of {(a.account_type=='Suspect').sum()} scoring ones have an "
-                        f"MQL, trial or contact; conversion is identical across the three types "
-                        f"(chi2 p = 0.84)",
+        s.find(what="account_type carries no information — and if 'Suspect' means 'no engagement', it is wrong on 85% of rows",
+               evidence=f"the brief lists the three values and does not define them; the usual funnel "
+                        f"reading (Suspect = no engagement yet) is OUR hypothesis. Under it, "
+                        f"{len(t_susp)} of {(t.account_type=='Suspect').sum()} training 'Suspects' and "
+                        f"{len(susp)} of {(a.account_type=='Suspect').sum()} scoring ones are mislabelled — "
+                        f"they have an MQL, a trial or a contact. Under ANY reading the field is empty: "
+                        f"conversion is identical across the three types (chi2 p = 0.84), model "
+                        f"importance 0.003",
                severity="high", owner="crm",
-               action=f"Bulk-reclassify the {len(susp)} scoring accounts, and add a validation rule "
-                      f"so an account with activity cannot be saved as Suspect.",
+               action=f"First, one question to the CRM owner: what is 'Suspect' supposed to mean? "
+                      f"If 'no engagement': bulk-reclassify the {len(susp)} scoring accounts and add a "
+                      f"validation rule. If something else: document it, because today the field "
+                      f"predicts nothing.",
                cost="one bulk update + one validation rule",
                expect="the VP stops seeing 'Suspects' near the top of a list and losing trust in it",
                source="HYGIENE")
@@ -784,14 +1020,29 @@ def EMIT(s: State) -> State:
     OUT.mkdir(exist_ok=True)
     a = s.accounts
 
-    rep = a[a.arm.notna()][["account_id", "arm", "account_type", "industry", "employee_count",
-                            "sales_contacts_90d", "age_days", "flags"]].sort_values(["arm", "account_id"])
+    ranked = a.sort_values("rank_pos")[["rank_pos", "account_id", "action", "segment", "cell", "evidence_pts", "arm",
+                                        "sales_contacts_90d", "trial_started", "age_days", "flags"]]
+    ranked.to_csv(OUT / "ranked.csv", index=False)
+    rep = a[a.arm.isin(["continue", "first-call", "control", "ask"])][
+        ["account_id", "arm", "segment", "account_type", "industry", "employee_count",
+         "sales_contacts_90d", "age_days", "flags"]].copy()
+    rep.insert(1, "action", np.where(rep.arm == "ask", "ask", "call"))
+    # The question is the disagreement_question agent's contract, rendered from the row.
+    # In live mode that agent drafts it; the template is the documented spot it plugs into.
+    rep["question"] = np.where(
+        rep.arm == "ask",
+        "You have logged " + rep.sales_contacts_90d.astype(int).astype(str)
+        + " contacts here with no result. What do you know that the data does not — "
+          "and is the next hour worth it, or should this one rest?",
+        "")
+    rep = rep.sort_values(["action", "arm", "account_id"])
     rep.to_csv(OUT / "rep_worklist.csv", index=False)
 
     dis = a[a.disagreement != ""][["account_id", "disagreement", "sales_contacts_90d", "flags"]]
     dis.to_csv(OUT / "disagreements.csv", index=False)
 
     pd.DataFrame(s.artifacts["actions"]).to_csv(OUT / "actions.csv", index=False)
+    _write_cases(s)
 
     # markdown table by hand -- tabulate is not in requirements.txt and this is one table
     def md_table(rows, cols):
@@ -801,23 +1052,72 @@ def EMIT(s: State) -> State:
                 for r in rows]
         return "\n".join([head, rule, *body])
 
-    (OUT / "manager_brief.md").write_text("\n\n".join([
-        f"# Cordilla — run of {TODAY:%Y-%m-%d}",
-        "_Nothing here is a ranked call list, and no account carries a probability. "
-        "The audit found this model's ranking indistinguishable from noise; what follows "
-        "uses it only where it disagrees with something else._",
-        "## Verdict", s.artifacts["run_verdict"],
-        "## Experiment", s.artifacts["experiment_card"],
-        "## Actions awaiting your approval",
-        md_table(s.artifacts["actions"], ["severity", "owner", "what", "action"]),
-        "## Not running today",
-        md_table([b.as_dict() for b in s.bypassed], ["node", "reason", "unblocked_by"]),
+    _write_brief(s, md_table)
+
+    spec, eco = s.artifacts["metric_spec"], s.artifacts["hours_economics"]
+    ns, wk = spec["north_star"], spec["weekly_headline"]
+    (OUT / "metrics.md").write_text("\n\n".join([
+        f"# The metric — run of {TODAY:%Y-%m-%d}",
+        "## The scorecard",
+        _scorecard_md(s),
+        "_Two numbers, and the hierarchy between them is structural rather than typographic. "
+        "The fast one is printed as a bet with the date it settles and the result that falsifies "
+        "it, so it cannot be read as an outcome. The previous scoring effort had no such record, "
+        "which is why nobody could write up why it stopped working._",
+
+        "## What an hour costs today",
+        f"- **{eco['contacts_per_conversion']} logged contacts per conversion** "
+        f"({eco['rep_hours_per_conversion']} rep-hours at {eco['minutes_per_contact_assumed']} "
+        f"min/contact — a parameter, not a finding; it cancels out of every arm-vs-arm comparison)\n"
+        f"- **{eco['batch_concentration']['contacts_they_hold']} of {eco['batch_contacts']} contacts "
+        f"({eco['batch_concentration']['share_of_batch_effort']:.0%})** sit in "
+        f"{eco['batch_concentration']['accounts_ge_4_contacts']} of 300 accounts\n"
+        f"- **{eco['recoverable_stock_contacts']} contacts** of historical effort went into accounts "
+        f"that never converted — a *stock*, spent once",
+        "And the reason none of this can be optimised directly: the same yield curve says "
+        "*call more* read as a rate and *never call twice* read as a cost. Contact count is an "
+        "effect of intent as much as a cause of conversion, so **no observational cut of this data "
+        "yields conversions-per-hour**. The arms are the instrument.",
+        md_table(eco["yield_curve"],
+                 ["contacts", "accounts", "conversions", "conv rate", "contacts per conversion"]),
+
+        "## 1 · North star — *not readable yet, and that is the honest answer*",
+        f"**{ns['metric']}**",
+        f"- needs **{max(ns['n_per_arm_for_50pct_lift'].values()):,} accounts per arm** to detect a "
+        f"50% relative lift at the field rate ({min(ns['n_per_arm_for_50pct_lift'].values()):,} at "
+        f"the training rate)\n"
+        f"- at today's 30 per arm per cycle: **{ns['weeks_at_current_allocation']} weeks**. "
+        f"Assigning **{ns['accounts_per_arm_for_two_quarter_readout']} per arm** instead lands it "
+        f"in two quarters, with no new rep hours.",
+
+        "## 2 · Weekly headline — *a bet, not a result*",
+        f"**{wk['metric']}** — {wk['status']}\n\n- {wk['decays_by_design']}",
+        "### Bets outstanding",
+        md_table(s.artifacts["bets"], ["bet", "claim", "settles", "falsified_if"]),
+
+        "## Guardrails — what must not get worse while the bets mature",
+        md_table(spec["guardrails"], ["guardrail", "must_not", "why"]),
+
+        "## Proxy validity — the writeup nobody did last time",
+        f"{spec['proxy_validity']['check']}  \n**Rule:** {spec['proxy_validity']['rule']}",
+
+        "## Kill switch",
+        spec["kill_switch"],
     ]))
 
-    s.say(f"  rep_worklist.csv      {len(rep)} accounts, with flags and NO score")
+    sc = s.artifacts["scorecard"]
+    g = sc["rows"][3]["hist"][0]; b = [r["hist"][0] for r in sc["rows"][:3] if r["hist"][0] is not None]
+    s.say(f"  scorecard             graph {g:.1%} vs best baseline {max(b):.1%} on real outcomes · "
+          f"refuses {sc['rows'][3]['refuses_h']:.0f} rep-h/quarter · prospective column: "
+          f"{'filled (simulated)' if sc['prospective_simulated'] else 'filled' if sc['prospective_available'] else 'empty until READOUT'}")
+    s.say(f"  ranked.csv            all {len(ranked)} accounts: position · action · segment · evidence · arm")
+    s.say(f"  rep_worklist.csv      {int((rep.action == 'call').sum())} to call + "
+          f"{int((rep.action == 'ask').sum())} to ask, with flags and NO score"
+          + f" — observe {s.artifacts['cohorts'].get('observe', 0)} and skip {s.artifacts['cohorts'].get('skip', 0)} deliberately absent")
     s.say(f"  disagreements.csv     {len(dis)} accounts where the voices disagree")
     s.say(f"  actions.csv           {len(s.artifacts['actions'])} prescriptions with an owner")
     s.say(f"  manager_brief.md      verdict + experiment card + action table")
+    s.say(f"  metrics.md            the metric contract: north star, bets, guardrails, kill switch")
     s.say("  → Salesforce would receive: flags, intent_known, snapshot date. Never the probability.")
     return s
 
@@ -849,7 +1149,9 @@ def READOUT(s: State) -> State:
 
     # SIMULATED. Same rate for every arm -- we are showing the instrument, not the answer.
     TRUE_RATE = 0.03                       # the brief's field rate, not training's 6.5%
-    rng = np.random.default_rng(2026)
+    cyc_path = OUT / "cycles.jsonl"
+    n_prev = len(cyc_path.read_text().splitlines()) if cyc_path.exists() else 0
+    rng = np.random.default_rng(2026 + n_prev)          # a fresh draw per demo cycle
     assigned["converted"] = rng.random(len(assigned)) < TRUE_RATE
 
     def wilson(k, n_, z=1.96):
@@ -865,17 +1167,38 @@ def READOUT(s: State) -> State:
         k, n_ = int(d.converted.sum()), len(d)
         lo, hi = wilson(k, n_)
         rows.append({"arm": arm, "accounts": n_, "conversions": k, "rate": k / n_,
-                     "95% CI": f"[{lo:.1%}, {hi:.1%}]"})
+                     "95% CI": f"[{lo:.1%}, {hi:.1%}]",
+                     "": {"ask": "← cohort: 5+ contacts, rep asked first",
+                          "skip": "← cohort: web/MQL-only, calling never helped", "observe": "← cohort: untouched trials NOT called — the uplift control"}.get(arm, "")})
     tab = pd.DataFrame(rows).set_index("arm")
     s.say("  SIMULATED 90-day readout by arm (there is NO true difference between arms):")
     s.say("    " + tab.to_string().replace("\n", "\n    "))
     s.artifacts["readout"] = tab.reset_index().to_dict("records")
+    tab = tab[~tab.index.isin(["ask", "skip", "observe"])]   # the spread compares policies; cohorts are not
 
-    if "intent_level" in assigned and assigned.intent_level.notna().any():
-        byl = assigned[assigned.intent_level.notna()].groupby("intent_level").converted.agg(
+
+    fc, ob = assigned[assigned.arm == "first-call"], assigned[assigned.arm == "observe"]
+    if len(fc) and len(ob):
+        rows_u = []
+        for sg in sorted(set(fc.segment) | set(ob.segment)):
+            c, o = fc[fc.segment == sg], ob[ob.segment == sg]
+            if len(c) and len(o):
+                rows_u.append({"segment": sg, "called": f"{int(c.converted.sum())}/{len(c)}", "observed": f"{int(o.converted.sum())}/{len(o)}",
+                               "uplift_real_pts": round((c.converted.mean() - o.converted.mean()) * 100, 1)})
+        if rows_u:
+            s.say("  day-90 uplift, UNBIASED — first-call (called) vs observe (not called), by segment:")
+            s.say("    " + pd.DataFrame(rows_u).to_string(index=False).replace("\n", "\n    "))
+            s.say("    (this is the column the audit's +10 upper bound gets replaced by; n is small until it accumulates)")
+            s.artifacts["uplift_day90"] = rows_u
+    if "f_stale_180" in assigned and assigned.f_stale_180.any():
+        sv = assigned[assigned.arm.isin(["continue", "first-call", "control"])].groupby("f_stale_180").converted.agg(
             accounts="size", conversions="sum")
-        s.say("  …and by conversation intent level — this is H1 being tested:")
-        s.say("    " + byl.to_string().replace("\n", "\n    "))
+        sv.index = sv.index.map({True: "stale (>180d)", False: "fresh"})
+        s.say("  stale vs fresh within the arms — the 'still actionable' hypothesis, being tested:")
+        s.say("    " + sv.to_string().replace("\n", "\n    "))
+        s.artifacts["stale_hypothesis"] = sv.reset_index().to_dict("records")
+
+    _settle_bets(s, assigned)
 
     rates = tab["rate"]
     spread = rates.max() - rates.min()
@@ -893,4 +1216,486 @@ def READOUT(s: State) -> State:
            cost="patience, and saying this to the VP before the first readout rather than after",
            expect="nobody kills or ships the approach on a number that cannot support either",
            source="READOUT")
+    _learn(s, assigned)
     return s
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+def _settle_bets(s: State, assigned: pd.DataFrame) -> State:
+    """Day 90: the bets filed in VALUE come back and are marked. Today there is one -- that
+    redirected hours convert better than the hours they replaced -- and it settles only once
+    the arms are powered. Filing it with a date and a falsifier is the point: the previous
+    scoring effort had no such record, so nobody could say when it stopped working."""
+    bets = s.artifacts.get("bets", [])
+    if not bets:
+        return s
+    n_need = max(s.artifacts["metric_spec"]["north_star"]["n_per_arm_for_50pct_lift"].values())
+    per_arm = min(s.artifacts.get("arms", {"x": 0}).values())
+    settled = [{"bet": b["bet"], "settles": b["settles"], "verdict": "OPEN", "observed": f"{per_arm}/arm this cycle",
+                "reads": f"not settleable before {n_need:,}/arm — reporting it now would be the mistake this pipeline exists to avoid"}
+               for b in bets]
+    s.say("\n  ── settling the bets filed on 2026-08-01 ──")
+    s.say("    " + pd.DataFrame(settled).to_string(index=False).replace("\n", "\n    "))
+    s.artifacts["bets_settled"] = settled
+    mp = OUT / "metrics.md"
+    if mp.exists():
+        cols = ["bet", "verdict", "observed", "reads"]
+        head = "| " + " | ".join(cols) + " |\n|" + "|".join("---" for _ in cols) + "|"
+        body = "\n".join("| " + " | ".join(str(r.get(c, "")).replace("|", "/") for c in cols) + " |" for r in settled)
+        mp.write_text(mp.read_text() + "\n\n".join(["", "---", "## Settlement — day 90 (SIMULATED outcomes, see READOUT)", head + "\n" + body, ""]))
+    return s
+
+
+RECONCILE_LABEL = {
+    "rep_insists_model_low":     "model says low, the rep keeps working it",
+    "model_high_nobody_looked":  "model says high, nobody has contacted it",
+    "high_effort_no_result":     "4+ contacts and no conversion",
+    "":                           "the two voices agree",
+}
+
+
+def _write_cases(s: State) -> None:
+    """cases.md — named accounts, real data, no transcript. A manager is persuaded by an
+    account they recognise with the rule that placed it beside the model's number. Four
+    kinds of case, each with what it proves today and what only day 90 can prove:
+
+      the model's top picks that this system will not call as-is   (ask / skip)
+      the untouched trials — the highest-uplift first call in the book (first-call / observe)
+      the accounts the model buries that continue calls first        (continue, low model rank)
+      the skip bucket — hours that stop going where calling never helped"""
+    a = s.accounts.copy()
+    a["model_rank"] = a.p.rank(ascending=False, method="first").astype(int)
+    U = s.artifacts.get("uplift", {}); tr = {r["segment"]: r for r in U.get("cuts", {}).get("train", [])}
+
+    def row(r, why):
+        ev = f"{r.evidence_pts:+.1f} pts uplift (train)" if r.sales_contacts_90d == 0 and pd.notna(r.evidence_pts) else \
+             f"{r.evidence_pts:.1f}% in conversation (train)" if pd.notna(r.evidence_pts) else "—"
+        return (f"| `{r.account_id}` | #{r.model_rank} | {r.p:.1%} | {int(r.sales_contacts_90d)} | {r.segment} | "
+                f"{'yes' if r.trial_started else '—'} | {int(r.age_days)}d | {r.action} → `{r.arm if pd.notna(r.arm) else '—'}` | {ev} | {why} |")
+    head = ("| account | model rank | score | contacts | segment | trial | age | here | evidence | why |\n"
+            "|---|---|---|---|---|---|---|---|---|---|")
+
+    top_not_called = a[(a.model_rank <= 30) & a.action.isin(["ask", "skip"])].sort_values("model_rank")
+    untouched_trials = a[(a.action == "first-call") & (a.segment == "trial")].sort_values(["arm", "web_touchpoints_90d"], ascending=[True, False])
+    buried = a[(a.arm == "continue") & (a.model_rank > 150)].sort_values("model_rank", ascending=False)
+    skip = a[a.action == "skip"]
+    ask = a[a.action == "ask"]
+
+    parts = [
+        f"# Cases — run of {TODAY:%Y-%m-%d}",
+        "_Named accounts, real data, no transcript. Each case shows the model's rank beside the rule "
+        "that places it here and the evidence behind that rule, estimated on the older labelled rows. "
+        "What every case proves today: a decision the model would have made differently, and why. What "
+        "none can prove yet: that this decision converts better — that is day 90._",
+
+        f"## The model's top 30 this system will not call as-is — {len(top_not_called)} accounts",
+        "_The model ranks them high because of the contacts already spent (its strongest feature). "
+        "Here they go to `ask` (5+ contacts, no result — one question to the rep before the next hour) "
+        "or `skip` (web-only or MQL-only — calling never helped on any cut)._",
+        head + "\n" + "\n".join(row(r, "sunk cost — the rep answers first" if r.action == "ask" else "calling never helped this segment") for _, r in top_not_called.iterrows()),
+
+        f"## The untouched trials — {len(untouched_trials)} accounts, the highest-uplift first call",
+        f"_Someone is using the product and nobody has called. History: untouched trials convert at "
+        f"{tr.get('trial', {}).get('rate_uncalled', 0):.1%}; with 1–4 calls, {tr.get('trial', {}).get('rate_called', 0):.1%} — **{tr.get('trial', {}).get('uplift_pts', 0):+.0f} points**, an upper "
+        f"bound (reps chose whom to call). Half are called (`first-call`), half held back (`observe`), so day 90 "
+        f"measures the real number. The model ranks them at median #{int(untouched_trials.model_rank.median()) if len(untouched_trials) else 0} of 300._",
+        head + "\n" + "\n".join(row(r, "called this week" if r.arm == "first-call" else "held back at random — the control for the +10") for _, r in untouched_trials.iterrows()),
+
+        f"## Buried by the model, called first here — {len(buried)} accounts",
+        "_In conversation (1–4 contacts) with a trial or a vendor record; the model ranks them below #150. "
+        "`continue` takes them ahead of the model's picks._",
+        head + "\n" + ("\n".join(row(r, f"{r.segment} segment, in conversation") for _, r in buried.head(12).iterrows()) if len(buried) else "| — |"),
+
+        f"## The skip bucket — {len(skip)} accounts, {int(skip.sales_contacts_90d.sum())} contacts already sunk",
+        f"_Web-only or MQL-only. On every cut of history, calling these segments changed nothing (uplift ≤ 0). "
+        f"**{skip.sales_contacts_90d.sum() * CONTACT_MINUTES / 60:.0f} rep-hours** went here last quarter; none go here this week. "
+        f"They stay tracked: if they convert anyway, the rule was wrong._",
+        f"By segment: {skip.segment.value_counts().to_dict()} · with contacts already: {int((skip.sales_contacts_90d > 0).sum())}",
+
+        f"## The ask cohort — {len(ask)} accounts, {int(ask.sales_contacts_90d.sum())} contacts already sunk",
+        f"_5+ contacts and no conversion. The model loves them (median rank #{int(ask.model_rank.median()) if len(ask) else 0}). History says accounts like these "
+        f"convert at ~17% *if you keep calling* — and cost ~6 calls each to get there. The rep gets one question; "
+        f"the answer sends each to `continue` or to rest. **{ask.sales_contacts_90d.sum() * CONTACT_MINUTES / 60:.0f} rep-hours** held._",
+
+        "## How to read the levels",
+        "| level | when | what it proves | what it cannot |\n|---|---|---|---|\n"
+        "| named cases (above) | today | a decision the model would have made differently, with the rule and its evidence | that the decision converts better |\n"
+        "| uplift by segment | today | where a call changed the outcome in history — as an upper bound | the true effect of a call |\n"
+        "| first-call vs observe | day 90 | the true effect of the first call on a trial account | — |\n"
+        "| conversions per 100 contacts by arm | quarter 2 | that the hours went to a better place | — |",
+    ]
+    (OUT / "cases.md").write_text("\n\n".join(parts))
+    s.say(f"  cases.md              {len(top_not_called)} of the model's top 30 not called as-is · {len(untouched_trials)} untouched trials · "
+          f"{len(buried)} buried-then-called · skip {len(skip)} · ask {len(ask)}")
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+def _agent_text(s: State, name: str) -> str:
+    """What the agent said, as text a manager reads. In template mode draft() returns the
+    rendered prompt box; the worked example inside it is the paragraph. Live mode returns
+    the paragraph itself. Either way the full render goes to the appendix."""
+    raw = s.artifacts.get(name, "")
+    if raw.startswith("┌"):
+        ex = llm.AGENTS[name].example
+        if not ex:
+            return "_(no worked example on file — the rendered prompt is in the appendix)_"
+        return ex if isinstance(ex, str) else json.dumps(ex, indent=2)
+    return raw
+
+
+def _write_brief(s: State, md_table) -> None:
+    """manager_brief.md — the weekly page. Ordered for the reader, not the pipeline:
+    what to think, what changed, where the metric stands, what to sign, what is dark.
+    The agent prompts move to an appendix: the reviewer still sees every word; the manager
+    no longer reads a prompt where a verdict should be."""
+    a, spec = s.accounts, s.artifacts["metric_spec"]
+    eco, ns = s.artifacts["hours_economics"], spec["north_star"]
+    arms = s.artifacts.get("arms", {})
+    per_arm = min(arms.values()) if arms else 0
+    n_need = max(ns["n_per_arm_for_50pct_lift"].values())
+    settle = (TODAY + pd.Timedelta(days=90)).date()
+
+    # ── what changed ─────────────────────────────────────────────────────────
+    acts = a.action.value_counts(); co = s.artifacts.get("cohorts", {})
+    c_ask = int(a[a.arm == "ask"].sales_contacts_90d.sum()); c_skip = int(a[a.arm == "skip"].sales_contacts_90d.sum())
+    changed = [
+        f"**{acts.get('first-call', 0)} first-call candidates** — never contacted, trial or vendor record; "
+        f"{arms.get('first-call', 0)} called this week, {co.get('observe', 0)} held back at random so day 90 can measure what the first call does.",
+        f"**{acts.get('continue', 0)} in conversation** — 1–4 contacts, trial > vendor > none; {arms.get('continue', 0)} on this week's list, none over-invested.",
+        f"**{co.get('ask', 0)} asked, not called** — 5+ contacts, no result: {c_ask} contacts (**{c_ask * CONTACT_MINUTES / 60:.0f} rep-hours**) held pending one question to the rep.",
+        f"**{co.get('skip', 0)} skipped** — web-only or MQL-only, where calling never helped on any cut: {c_skip} contacts (**{c_skip * CONTACT_MINUTES / 60:.0f} rep-hours**) not spent again.",
+        "Every account, by position and rule, in `ranked.csv`. Named cases in `cases.md`.",
+    ]
+    headline = f"**{(c_ask + c_skip) * CONTACT_MINUTES / 60:.0f} rep-hours** held or not spent this week — observable on the row; whether they convert better elsewhere is the bet"
+
+    # ── metric status ────────────────────────────────────────────────────────
+    bets = s.artifacts.get("bets", [])
+    # cycles.jsonl is READOUT's memory; the brief reads it so cycle 4 does not call itself first
+    cyc_path = OUT / "cycles.jsonl"
+    hist = [json.loads(l) for l in cyc_path.read_text().splitlines() if l.strip()] if cyc_path.exists() else []
+    hist = [h for h in hist if bool(h.get("simulated")) == bool(getattr(s.args, "demo", False))]
+    n_cycle = len(hist) + 1
+    n_settled = sum(1 for h in hist for b in h.get("bets_settled", [])
+                    if b.get("verdict") in ("WON", "LOST"))
+    n_pending = sum(1 for h in hist for b in h.get("bets_settled", [])
+                    if b.get("verdict") in ("UNDERPOWERED", "NOT SETTLEABLE"))
+    bets_line = (f"{len(bets)} open · {n_settled} settled"
+                 + (f" · {n_pending} came back underpowered" if n_pending else "")
+                 + (f" · cycle {n_cycle}" if hist else " · first cycle"))
+    arms_line = " · ".join(f"{k} {n}" for k, n in arms.items())
+    arms_line += " · cohorts " + " · ".join(f"{k} {v}" for k, v in s.artifacts.get("cohorts", {}).items() if v)
+    metric = "\n".join([
+        "| | |", "|---|---|",
+        f"| **North star** · conversions per 100 contacts, by arm | **not readable** · "
+        f"{per_arm}/{n_need:,} per arm · {ns['weeks_at_current_allocation']} weeks at this pace, "
+        f"two quarters at {ns['accounts_per_arm_for_two_quarter_readout']}/arm |",
+        f"| **Weekly headline** · rep-hours redirected | {headline} |",
+        f"| **Bets** | {bets_line} |",
+        f"| **Price of a conversion today** | {eco['contacts_per_conversion']} contacts · "
+        f"{eco['rep_hours_per_conversion']} rep-hours |",
+        f"| **Arms this cycle** | {arms_line} |",
+    ])
+
+    (OUT / "manager_brief.md").write_text("\n\n".join([
+        f"# Cordilla — week of {TODAY:%Y-%m-%d}",
+        "_No ranked call list, no probability on any account. The audit found this model's "
+        "ranking indistinguishable from noise; it is used only where it disagrees with "
+        "something else._",
+
+        "## The scorecard — the graph against three baselines",
+        _scorecard_md(s),
+
+        "## This week's verdict",
+        _agent_text(s, "run_verdict"),
+
+        "## What changed this week",
+        "\n\n".join(changed),
+
+        "## The model's top 30, and what happens to each here",
+        _model_vs_us_md(s),
+
+        "## Where the metric stands",
+        metric,
+
+        "## On real outcomes — each policy's list of 90, and how many converted",
+        _outcomes_md(s),
+
+        "## The prediction test — 300 accounts none of the methods saw",
+        _heldout_md(s),
+        "_The weekly number is filed as a bet with its falsifier; it cannot be read as a result. "
+        "Detail, guardrails and the kill switch in `metrics.md`._",
+
+        "## This week's allocation — the experiment you are approving",
+        _agent_text(s, "experiment_card"),
+
+        "## Actions awaiting your signature",
+        md_table(s.artifacts["actions"], ["severity", "owner", "what", "action"]),
+
+        "## Not running today",
+        md_table([b.as_dict() for b in s.bypassed], ["node", "reason", "unblocked_by"]),
+
+        "## Proposed, not wired — the conversation layer",
+        "The one input that is not a function of Cordilla's own effort is what the prospect said on the "
+        "call. A layer that extracts it is designed, measured on synthetic transcripts (1.00 on the routing "
+        "field, quotes grounded 20/20) and deliberately kept out of this graph until real transcripts with "
+        "outcomes exist. It would work the margin — the accounts no column separates. See `proposal/conversation_layer/`.",
+
+        "---",
+        "## Appendix — the agents, as rendered",
+        "_Every prompt, verbatim, with the worked example that stands in for a live call. "
+        "For the reviewer; the manager stops at the line above._",
+        "### run_verdict", "```\n" + s.artifacts["run_verdict"] + "\n```",
+        "### experiment_card", "```\n" + s.artifacts["experiment_card"] + "\n```",
+    ]))
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+N_MIN_TO_MOVE = 99       # the n at which a zero-conversion result means something at 3%
+STEP = 5                 # accounts moved per update
+FLOOR_SHARE = 0.10       # no arm ever drops below this share -- exploration never dies
+
+
+def _learn(s: State, assigned: pd.DataFrame) -> State:
+    """The loop. READOUT writes what happened to cycles.jsonl, reads everything that has
+    happened so far, and tells the next BUDGET what to do.
+
+    Three things learn here, each gated on having enough data to learn from:
+      · ALLOCATION   the arm with the best cumulative lower bound grows by STEP; no arm
+                     falls below FLOOR_SHARE. Nothing moves until every arm has passed
+                     N_MIN_TO_MOVE -- below that the rule would be chasing noise, and the
+                     demo (no true difference between arms) shows exactly that noise.
+      · THE AGENT    its real precision accumulates from the settled bets: how often
+                     'released' accounts converted anyway, how often 'rescued' ones did.
+                     Reported beside the synthetic 1.00 until it can replace it.
+      · THE METRIC   proxy validity needs the same history; this is where it will read.
+
+    The file is the memory Cordilla has never had. It is append-only on purpose."""
+    path = OUT / "cycles.jsonl"
+    history = [json.loads(l) for l in path.read_text().splitlines() if l.strip()] if path.exists() else []
+    cycle = len(history) + 1
+    a = s.accounts
+
+    per_arm = {arm: {"n": int(len(d)), "k": int(d.converted.sum())}
+               for arm, d in assigned.groupby("arm")}
+    rec = {
+        "cycle": cycle, "reference_date": str(TODAY.date()),
+        "arm_sizes_requested": s.artifacts.get("arm_sizes_requested", {}),
+        "arms": per_arm,
+        "bets_settled": [{"bet": b["bet"], "verdict": b["verdict"]} for b in s.artifacts.get("bets_settled", [])],
+        "simulated": True,
+    }
+    with path.open("a") as f:
+        f.write(json.dumps(rec) + "\n")
+    history.append(rec)
+
+    # ── cumulative ────────────────────────────────────────────────────────────
+    cum = {}
+    for h in history:
+        for arm, v in h["arms"].items():
+            c = cum.setdefault(arm, {"n": 0, "k": 0}); c["n"] += v["n"]; c["k"] += v["k"]
+    def wilson(k, n_, z=1.96):
+        if n_ == 0:
+            return 0.0, 1.0
+        ph, d = k / n_, 1 + z**2 / n_
+        c = (ph + z**2 / (2 * n_)) / d
+        h = z * np.sqrt(ph * (1 - ph) / n_ + z**2 / (4 * n_**2)) / d
+        return max(0.0, c - h), min(1.0, c + h)
+
+    arms_only = {k_: v for k_, v in cum.items() if k_ not in ("ask", "skip", "observe")}
+    s.say(f"\n  ── the loop · cycle {cycle} ──")
+    s.say(f"  cumulative, all cycles:  " + " · ".join(
+        f"{k_} {v['k']}/{v['n']}" for k_, v in cum.items()))
+
+    # ── allocation update ─────────────────────────────────────────────────────
+    sizes = dict(s.artifacts.get("arm_sizes_requested", {k_: 30 for k_ in arms_only}))
+    total = sum(sizes.values())
+    floor = int(np.ceil(FLOOR_SHARE * total))
+    min_n = min(v["n"] for v in arms_only.values()) if arms_only else 0
+    ci = {k_: wilson(v["k"], v["n"]) for k_, v in arms_only.items()}
+    moved = None
+    if min_n < N_MIN_TO_MOVE:
+        reason = (f"holding — smallest arm has n={min_n}, needs {N_MIN_TO_MOVE} before any move; "
+                  f"below that the rule chases noise")
+    else:
+        # Move only on EVIDENCE: the best arm's lower bound must clear the worst arm's upper
+        # bound. "Best point estimate" would move on noise every cycle -- and with no true
+        # difference between arms, the demo shows exactly that if you let it.
+        best = max(ci, key=lambda k_: ci[k_][0])
+        donors = [k_ for k_ in sizes if k_ != best and sizes[k_] - 1 > floor]
+        worst = min(donors, key=lambda k_: ci[k_][1]) if donors else None
+        if worst is None:
+            reason = f"every other arm is at the floor ({floor}); nothing to move"
+        elif ci[best][0] > ci[worst][1]:
+            take = min(STEP, sizes[worst] - floor)
+            sizes[worst] -= take; sizes[best] += take
+            moved = (worst, best, take)
+            reason = (f"moved {take} from {worst} (CI up to {ci[worst][1]:.1%}) to {best} "
+                      f"(CI from {ci[best][0]:.1%}) — intervals separated; floor {floor}/arm holds")
+        else:
+            n_need = max(s.artifacts["metric_spec"]["north_star"]["n_per_arm_for_50pct_lift"].values())
+            reason = (f"holding — {best} [{ci[best][0]:.1%}, {ci[best][1]:.1%}] and {worst} "
+                      f"[{ci[worst][0]:.1%}, {ci[worst][1]:.1%}] overlap at n={min_n}; "
+                      f"separating a 50% lift needs ~{n_need:,}/arm")
+    nxt = {"cycle": cycle, "arm_sizes": sizes, "reason": reason, "written_by": "READOUT",
+           "cumulative": cum, "floor_per_arm": floor, "simulated": bool(s.args.demo)}
+    (OUT / "next_cycle.json").write_text(json.dumps(nxt, indent=2))
+    s.artifacts["next_cycle"] = nxt
+    s.say(f"  allocation update:  {reason}")
+    s.say(f"  next cycle:  " + " · ".join(f"{k_} {v}" for k_, v in sizes.items()))
+    if moved is None:
+        s.say(f"  (with no true difference between arms, a rule that moved now would be rewarding "
+              f"whichever arm got lucky — that is what the gate is for)")
+
+    # ── the track record, into the same file the bets were filed in ─────────
+    mp = OUT / "metrics.md"
+    if mp.exists():
+        rows = "\n".join(f"| {h['cycle']} | " + " · ".join(f"{k_} {v['k']}/{v['n']}" for k_, v in h["arms"].items()) + " |" for h in history)
+        mp.write_text(mp.read_text() + "\n\n".join([
+            "", f"## Track record — {cycle} cycle{'s' if cycle > 1 else ''} so far (SIMULATED)",
+            "| cycle | conversions/assigned by arm and cohort |", "|---|---|\n" + rows,
+            f"**Cumulative:** " + " · ".join(f"{k_} {v['k']}/{v['n']}" for k_, v in cum.items()),
+            f"**Next allocation:** {reason}", ""]))
+    return s
+
+
+def _model_vs_us_md(s: State) -> str:
+    """The head-to-head as the manager reads it: the model's answer is 'call these 30'; this
+    is what happens to each of the 30 here, with the reason on the row."""
+    mv = s.artifacts.get("model_vs_us")
+    if not mv:
+        return "_(not computed this run)_"
+    lines = ["| the model's top 30 | count |", "|---|---|"]
+    lines += [f"| {k} | **{v}** |" for k, v in mv["top30_fates"].items()]
+    lines.append(f"\n**Of the 30 the model says to call, {mv['called_as_is']} are called as-is.** "
+                 f"Every other verdict is a flag or a cohort the row itself shows.")
+    lines.append("\n| rank | account | score | contacts | age | flags | here |\n|---|---|---|---|---|---|---|")
+    for r in mv["top9"]:
+        lines.append(f"| #{r['rank']} | `{r['account_id']}` | {r['p']:.1%} | {r['contacts']} | "
+                     f"{r['age_days']}d | {r['flags'] or '—'} | {r['fate']} |")
+    return "\n".join(lines)
+
+
+
+def _outcomes_md(s: State) -> str:
+    mv = s.artifacts.get("model_vs_graph_outcomes")
+    if not mv:
+        return "_(audit/oof_predictions.npy not found)_"
+    lines = [f"_{mv['n_clean_rows']} labelled training rows with a closed 90-day window · base rate "
+             f"{mv['base_rate']:.1%} · {mv['note']}._", "",
+             "| who builds the list of 90 | converted | rate | 95% CI | lift | contacts already sunk | rep-hours sunk |",
+             "|---|---|---|---|---|---|---|"]
+    for r in mv["rows"]:
+        b = "**" if ("out-of-fold" in r["policy"] or "worklist" in r["policy"]) else ""
+        lines.append(f"| {b}{r['policy']}{b} | {r['converted']} | {b}{r['rate']:.1%}{b} | {r['ci95']} | "
+                     f"{r['lift']}× | {r['contacts_already_sunk']} | {r['rep_hours_sunk']} |")
+    mem, oof = mv["rows"][0], mv["rows"][1]
+    lines.append(f"\n**The model from memory: {mem['rate']:.1%}. The model on rows it never saw: "
+                 f"{oof['rate']:.1%}.** The first is what a dashboard would show; the second is what it knows.")
+    return "\n".join(lines)
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+def _scorecard(s: State) -> dict:
+    """THE metric of the whole graph, against three baselines, in one table.
+
+    Metric: of the list a policy says to call, what share converts. Two evidence levels
+    in two columns -- historical (today, on the 1,099 labelled rows, observational) and
+    prospective (day 90, arms against control, causal). The second column is empty until
+    READOUT runs, and fills in on its own. Alongside: the hours each policy refuses to
+    spend -- the graph's second dimension, which no baseline has."""
+    mv = s.artifacts.get("model_vs_graph_outcomes", {})
+    R = {r["policy"]: r for r in mv.get("rows", [])}
+    a = s.accounts
+    ask_c = int(a[a.arm == "ask"].sales_contacts_90d.sum()) if "arm" in a else 0
+    skip_c = int(a[a.arm == "skip"].sales_contacts_90d.sum()) if "arm" in a else 0
+    ro = {r["arm"]: r for r in s.artifacts.get("readout", [])}     # prospective, if READOUT ran
+
+    def hist(key):
+        r = R.get(key); return (r["rate"], r["ci95"], r["converted"]) if r else (None, "", None)
+    def prosp(arms):
+        ks = [ro[x] for x in arms if x in ro]
+        if not ks: return None, ""
+        k, n = sum(x["conversions"] for x in ks), sum(x["accounts"] for x in ks)
+        return k / n if n else None, f"{k}/{n}"
+
+    rows = [
+        {"policy": "model alone — the dashboard the VP asked for", "list": "top 90 by score",
+         "hist": hist("model — out-of-fold (what it actually knows)"),
+         "memory": R.get("model — in-sample (what a dashboard shows)", {}).get("rate"),
+         "prosp": (None, ""), "refuses_h": 0.0, "role": "baseline"},
+        {"policy": "random — no system", "list": "90 at random",
+         "hist": hist("random (mean of 200 draws)"), "prosp": (None, ""), "refuses_h": 0.0, "role": "baseline"},
+        {"policy": "the team today — rep's own picks", "list": "accounts the team chose to work",
+         "hist": (mv.get("team_today_rate"), mv.get("team_today_ci", ""), mv.get("team_today_k")),
+         "prosp": prosp(["control"]), "refuses_h": 0.0, "role": "baseline · control arm"},
+        {"policy": "THE GRAPH — its worklist", "list": "continue 45 + first-call 15 · ask, observe and skip tracked, not called",
+         "hist": hist("graph worklist (continue 75 + first-call 15)"),
+         "prosp": prosp(["continue", "first-call"]),
+         "refuses_h": round((ask_c + skip_c) * CONTACT_MINUTES / 60, 1), "role": "system"},
+        {"policy": "the graph — confident picks only", "list": "continue alone",
+         "hist": hist("graph continue (1-4 contacts: trial > vendor > none)"), "prosp": prosp(["continue"]),
+         "refuses_h": None, "role": "system · no exploration"},
+    ]
+    s.artifacts["scorecard"] = {"rows": rows, "ask_contacts": ask_c, "skip_contacts": skip_c,
+                                "prospective_available": bool(ro),
+                                "prospective_simulated": bool(ro) and bool(getattr(s.args, "demo", False))}
+    return s.artifacts["scorecard"]
+
+
+def _scorecard_md(s: State) -> str:
+    sc = s.artifacts.get("scorecard") or _scorecard(s)
+    sim = " **(SIMULATED)**" if sc["prospective_simulated"] else ""
+    R = {r["policy"]: r for r in s.artifacts.get("model_vs_graph_outcomes", {}).get("rows", [])}
+    def recall_of(policy_key):
+        r = R.get(policy_key); return f" · finds **{r['recall']:.0%}** of buyers" if r and r.get("recall") is not None else ""
+    keymap = {"model alone — the dashboard the VP asked for": "model — out-of-fold (what it actually knows)",
+              "random — no system": "random (mean of 200 draws)",
+              "THE GRAPH — its worklist": "graph worklist (continue 75 + first-call 15)",
+              "the graph — confident picks only": "graph continue (1-4 contacts: trial > vendor > none)"}
+    head = ("| | the list it says to call | historical, real outcomes — of the 90 called, how many convert · of the buyers, how many found | "
+            f"prospective, day 90{sim} | rep-hours it refuses to spend |")
+    lines = [head, "|---|---|---|---|---|"]
+    for r in sc["rows"]:
+        h, ci, k = r["hist"]
+        hist = (f"**{h:.1%}** {ci}" + recall_of(keymap.get(r["policy"], ""))) if h is not None else "—"
+        if r.get("memory"): hist += f" · *from memory: {r['memory']:.1%}*"
+        p, pn = r["prosp"]
+        prosp = f"**{p:.1%}** ({pn})" if p is not None else "_not yet — READOUT_"
+        ref = "—" if r["refuses_h"] is None else (f"**{r['refuses_h']:.0f} h / quarter**" if r["refuses_h"] else "0 — calls everything it ranks")
+        b = "**" if r["role"] == "system" else ""
+        lines.append(f"| {b}{r['policy']}{b} | {r['list']} | {hist} | {prosp} | {ref} |")
+    lines.append("\n_Historical: each policy builds its list from the 1,099 labelled training rows with a closed "
+                 "90-day window, and we count who converted — observational, the comparison is fair, the levels "
+                 "are not causal. Prospective: the arms READOUT assigns today, read at day 90 against control — "
+                 "causal, and not readable before ~2,500 per arm. The graph must beat the first three rows on "
+                 "both columns, or it is retired._")
+    return "\n".join(lines)
+
+
+
+def _heldout_md(s: State) -> str:
+    """audit/heldout_comparison.py: the most recent 300 labelled accounts held out, each method
+    builds its list, we count who converted. No model is fitted; the model's score is its
+    out-of-fold prediction. Precision = of the K you said to call, how many converted.
+    Recall = of everyone who converted in the 300, how many your list found."""
+    h = s.artifacts.get("heldout")
+    if not h:
+        return "_(audit/heldout_comparison.json not found — run `python audit/heldout_comparison.py`)_"
+    lines = [f"_Test: the {h['test_n']} most recent labelled accounts ({h['test_window'][0]} → {h['test_window'][1]}), "
+             f"{h['test_converters']} converted ({h['test_base_rate']:.1%}). Train: the {h['train_n']} before them. "
+             f"Fits performed: {h['fits_performed']} — the model's score is its out-of-fold prediction._"]
+    for K in ("30", "60"):
+        lines += ["", f"**K = {K}**", "",
+                  "| who builds the list | converted | precision | 95% CI | recall | contacts sunk |", "|---|---|---|---|---|---|"]
+        for r in h["by_K"][K]:
+            b = "**" if (r["policy"].startswith("continue alone") or r["policy"].startswith("THE GRAPH")) else ""
+            if r["precision"] is None:
+                lines.append(f"| {r['policy']} | — | — | {r['ci95']} | — | — |"); continue
+            lines.append(f"| {b}{r['policy']}{b} | {r['converted']} | {b}{r['precision']:.1%}{b} | {r['ci95']} | "
+                         f"{r['recall']:.0%} | {r['contacts_sunk']} |")
+    lines.append("\n**What this test can judge:** the model against the rules — exploit beats the model's honest "
+                 "score about 2×, and adding the model's picks to exploit removes conversions. **What it cannot "
+                 "judge:** explore and the agent. Both pick accounts history never called; their historical rate is "
+                 "*what happens when nobody calls*, which is the question the arms exist to answer. Reading explore's "
+                 "row as its value would be the same confounding error in reverse.")
+    return "\n".join(lines)

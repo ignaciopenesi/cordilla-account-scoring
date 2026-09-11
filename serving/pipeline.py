@@ -4,8 +4,8 @@ Cordilla account scoring — the serving pipeline.
 A stateful graph. One State object is passed node to node; each node adds to it and
 returns it. Nothing writes to Salesforce without passing the HITL node.
 
-    INGEST -> VALIDATE -> SCORE -> {BASELINES, FLAGS, CONVERSATION_INTENT, CALIBRATE_VENDOR}
-           -> RECONCILE -> {ALLOCATE, HYGIENE, VERDICT} -> PRESCRIBE -> HITL -> EMIT
+    INGEST -> VALIDATE -> SCORE -> CLEAN -> RANK -> PROVE -> RECONCILE -> VALUE -> BUDGET
+           -> {HYGIENE, VERDICT} -> PRESCRIBE -> HITL -> EMIT
            -> (day 90) READOUT
 
 Why a graph and not a script: the audit concluded the model's ranking is noise-level
@@ -19,11 +19,15 @@ the point: what runs today is real, and what doesn't is declared.
 
 Usage:
     python serving/pipeline.py                  # dry run, writes nothing outside serving/out
-    python serving/pipeline.py --demo           # end to end on synthetic demo data
+    python serving/pipeline.py --demo           # + SIMULATED 90-day outcomes, so READOUT and the loop can be seen
     python serving/pipeline.py --approve        # simulate the manager signing off
     python serving/pipeline.py --llm live       # use the backends configured in config.toml
     python serving/pipeline.py --check-llm      # probe those backends and the agent routing
     python serving/pipeline.py --map            # print the node map and exit
+    python serving/pipeline.py --demo --cycles 4 --reset-cycles
+                                                # run four simulated cycles back to back: READOUT
+                                                # writes cycles.jsonl and next_cycle.json, BUDGET
+                                                # reads them -- the loop, visibly turning
 """
 from __future__ import annotations
 
@@ -115,30 +119,27 @@ NODE_MAP = [
     ("INGEST",              "runs",    "loads the CSVs, the pickle, and declares capabilities"),
     ("VALIDATE",            "runs",    "gate: nulls, ranges, unseen categories, label window, staleness"),
     ("SCORE",               "runs",    "the pickle scores the 300 — one voice, not the decision"),
-    ("BASELINES",           "runs",    "ORDER BY contacts, random, and what the team does today"),
-    ("FLAGS",               "runs",    "per account: the reasons to distrust its score"),
-    ("CONVERSATION_INTENT", "partial", "the 4 coverage quadrants run; intent extraction needs transcripts"),
-    ("CALIBRATE_VENDOR",    "bypass",  "needs conversation intent to contrast the vendor against"),
-    ("RECONCILE",           "partial", "model vs effort runs; the conversation voice is missing"),
-    ("VALUE",               "bypass",  "counts decisions changed; needs the conversation voice"),
-    ("ALLOCATE",            "runs",    "three matched arms: exploit / explore / rep's choice (control)"),
+    ("CLEAN",               "runs",    "the purity agent: row flags + a variable scorecard on older rows → what RANK may use"),
+    ("RANK",                "runs",    "every account → intent segment × contact band → action: first-call / continue / ask / skip / neutral"),
+    ("PROVE",               "runs",    "uplift by segment (train/test/all), held-out recall, and the model as the brief's footnote"),
+    ("RECONCILE",           "runs",    "where the model and the team's own effort disagree — 55 accounts; the rep is asked"),
+    ("VALUE",               "runs",    "the price of an hour, the metric contract, and the bets with their dates"),
+    ("BUDGET",              "runs",    "cut at K → arms continue / first-call / control; cohorts ask / observe / skip"),
     ("HYGIENE",             "runs",    "CRM contradictions, as proposals with evidence"),
     ("VERDICT",             "runs",    "is this run worth anything? PSI, drift vs last run, concentration"),
     ("PRESCRIBE",           "runs",    "findings -> prioritised actions with an owner"),
     ("HITL",                "runs",    "the manager approves actions; nothing reaches the CRM before this"),
     ("EMIT",                "runs",    "writes what the rep, the manager and Salesforce each get"),
-    ("READOUT",             "bypass",  "needs 90-day outcomes that do not exist yet"),
+    ("READOUT",             "bypass",  "day 90: uplift per segment unbiased, settles the bets, moves arms only on evidence; "
+                                       "needs outcomes that do not exist yet"),
 ]
 
 
 def print_map(demo: bool = False) -> None:
     icon = {"runs": "✅", "partial": "🟡", "bypass": "⛔"}
     if demo:
-        NODE_MAP[5] = ("CONVERSATION_INTENT", "runs", "extracts intent from the synthetic transcripts")
-        NODE_MAP[6] = ("CALIBRATE_VENDOR", "runs", "contrasts the vendor's score against what was said")
-        NODE_MAP[7] = ("RECONCILE", "runs", "all three voices present")
-        NODE_MAP[8] = ("VALUE", "runs", "decisions changed, and the contacts that frees")
-        NODE_MAP[15] = ("READOUT", "runs", "on SIMULATED outcomes — the shape, not the answer")
+        NODE_MAP[7] = ("VALUE", "runs", "the price of an hour and the bets that settle it")
+        NODE_MAP[14] = ("READOUT", "runs", "on SIMULATED outcomes — the shape, not the answer")
     print("\nNODE MAP — what runs on today's data and what does not\n" + "─" * 78)
     for name, status, desc in NODE_MAP:
         print(f"  {icon[status]} {name:<20} {desc}")
@@ -149,18 +150,16 @@ def print_map(demo: bool = False) -> None:
 
 
 def run(args) -> State:
-    from nodes import (INGEST, VALIDATE, SCORE, BASELINES, FLAGS, CONVERSATION_INTENT,
-                       CALIBRATE_VENDOR, RECONCILE, VALUE, ALLOCATE, HYGIENE, VERDICT,
-                       PRESCRIBE, HITL, EMIT, READOUT)
+    from nodes import (INGEST, VALIDATE, SCORE, CLEAN, RANK, PROVE, RECONCILE, VALUE, BUDGET,
+                       HYGIENE, VERDICT, PRESCRIBE, HITL, EMIT, READOUT)
 
     state = State(args=args)
-    graph = [INGEST, VALIDATE, SCORE, BASELINES, FLAGS, CONVERSATION_INTENT,
-             CALIBRATE_VENDOR, RECONCILE, VALUE, ALLOCATE, HYGIENE, VERDICT,
-             PRESCRIBE, HITL, EMIT, READOUT]
+    graph = [INGEST, VALIDATE, SCORE, CLEAN, RANK, PROVE, RECONCILE, VALUE, BUDGET,
+             HYGIENE, VERDICT, PRESCRIBE, HITL, EMIT, READOUT]
 
     print(f"\nCordilla serving pipeline — reference date {TODAY:%Y-%m-%d}")
     if args.demo:
-        print("DEMO MODE — synthetic transcripts and simulated outcomes. Not Cordilla data.")
+        print("DEMO MODE — 90-day outcomes are SIMULATED (no true difference between arms). Not Cordilla data.")
     print("=" * 78)
     for node in graph:
         state.say(f"\n▸ {node.__name__}")
@@ -188,9 +187,13 @@ def main() -> None:
                    help="'template' renders the prompt and a worked example (the packet judges "
                         "this the same as a live call); 'live' calls the API if a key is set")
     p.add_argument("--demo", action="store_true",
-                   help="run end to end on SYNTHETIC transcripts and SIMULATED outcomes from "
-                        "serving/demo_data/ — everything derived from them is labelled demo")
+                   help="add SIMULATED 90-day outcomes (no true difference between arms) so READOUT and the loop run; everything derived is labelled demo")
     p.add_argument("--map", action="store_true", help="print the node map and exit")
+    p.add_argument("--cycles", type=int, default=1, metavar="N",
+                   help="(--demo only) run N cycles back to back so the READOUT→BUDGET loop "
+                        "is exercised; serving/out holds the last cycle, cycles.jsonl holds all")
+    p.add_argument("--reset-cycles", action="store_true", dest="reset_cycles",
+                   help="delete cycles.jsonl and next_cycle.json before running")
     p.add_argument("--check-llm", action="store_true", dest="check_llm",
                    help="probe the configured LLM backends and agent routing, then exit")
     args = p.parse_args()
@@ -202,7 +205,45 @@ def main() -> None:
         import llm
         llm.healthcheck()
         return
+    if args.reset_cycles:
+        for f in ("cycles.jsonl", "next_cycle.json"):
+            (OUT / f).unlink(missing_ok=True)
+        print("cycle memory cleared")
+    if args.cycles > 1 and not args.demo:
+        sys.exit("--cycles needs --demo: real outcomes arrive once every 90 days, not on request")
+    if args.cycles > 1:
+        _run_cycles(args)
+        return
     run(args)
+    print_map(args.demo)
+
+
+def _run_cycles(args) -> None:
+    """N demo cycles, one after another. Intermediate cycles run quietly; what is printed is
+    the loop itself -- what each READOUT learned and what it told the next BUDGET."""
+    import contextlib, io
+    print(f"\nCordilla — {args.cycles} simulated cycles (NO true difference between arms)")
+    print("the demo re-assigns the same 300 accounts each cycle; in production every cycle brings "
+          "new ones.\nwhat accumulates here is n, which is the point.")
+    print("=" * 78)
+    for i in range(args.cycles):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            state = run(args)
+        nxt = state.artifacts.get("next_cycle", {})
+        sc = state.artifacts.get("agent_scorecard", {})
+        cum = nxt.get("cumulative", {})
+        print(f"\ncycle {i + 1}")
+        print(f"  arms drawn    : " + " · ".join(f"{k} {v}" for k, v in state.artifacts.get("arms", {}).items())
+              + f" · holdout {state.artifacts.get('holdout', 0)}")
+        print(f"  cumulative    : " + " · ".join(f"{k} {v['k']}/{v['n']}" for k, v in cum.items()))
+        print(f"  agent, real   : released→{sc.get('real_released_should_not_convert', '—')}")
+        print(f"                  rescued →{sc.get('real_rescued_should_convert', '—')}")
+        print(f"  update        : {nxt.get('reason', '—')}")
+        print(f"  next sizes    : " + " · ".join(f"{k} {v}" for k, v in nxt.get("arm_sizes", {}).items()))
+    print("\n" + "=" * 78)
+    print(f"memory: serving/out/cycles.jsonl ({args.cycles} lines) · next_cycle.json · "
+          f"metrics.md carries the track record")
     print_map(args.demo)
 
 

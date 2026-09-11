@@ -106,6 +106,24 @@ agent(Agent(
 Write the experiment card the SDR manager reads before approving. For each arm state the
 hypothesis in one sentence, the result that would confirm it, and the result that would
 kill it. End with the readout date and one sentence on why the control arm exists.""",
+    example=(
+        "**This week: 90 accounts — continue 45, first-call 15, control 30 — plus a holdout nobody calls.**\n\n"
+        "**continue (45)** — Hypothesis: the best information we hold — a prospect who stated "
+        "readiness, then 1–4 logged contacts with a trial, then with a vendor record, then by count — beats the model's score. Confirms: converts at "
+        "or above control. Kills: converts below control once both arms pass 2,500 accounts.\n\n"
+        "**first-call (15)** — Hypothesis: the first call on an untouched trial account is where an hour changes "
+        "most (+10 pts on history, an upper bound). Half are called, half observed. Confirms: called "
+        "converts above observed. Kills: no difference at 138 per group.\n\n"
+        "**control (30)** — The rep picks. This is what happens without the system, and it is the "
+        "only reason either arm above can be read.\n\n"
+        "**ask** — 5+ contacts, no result, no conversation on file. The rep gets one question, "
+        "not a call: what do you know that the data does not? Their answer decides whether the "
+        "account rests or returns.\n\n"
+        "**holdout** — Prospects who said no after 4+ contacts and agreed to no next step. Nobody "
+        "calls them. If they convert anyway, the extractor misread them.\n\n"
+        "First readout 2026-10-30. It will be noisy — 30 per arm cannot resolve a realistic "
+        "difference — and it accumulates. The control arm exists because Cordilla has never had "
+        "one, which is why nobody could write up how the last scoring effort died."),
 ))
 
 agent(Agent(
@@ -212,6 +230,10 @@ INTENT_SCHEMA = {
                  "objections", "intent_level", "confidence"],
 }
 
+# PROPOSED, NOT WIRED (2026-09-11). The contract below is designed and was measured on synthetic
+# transcripts (proposal/conversation_layer/). No node in serving/pipeline.py calls it; it stays here
+# as the documented spot where a real call would plug in, and route() still refuses to send it to
+# a hosted backend.
 agent(Agent(
     name="conversation_intent",
     purpose="Extract buying signals from a call — the one account-intrinsic signal available",
