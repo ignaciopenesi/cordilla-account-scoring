@@ -1,0 +1,152 @@
+# Proposal — the conversation layer
+
+**Status: designed, measured on synthetic transcripts, and deliberately not wired into `serving/`
+(2026-09-11).** It re-enters the graph when real call transcripts exist for accounts whose outcome
+is known — ROLLOUT phase 2–3. Until then, nothing here runs in the pipeline.
+
+## Why it exists
+
+Every column in the data measures what Cordilla *did* to an account — contacts, MQLs, trials the
+team provisioned — or what a vendor guessed. The one input that is not a function of Cordilla's
+own effort is **what the prospect said on the call**. On the held-out 300, eight of the 23 buyers
+sit in `continue`'s pool below the cut and are indistinguishable from the non-converters beside
+them on every column (Mann-Whitney p > 0.5 on contacts, MQL, web and the model's own score). A
+conversation is the only remaining signal for them. That is this layer's job: **the margin** —
+the accounts the rules cannot rank — not the top of the list and not the skip bucket.
+
+## What it is
+
+One agent, `conversation_intent` (defined in `serving/llm.py`, routed `local` because transcripts
+are personal data; `route()` refuses a hosted backend). It reads a speaker-labelled transcript and
+returns validated JSON: `ready_to_act` (the field the pipeline would route on — budget already
+allocated, or a definite buy/go-live date), `evidence_quote` (the prospect's sentence, verbatim),
+`next_step_agreed`, `objections`, `intent_level` A–F as context, `confidence`. Two invariants a
+schema cannot express are checked after validation.
+
+Two nodes and a ledger were removed from the graph and are kept here for reference
+(`conversation_nodes_reference.py.txt`): `CONVERSATION_INTENT` (extraction + the coverage
+quadrants), `CALIBRATE_VENDOR` (the vendor's score against what prospects said), and `VALUE`'s
+ledger (rescued / released accounts, priced in hours, filed as dated bets). With the voice wired,
+`BUDGET` would move accounts first: READY or a next step agreed → `continue`; declined after 4+
+contacts with no next step → a `holdout` cohort, tracked and never called.
+
+## What was measured — on 20 synthetic transcripts from 12 templates, `qwen3:14b` locally
+
+| | v1 | v2 | v2.1 | **v2.2** |
+|---|---|---|---|---|
+| **`ready_to_act`** (what the pipeline routes on) | — | 1.00 | 0.90 | **1.00** |
+| ↳ missed / false alarms | — | 0/0 | 0/2 | **0/0** |
+| `next_step_agreed` | 1.00 | 0.55 | 1.00 | **1.00** |
+| `intent_level` exact (secondary) | 0.50 | 0.60 | 0.45 | **0.80** |
+| ↳ within one level | 0.80 | 0.90 | 0.80 | **1.00** |
+| hot vs cold | 0.80 | 0.75 | 0.75 | **0.95** |
+| `speaker_role` | 0.05 | *removed* | — | — |
+
+Three lessons, each decided by a number (RESEARCH-LOG entry 11): ask the question the model can
+answer (six levels → 50%; the same answers as a binary → 95%); a prompt edit silently broke a field
+it did not mention, so agents declare cross-field invariants; the enum was wrong, not the model —
+tightening the definition raised everything, including the six-level grade nobody touched.
+Grounding: 20 of 20 quotes found verbatim in their transcript. **Never tested:** the timeline
+trigger (every ready transcript stated a budget). **The 1.00 is a contract check on 12 scenarios of
+my own ground truth, not a field result.**
+
+## What it would add, and how it would be judged
+
+On the 20 synthetic transcripts it changed where 13 of 20 accounts went — stopping two calls the
+rules would have made to accounts that said no, surfacing eight the rules had in the pool
+(including the model's #286: *"we signed off on the budget last week"*), answering two `ask`
+questions. Its field metric is the same as every other mechanism's: at day 90, recall on the
+margin *with* the layer against *without*, and the bets it files — *released accounts do not
+convert; rescued accounts do* — settled against real outcomes, with `n ≥ 99` before a zero means
+anything.
+
+## To wire it back
+
+1. Recording with per-call disclosure on the 67 fill-gap accounts (they already receive calls).
+2. `python proposal/conversation_layer/extract_intents.py` against the local backend in
+   `serving/config.toml` — writes `intents.json`.
+3. Restore `CONVERSATION_INTENT` after `PROVE` and the voice-first branch in `BUDGET`
+   (reference file above; git history holds the wired version at commit `1ab43ab`).
+
+## Appendix — the measurement narrative, as written while it was wired (from serving/README, 2026-09-11)
+
+**v1 → v2: ask the question the model can answer.** v1 demanded a six-level grade and got
+50% exact — but collapsing the *same* answers to a binary scored 95%. The decision a rep
+makes is binary, so `ready_to_act` became the primary field and the grade was demoted to
+context. `speaker_role` was deleted outright: 5% is worse than guessing, and a transcript
+rarely states a title — that field belongs to the CRM, which already has it.
+
+**v2 → v2.1: a prompt change broke a field it never mentioned.** `ready_to_act` hit 1.00,
+and `next_step_agreed` collapsed from 1.00 to 0.55 — all nine errors false negatives. The
+cause was that v2's prompt listed five numbered work steps and `next_step_agreed` was in
+none of them, so the model stopped looking for it. Restoring it to the list fixed it
+completely. Two accounts also returned `ready_because: budget_stated` alongside
+`ready_to_act: false` — a reply contradicting itself, which a typed schema cannot catch.
+Agents now declare **invariants**: cross-field rules checked after schema validation, with
+a retry on violation.
+
+**v2.1 → v2.2: the enum was under-specified, not the model.** Forcing the invariant turned
+those two contradictions into two false alarms, both `timeline_stated` — one on *"sometime
+next year maybe, not this quarter"* and one on *"I can take it to my VP next month"*. The
+model was treating any mention of time as a timeline. So the definitions were tightened in
+the system prompt (budget must already be allocated; a date must be for buying or going
+live, not for an internal errand, and not hedged) and the enum renamed to
+`budget_approved` / `purchase_timeline`. Everything went up — including `intent_level`,
+from 0.45 to 0.80, which nobody touched.
+
+> **The lesson is about the contract, not the model.** The same 14B model on the same 20
+> transcripts went from 50% to 100% on the field that matters, because the questions got
+> sharper. Three cycles, about twenty minutes of compute, and every step was decided by a
+> measurement rather than by taste.
+
+**`CALIBRATE_VENDOR` produced the table nobody at Cordilla can produce today**: on the 12
+accounts where both a vendor score and a call exist, vendor and conversation agree 58% of
+the time, with 3 accounts the vendor calls hot that the conversation reads cold. On
+synthetic data that number means nothing — the *method* is the deliverable, and it costs
+nothing once calls are recorded.
+
+**`RECONCILE` settled 4 disagreements with no human involved.** One is the cell that
+matters: `ACC-01282`, model score 4.0% (bottom quartile), 3 logged contacts, and the call
+says *"We signed off on the budget last week and we need this live before the fiscal year
+closes."* The model is wrong, the rep was right, and the system can now prove it rather
+than ask.
+
+**`READOUT` produced exactly the null it was built to produce.** Outcomes simulated at the
+brief's 3% field rate with **no true difference between arms**: continue 6.7%, control 3.3%,
+first-call 3.3% — a 3.3-point spread out of pure noise, every confidence interval overlapping
+every other. That is the honest shape of one cycle, and the pipeline files it as a finding:
+*one cycle of 30 per arm cannot resolve a realistic difference; commit to two quarters and
+say so before the first readout rather than after.*
+
+### What testing this against a real local model showed
+
+Running `conversation_intent` against `qwen3:14b` on Ollama surfaced three things worth
+writing down, because they are the difference between a design that would work and one
+that does:
+
+| | |
+|---|---|
+| **`max_tokens` must be generous** | Reasoning models spend tokens thinking before answering. At 1024 the scratchpad consumed the whole budget and the reply came back as an **empty string** — not an error, which is the worst kind of failure. |
+| **The strict schema is doing real work** | With `response_format: json_schema`, the 14B model returned every required field. With `json_object` or nothing, it invented its own — `quote` instead of `evidence_quote`, required fields missing. Constrained decoding is what makes a small local model honour a contract. |
+| **A 14B model gets the structure right and the judgement wrong** | v1's first full run: exact quote and both objections correct, then labelled a budget-approved account **E, near-no-intent**. That gap between extraction and judgement is what the three contract revisions above were aimed at, and closing it needed no bigger model. |
+
+That last one matters more than the other two: **the same standard this audit applied to
+the inherited model applies to our own agent.** An intent level from an unvalidated
+extractor is an unvalidated instrument, whoever built it. Three things follow, and they are
+in the design rather than in a caveat:
+
+- **Route on what is measured.** `ready_to_act` scores 1.00 and `next_step_agreed` 1.00, so
+  the pipeline routes on those. `intent_level` scores 0.80 and is carried as context.
+- **Gate the uncertain band.** In v1 the 0.4–0.8 confidence band scored 25% on hot-vs-cold
+  — worse than chance — while both tails scored 86–100%. `RECONCILE` routes anything in
+  that band to a human instead of acting on it. With v2.2 the band is nearly empty (mean
+  confidence 0.97), but the gate stays: it costs nothing and it is the thing that would
+  catch the next regression.
+- **Model size is a tunable, not a constant.** 14B is what was on the machine. Three
+  contract revisions bought more than a bigger model would have, and the routing table is
+  one line if that stops being true.
+
+A 14B model on CPU takes 1–3 minutes per transcript. Fine for a nightly batch, useless for
+anything interactive — another reason the design is a weekly cycle rather than a live
+assistant.
+

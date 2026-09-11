@@ -1,0 +1,405 @@
+# Reference only -- the nodes and helpers removed from serving/nodes.py on 2026-09-11 when the
+# conversation layer became a proposal. Not importable as-is. Git history holds the wired version.
+
+def rescued_mask(a: pd.DataFrame) -> pd.Series:
+    """The model said skip, the prospect said READY. Bottom quartile on the score."""
+    if "ready_to_act" not in a:
+        return pd.Series(False, index=a.index)
+    return a.ready_to_act.notna() & (a.ready_to_act == True) & (a.p <= a.p.quantile(0.25))
+
+
+def released_mask(a: pd.DataFrame) -> pd.Series:
+    """Effort is going in, the prospect said NO -- and agreed to no next step.
+
+    The last clause matters. 'We are building the business case' with a working session
+    booked is a live process without budget yet, not a decline; releasing it would be the
+    system overruling a prospect who just asked for a meeting. An agreed next step keeps
+    an account in play regardless of what it said about money."""
+    if "ready_to_act" not in a:
+        return pd.Series(False, index=a.index)
+    no_step = ~a.next_step_agreed.eq(True)
+    return (a.ready_to_act.notna() & (a.ready_to_act == False)
+            & (a.sales_contacts_90d >= 4) & no_step)
+
+
+
+
+def CONVERSATION_INTENT(s: State) -> State:
+    """The missing signal -- and the one thing in this data that would describe the ACCOUNT
+    rather than describe Cordilla.
+
+    PARTIAL TODAY. The coverage quadrants below are computed from real data and are the
+    reason this node matters. The extraction itself needs transcripts, which the CSVs do
+    not carry, so it is bypassed rather than faked."""
+    a = s.accounts
+    has_vendor = a.intent_score.notna()
+    had_call = a.sales_contacts_90d > 0
+
+    quad = {
+        "calibrate_vendor (vendor record + a call happened)": int((has_vendor & had_call).sum()),
+        "fill_the_gap (no vendor record + a call happened)": int((~has_vendor & had_call).sum()),
+        "unverified (vendor record, no call)": int((has_vendor & ~had_call).sum()),
+        "blind (no vendor record, no call)": int((~has_vendor & ~had_call).sum()),
+    }
+    a["intent_quadrant"] = np.select(
+        [has_vendor & had_call, ~has_vendor & had_call, has_vendor & ~had_call],
+        ["calibrate", "fill_gap", "unverified"], default="blind")
+    s.artifacts["intent_quadrants"] = quad
+    for k, v in quad.items():
+        s.say(f"  {v:4d}  {k}")
+
+    contacts_in_gap = int(a.loc[~has_vendor, "sales_contacts_90d"].sum())
+    total_contacts = int(a.sales_contacts_90d.sum())
+    s.say(f"  {contacts_in_gap} of {total_contacts} logged contacts ({contacts_in_gap/total_contacts:.0%}) "
+          f"happened in accounts the vendor never covered")
+
+    s.find(what="Conversations that would fill the vendor's coverage gap already happen, and "
+                "are not captured",
+           evidence=f"{contacts_in_gap} of {total_contacts} contacts ({contacts_in_gap/total_contacts:.0%}) "
+                    f"are with accounts that have no vendor record; {quad['fill_the_gap (no vendor record + a call happened)']} "
+                    f"such accounts have had at least one call. Vendor COVERAGE predicts conversion "
+                    f"(8.22% vs 3.94%, p=0.003) but its SCORE does not (quintiles flat, p=0.42)",
+           severity="high", owner="process",
+           action="Record sales calls with per-call disclosure and transcript-only storage, and "
+                  "extract intent per the contract in llm.py. Start with the fill_gap quadrant -- "
+                  "it needs no new outreach, only capture of calls that already happen.",
+           cost="recording + transcription on existing calls; no new rep time",
+           expect="the 40% of the base the vendor cannot see gets a first-hand intent signal",
+           source="CONVERSATION_INTENT")
+
+    if s.has("call_transcripts"):
+        intents = s.artifacts["intents"]
+        for col, key in [("ready_to_act", "ready_to_act"), ("ready_because", "ready_because"),
+                         ("intent_level", "intent_level"), ("intent_conf", "confidence"),
+                         ("intent_quote", "evidence_quote"), ("next_step_agreed", "next_step_agreed")]:
+            a[col] = a.account_id.map(lambda x, k=key: intents.get(x, {}).get(k))
+        n_have = int(a.intent_level.notna().sum())
+        s.say(f"  extracted intent for {n_have} accounts using "
+              f"'{s.artifacts.get('intent_extractor')}'  ⚠ SYNTHETIC transcripts")
+        s.say(f"  ready_to_act: {int((a.ready_to_act == True).sum())} yes, "
+              f"{int((a.ready_to_act == False).sum())} no   ← the field the pipeline routes on")
+        s.say("  intent_level (secondary): " +
+              ", ".join(f"{k}={v}" for k, v in sorted(a.intent_level.value_counts().items())))
+        m = s.artifacts.get("intent_metrics") or {}
+        if m:
+            s.say(f"  agent quality vs ground truth: READY_TO_ACT "
+                  f"{m.get('ready_to_act_exact', 0):.0%} "
+                  f"({m.get('ready_to_act_false_cold', '?')} missed, "
+                  f"{m.get('ready_to_act_false_hot', '?')} false alarms) · "
+                  f"next_step {m.get('next_step_exact', 0):.0%} · "
+                  f"level (secondary) {m.get('intent_level_exact', 0):.0%}")
+            # Only the fields the pipeline ROUTES on gate the finding. intent_level is
+            # secondary by design now, so a mediocre score there is not a blocker.
+            weak = (m.get("ready_to_act_exact", 1) < 0.9
+                    or m.get("next_step_exact", 1) < 0.9)
+            if weak:
+                s.find(what="The intent extractor is not accurate enough to act on the level alone",
+                       evidence=f"against known ground truth on {m.get('n_extracted')} transcripts: "
+                                f"exact level {m.get('intent_level_exact', 0):.0%}, within one "
+                                f"{m.get('intent_level_within_one', 0):.0%}, hot-vs-cold "
+                                f"{m.get('hot_vs_cold_correct', 0):.0%}, speaker role "
+                                f"{m.get('speaker_role_exact', 0):.0%}, next step "
+                                f"{m.get('next_step_exact', 0):.0%}, mean self-reported confidence "
+                                f"{m.get('mean_confidence', 0):.2f}",
+                       severity="high", owner="model",
+                       action="Use what is EXTRACTED (quote, objections, next step) — that is "
+                              "reliable. Treat what is INFERRED (level, speaker role) as a "
+                              "hypothesis until READOUT has measured it against outcomes. Try a "
+                              "larger model — the routing table is one line — and re-run "
+                              "extract_intents.py to re-measure before relying on the level.",
+                       cost="a model swap and one re-run of extract_intents.py",
+                       expect="the same standard this audit applied to the inherited model, applied "
+                              "to the one this repo introduces",
+                       source="CONVERSATION_INTENT")
+        s.bypass(node="CONVERSATION_INTENT (coverage)",
+                 reason=f"only {n_have} of {int(had_call.sum())} accounts with a logged call have a "
+                        f"transcript, and those transcripts are synthetic",
+                 unblocked_by="recording every call; then coverage equals the fill_gap + calibrate "
+                              "quadrants above",
+                 would_produce=f"intent for all {int(had_call.sum())} accounts with a logged call, "
+                               f"not {n_have}",
+                 still_computed=f"intent extracted for {n_have} accounts")
+        return s
+
+    s.bypass(node="CONVERSATION_INTENT",
+             reason="the two CSVs carry no call transcripts",
+             unblocked_by="call recording with disclosure (two-party-consent states and GDPR "
+                          "make this a precondition) + Dialpad Ai Call Purpose / Custom Moments, "
+                          "or any ASR feeding the `conversation_intent` agent in llm.py",
+             would_produce="per account: intent_level A-F grounded in a verbatim prospect quote, "
+                           "objections[], next_step_agreed, speaker_role, call_purpose, confidence",
+             still_computed=f"the four coverage quadrants: {quad}")
+    sample = Path(__file__).resolve().parent / "sample_transcript.txt"
+    if sample.exists():
+        s.say("  demonstrating the contract on serving/sample_transcript.txt "
+              f"(agent routed to '{llm.CONFIG.get('routing', {}).get('conversation_intent')}')")
+        out = llm.draft("conversation_intent", mode=s.args.llm, account_id="ACC-00453",
+                        date="2026-07-22", transcript=sample.read_text())
+        s.artifacts["conversation_intent_demo"] = out
+        print(out)
+    s.say("  → run with --demo to execute this node on synthetic transcripts")
+    return s
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+def CALIBRATE_VENDOR(s: State) -> State:
+    """Is the intent vendor right? Nobody at Cordilla can answer that today.
+
+    Where a vendor record AND a call both exist, the vendor's claim is contrastable
+    against what the prospect actually said. That is the only way to find out whether the
+    score you are paying for is worth anything -- and it is evidence for the renewal."""
+    a = s.accounts
+    n_contrastable = int(s.artifacts["intent_quadrants"]
+                         ["calibrate_vendor (vendor record + a call happened)"])
+
+    if s.has("call_transcripts") and "intent_level" in a:
+        both = a[a.intent_level.notna() & a.intent_score.notna()].copy()
+        if len(both):
+            # vendor says "high" if its score is in the top half of its own observed range
+            cut = a.intent_score.median()
+            both["vendor_says"] = np.where(both.intent_score >= cut, "high", "low")
+            both["call_says"] = np.where(both.intent_level.isin(["A", "B", "C"]), "high", "low")
+            tab = pd.crosstab(both.vendor_says, both.call_says)
+            agree = float((both.vendor_says == both.call_says).mean())
+            s.say(f"  {len(both)} accounts where both the vendor and a call exist")
+            s.say("  vendor (rows) vs conversation (cols):\n" + tab.to_string().replace("\n", "\n    "))
+            s.say(f"  agreement: {agree:.0%}")
+            s.artifacts["vendor_calibration"] = {"n": len(both), "agreement": agree,
+                                                 "table": tab.to_dict()}
+            over = both[(both.vendor_says == "high") & (both.call_says == "low")]
+            if len(over):
+                s.find(what="The intent vendor overstates on accounts we can check",
+                       evidence=f"of {len(both)} accounts with both a vendor score and a call, "
+                                f"{len(over)} are scored high by the vendor and read low from the "
+                                f"conversation (overall agreement {agree:.0%}). ⚠ synthetic demo data — "
+                                f"the METHOD is the deliverable, not this number",
+                       severity="medium", owner="vendor",
+                       action="Run this table monthly on real calls and take it into the renewal. "
+                              "Pay for coverage, which predicts (p=0.003); stop paying for the "
+                              "score, which does not (p=0.42).",
+                       cost="free once calls are recorded",
+                       expect="the renewal is negotiated on evidence instead of the vendor's claim",
+                       source="CALIBRATE_VENDOR")
+            return s
+
+    s.bypass(node="CALIBRATE_VENDOR",
+             reason="needs CONVERSATION_INTENT, which has no transcripts to work from",
+             unblocked_by="the same recording capability; then no new data is required",
+             would_produce=f"on the {n_contrastable} accounts where both exist: agreement between "
+                           f"vendor intent and conversation intent, by segment; where the vendor "
+                           f"systematically over- or under-states; a renewal memo with that evidence",
+             still_computed=f"the contrastable set: {n_contrastable} accounts")
+    s.find(what="The intent vendor's score has never been validated against anything",
+           evidence=f"{n_contrastable} scoring accounts have both a vendor record and a logged call, "
+                    f"so the vendor's claim is contrastable today. In training, vendor coverage "
+                    f"predicts conversion (p=0.003) while the score itself does not (Spearman p=0.42)",
+           severity="medium", owner="vendor",
+           action="Pay for coverage, not for the score: keep a boolean `intent_known`, stop using "
+                  "the numeric value in any model or view. Once calls are recorded, measure "
+                  "agreement on these accounts and take it into the renewal.",
+           cost="0 now (a field change); the measurement comes free with recording",
+           expect="the renewal is negotiated on evidence instead of on the vendor's own claim",
+           source="CALIBRATE_VENDOR")
+    return s
+
+
+
+
+    # The third voice. These two cells are the ones that need no human at all: the
+    # conversation settles who was right.
+    if s.has("call_transcripts") and "ready_to_act" in a:
+        # Route on ready_to_act, not on the six-level grade. Measured: the binary scores
+        # ~100% against ground truth, the exact grade ~60%. Ask a small model the question
+        # it can answer.
+        LO, HI = 0.4, 0.8            # the band where v1 scored worse than chance
+        conf = pd.to_numeric(a.intent_conf, errors="coerce")
+        uncertain = conf.between(LO, HI, inclusive="left")
+        hot = (a.ready_to_act == True) & ~uncertain
+        cold = (a.ready_to_act == False) & ~uncertain
+        n_gated = int((uncertain & a.ready_to_act.notna()).sum())
+        if n_gated:
+            a.loc[uncertain & a.ready_to_act.notna(), "disagreement"] = "NEEDS_HUMAN_low_confidence"
+            s.say(f"  {n_gated} extractions fall in the {LO}-{HI} confidence band and are "
+                  f"routed to a human rather than acted on")
+        a.loc[(a.p <= q_lo) & (a.sales_contacts_90d >= 3) & hot, "disagreement"] = \
+            "MODEL_WRONG_rep_was_right"
+        a.loc[(a.p >= q_hi) & (a.sales_contacts_90d >= 5) & cold, "disagreement"] = \
+            "SUNK_COST_stop_calling"
+        a.loc[hot & (a.sales_contacts_90d == 0), "disagreement"] = "HOT_and_untouched"
+        settled = a.disagreement.isin(["MODEL_WRONG_rep_was_right", "SUNK_COST_stop_calling",
+                                       "HOT_and_untouched"]).sum()
+        # next_step_agreed is the single best standalone signal measured (v1: 100% exact,
+        # and as a proxy for "hot" 100% precision / 91% recall). Surface it on its own.
+        ns = (a.next_step_agreed == True) & (a.sales_contacts_90d > 0)
+        if ns.any():
+            s.say(f"  {int(ns.sum())} accounts agreed a concrete next step on the call "
+                  f"— the strongest single signal the extractor produces")
+        s.say(f"  with the third voice, {int(settled)} disagreements are SETTLED without asking anyone:")
+        for k in ["MODEL_WRONG_rep_was_right", "SUNK_COST_stop_calling", "HOT_and_untouched"]:
+            cnt = int((a.disagreement == k).sum())
+            if cnt:
+                s.say(f"    {cnt:3d}  {k}")
+        ex = a[a.disagreement == "MODEL_WRONG_rep_was_right"].head(1)
+        if len(ex):
+            r = ex.iloc[0]
+            s.say(f'    e.g. {r.account_id}: model {r.p:.1%}, {int(r.sales_contacts_90d)} contacts, '
+                  f'call says {r.intent_level} — "{str(r.intent_quote)[:70]}…"')
+        return s
+
+
+
+    s.bypass(node="RECONCILE (third voice)",
+             reason="conversation intent is unavailable, so only model-vs-effort can be compared",
+             unblocked_by="CONVERSATION_INTENT",
+             would_produce="the two cells that need no human at all: 'model low + rep insists + "
+                           "conversation says A/B' (the model is wrong, and we can prove it) and "
+                           "'model high + 5+ contacts + conversation says E/F' (sunk cost, stop)",
+             still_computed=f"model-vs-effort disagreements: {counts.to_dict()}")
+
+
+# ── B ────────────────────────────────────────────────────────────────────────
+def _ledger(s: State) -> State:
+    """Decisions the system changed, priced in the manager's unit.
+
+    Three things this deliberately does NOT do: claim a conversion lift (READOUT's job,
+    90 days out, against a control), convert anything to currency (we have no deal size),
+    or count agreement as value."""
+    a = s.accounts
+    if "ready_to_act" not in a or a.ready_to_act.isna().all():
+        s.bypass(node="VALUE (ledger)",
+                 reason="no conversation intent, so nothing can contradict the model",
+                 unblocked_by="CONVERSATION_INTENT",
+                 would_produce="rescued / released counts, the hours they move, and the dated "
+                               "bets in part C that settle them",
+                 still_computed="the price of a conversion and the recoverable stock above, which "
+                                "need only the two CSVs; plus the disagreement counts in RECONCILE, "
+                                "which are the upper bound on how many decisions could change")
+        return s
+
+    covered = a.ready_to_act.notna()
+    q_lo = a.p.quantile(0.25)
+
+    rescued = a[rescued_mask(a)]           # model said skip, prospect said READY
+    released = a[released_mask(a)]         # effort in, prospect said NO, no next step
+    # CONFIRMED — everyone agrees. Real, but it changes no decision, so it is not value.
+    confirmed = a[covered & (a.ready_to_act == True) & (a.p > q_lo)]
+
+    freed = int(released.sales_contacts_90d.sum())
+    total = int(a.sales_contacts_90d.sum())
+    hrs = freed * CONTACT_MINUTES / 60
+
+    rows = [
+        {"outcome": "RESCUED  model said skip, prospect said buy", "accounts": len(rescued),
+         "contacts": int(rescued.sales_contacts_90d.sum()),
+         "what it buys": "opportunities the ranking would have dropped"},
+        {"outcome": "RELEASED effort in, prospect said no", "accounts": len(released),
+         "contacts": freed, "what it buys": f"{hrs:.0f} rep-hours redirectable this quarter"},
+        {"outcome": "CONFIRMED everyone agrees", "accounts": len(confirmed),
+         "contacts": int(confirmed.sales_contacts_90d.sum()),
+         "what it buys": "nothing — agreement changes no decision"},
+    ]
+    s.say("\n  " + pd.DataFrame(rows).to_string(index=False).replace("\n", "\n  "))
+    s.artifacts["value"] = rows
+
+    changed = len(rescued) + len(released)
+    s.say(f"\n  hours moved: {freed} of {total} contacts ({freed / total:.1%}) = {hrs:.1f} rep-hours")
+    # 5 hours is not a number anyone acts on. The number that matters is what it becomes at
+    # full transcript coverage -- stated as an extrapolation, with its assumption named, so
+    # nobody quotes it as an observation.
+    CALLED = 170                      # accounts in the batch with at least one logged call
+    if int(covered.sum()):
+        scale = CALLED / int(covered.sum())
+        s.say(f"  ↳ EXTRAPOLATION (not an observation): transcripts cover {int(covered.sum())} of "
+              f"the {CALLED} accounts")
+        s.say(f"    in this batch that have had a call. At the same rate, full coverage of this "
+              f"batch moves ≈{hrs * scale:.0f} rep-hours")
+        s.say(f"    per cycle. Assumes the uncovered {CALLED - int(covered.sum())} behave like the "
+              f"covered {int(covered.sum())} — which is exactly")
+        s.say(f"    what the fill-gap rollout in the actions table is designed to test.")
+        s.artifacts["hours_extrapolation"] = {
+            "observed_rep_hours": round(hrs, 1), "covered_accounts": int(covered.sum()),
+            "accounts_with_a_call": CALLED, "projected_rep_hours_at_full_coverage": round(hrs * scale),
+            "assumption": "uncovered accounts release hours at the same rate as covered ones",
+            "status": "EXTRAPOLATION — not measured",
+        }
+    # Demoted on purpose. See the comment in _metric_contract.
+    s.say(f"  [instrumentation, NOT a value metric] decisions changed: {changed} of "
+          f"{int(covered.sum())} covered accounts ({changed / max(covered.sum(), 1):.0%})")
+
+    # The audit's circularity finding, visible on live accounts.
+    said_no = a[covered & (a.ready_to_act == False)]
+    said_yes = a[covered & (a.ready_to_act == True)]
+    if len(said_no) and len(said_yes):
+        s.say(f"\n  the score is INVERTED against what prospects said:")
+        s.say(f"    said NO  → mean score {said_no.p.mean():.1%} "
+              f"({said_no.sales_contacts_90d.mean():.1f} contacts)")
+        s.say(f"    said YES → mean score {said_yes.p.mean():.1%} "
+              f"({said_yes.sales_contacts_90d.mean():.1f} contacts)")
+        s.say("    This is the same confounding as part A, now on named accounts: effort already")
+        s.say("    spent on a dead account raises its rank, which justifies more effort.")
+        s.artifacts["score_inversion"] = {
+            "mean_score_said_no": float(said_no.p.mean()),
+            "mean_score_said_yes": float(said_yes.p.mean()),
+            "mean_contacts_said_no": float(said_no.sales_contacts_90d.mean()),
+            "mean_contacts_said_yes": float(said_yes.sales_contacts_90d.mean()),
+        }
+        s.find(what="The model ranks accounts that declined ABOVE accounts that are ready to buy",
+               evidence=f"on accounts with a transcript, mean score is {said_no.p.mean():.1%} for "
+                        f"those that said no vs {said_yes.p.mean():.1%} for those that said yes — "
+                        f"inverted. The cause is contact count ({said_no.sales_contacts_90d.mean():.1f} "
+                        f"vs {said_yes.sales_contacts_90d.mean():.1f}), the model's strongest feature. "
+                        f"⚠ synthetic demo transcripts; the mechanism is audit §3.5, which is not",
+               severity="high", owner="model",
+               action="Never rank on this score. Where a conversation exists, it overrides; where "
+                      "it does not, use the explore arm rather than the score. Breaking the loop "
+                      "requires a signal that is not a function of our own past effort.",
+               cost="0 — it is the policy this pipeline already implements",
+               expect="effort stops concentrating on accounts that are expensive because they "
+                      "have already been expensive",
+               source="VALUE")
+
+    if changed:
+        s.find(what="The conversation layer changes decisions the score alone would get wrong",
+               evidence=f"on {int(covered.sum())} accounts with a transcript: {len(rescued)} rescued "
+                        f"(bottom-quartile score, prospect stated budget or timeline), {len(released)} "
+                        f"released ({freed} contacts = {hrs:.0f} rep-hours going into accounts that "
+                        f"said no). Extraction measured at 100% on ready_to_act against known ground "
+                        f"truth. ⚠ synthetic demo transcripts — the mechanism is the finding, not the count",
+               severity="high", owner="process",
+               action=f"Extend recording to the {s.artifacts['intent_quadrants']['fill_the_gap (no vendor record + a call happened)']} "
+                      f"accounts in the fill-gap quadrant first: they already receive calls, so this "
+                      f"needs no new rep time. Settle the bets in metrics.md against real outcomes at day 90.",
+               cost="recording and transcription on calls that already happen",
+               expect=f"the same rate of change across the 170 accounts that have had a call, not just "
+                      f"{int(covered.sum())} — and a settled bet either way",
+               source="VALUE")
+    return s
+
+
+
+
+    v = {r["outcome"].split()[0]: r for r in s.artifacts.get("value", [])}
+    if "RELEASED" in v:
+        n_rel, c_rel = v["RELEASED"]["accounts"], v["RELEASED"]["contacts"]
+        bets.append({
+            "bet": "released accounts do not convert",
+            "claim": f"the {n_rel} accounts released (holding {c_rel} contacts = "
+                     f"{c_rel * CONTACT_MINUTES / 60:.0f} rep-hours) convert at or below the "
+                     f"{base_field:.0%} base rate",
+            "settles": str(settle.date()),
+            "falsified_if": f"any of them convert within 90 days — at n={n_rel} the base rate "
+                            f"predicts {n_rel * base_field:.1f}, so one conversion means the "
+                            f"extractor read a decline that was not there and the hours were not free",
+            "why_it_is_the_weakest_claim": "these accounts said no, or said nothing is moving, and "
+                                           "agreed to no next step — quote attached, human approving",
+        })
+    if "RESCUED" in v:
+        n_res = v["RESCUED"]["accounts"]
+        bets.append({
+            "bet": "rescued accounts convert despite a bottom-quartile score",
+            "claim": f"the {n_res} rescued accounts convert at or above the {base_field:.0%} base "
+                     f"rate, though the model ranked them in its bottom quartile",
+            "settles": str(settle.date()),
+            "falsified_if": "none of them convert — which would mean the conversation voice is no "
+                            "better than the score it overrode",
+        })

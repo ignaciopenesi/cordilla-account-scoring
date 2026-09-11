@@ -21,7 +21,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "serving"))
 import llm  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
