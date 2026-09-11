@@ -24,7 +24,14 @@ Expected feature columns, in the order the model was trained on: `account_type`,
 - `model/model.pkl`, a real, already-trained scikit-learn pipeline. Don't retrain it, your job is to understand and audit it, not rebuild it.
 - `data/training_data.csv`, the labeled historical data the model above was actually trained on. Provided so you can audit *how* it was trained, not just what it predicts.
 - `data/accounts_to_score.csv`, an unlabeled batch you'll run the model against as part of the serving step. Don't modify or regenerate either CSV; everyone works from the same files.
-- `audit/`, your model audit (notebook or scripts, your call).
+- `audit/01_model_audit.ipynb`, the model audit. Runs end to end in ~3 minutes:
+
+      jupyter nbconvert --to notebook --execute --inplace audit/01_model_audit.ipynb
+
+  or just open it — it is committed with all outputs and figures, so it reads on GitHub
+  without running anything. It never refits the shipped model; §0.4 explains the one
+  place it fits a *clone* of the architecture, and why that is diagnosis rather than
+  retraining.
 - `serving/`, your AI-assisted serving step: load the model, score `accounts_to_score.csv`, and do something workflow-shaped with the output.
 - `PROPOSAL.md`, your written design proposal (see the take-home packet for the required sections).
 - `RESEARCH-LOG.md`, your running log as you work: hypotheses, what you tried, dead ends, and specifically what you asked your AI tool and how you used what came back.
