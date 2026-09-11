@@ -9,3 +9,9 @@ _notes/
 # simulated cycle memory from --demo runs; check.sh removes it, a manual run may not
 serving/out/cycles.jsonl
 serving/out/next_cycle.json
+
+# editors and OS
+.vscode/
+.idea/
+.DS_Store
+venv/

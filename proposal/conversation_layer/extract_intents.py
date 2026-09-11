@@ -86,7 +86,7 @@ def main() -> None:
 
     files = sorted((DEMO / "transcripts").glob("*.txt"))
     if not files:
-        print("no transcripts — run serving/demo_data/make_transcripts.py first")
+        print("no transcripts — run proposal/conversation_layer/demo_data/make_transcripts.py first")
         return
 
     cache = {} if args.force or not CACHE.exists() else json.loads(CACHE.read_text()).get("intents", {})

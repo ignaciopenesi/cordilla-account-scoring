@@ -193,7 +193,7 @@ _Every prompt, verbatim, with the worked example that stands in for a live call.
 │ a concrete recommendation for THIS week, not a general observation.
 ├─ PROMPT ─────────────────────────────────────────────────────────────────
 │ Run of 2026-08-01. every feature is stable against training (max PSI 0.06, intent_score). Overlap of the top 30 with the previous run:
-│ 30/30. the model's top-30 shares only 11/30 accounts with a plain sort by contact count. Of the top 30, 7 carry no flags. The model's predicted
+│ not yet tracked (first week — same reference date on file). the model's top-30 shares only 11/30 accounts with a plain sort by contact count. Of the top 30, 7 carry no flags. The model's predicted
 │ probabilities sum to 19.7 expected conversions across 300 accounts (6.6%), against a
 │ field rate the business reports at 1-3%.
 │ 

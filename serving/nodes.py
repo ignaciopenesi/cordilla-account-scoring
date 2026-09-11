@@ -748,7 +748,7 @@ def BUDGET(s: State) -> State:
     control = a[a.half == "control"]                       # the rep's third: every account, as usual
     idle = sys_[~sys_.account_id.isin(taken)]              # the system's third it chose not to touch this week
 
-    a["arm"] = np.nan
+    a["arm"] = pd.Series([None] * len(a), index=a.index, dtype="object")
     for name, d in (("continue", cont), ("first-call", first_call), ("control", control),
                     ("ask", ask), ("observe", observe), ("skip", skip), ("idle", idle)):
         a.loc[a.account_id.isin(d.account_id), "arm"] = name
@@ -951,20 +951,26 @@ def VERDICT(s: State) -> State:
     # week-over-week: the audit showed a third of the top 30 moves on the seed alone
     prev_path = OUT / "last_top30.json"
     top30 = sorted(a.nsmallest(30, "p_rank").account_id.tolist())
+    ov = None
     if prev_path.exists():
-        prev = set(json.loads(prev_path.read_text()))
-        ov = len(set(top30) & prev)
-        s.say(f"  top-30 overlap with the previous run: {ov}/30")
+        blob = json.loads(prev_path.read_text())
+        prev_date = blob.get("reference_date") if isinstance(blob, dict) else None
+        prev = set(blob.get("top30", []) if isinstance(blob, dict) else blob)
+        if prev_date == str(TODAY.date()):
+            s.say("  week-over-week overlap: the run on file has the same reference date — this is the first "
+                  "week; overlap is tracked from the next one (the audit: a third of the top 30 moves on the seed alone)")
+        else:
+            ov = len(set(top30) & prev)
+            s.say(f"  top-30 overlap with the previous run ({prev_date or 'undated'}): {ov}/30")
     else:
-        ov = None
         s.say("  no previous run on file — overlap starts being tracked from next week")
-    prev_path.write_text(json.dumps(top30))
+    prev_path.write_text(json.dumps({"reference_date": str(TODAY.date()), "top30": top30}))
     s.artifacts["top30_overlap_prev_run"] = ov
 
     s.artifacts["run_verdict"] = llm.draft(
         "run_verdict", mode=s.args.llm, date=f"{TODAY:%Y-%m-%d}",
         psi_summary=f"every feature is stable against training (max PSI {psis[worst]:.2f}, {worst})",
-        overlap=f"{ov}/30" if ov is not None else "not yet tracked (first run)",
+        overlap=f"{ov}/30" if ov is not None else "not yet tracked (first week — same reference date on file)",
         concentration=f"the model's top-30 shares only {s.artifacts['top30_overlap_model_vs_rule']}/30 "
                       f"accounts with a plain sort by contact count",
         clean=s.artifacts["clean_in_top30"], sum_p=f"{s.artifacts['sum_p']:.1f}",
