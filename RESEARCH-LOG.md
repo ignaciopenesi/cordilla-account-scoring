@@ -1085,3 +1085,613 @@ remaining piece of work. It is also the piece the brief actually asked for in se
 default.* I have a better answer than I did yesterday and it is still not a single number.
 
 ---
+
+## Entry 14 — 2026-09-11 ~14:00–16:00 · Defining the metric, and the trap it turned out to be
+
+The remaining piece from Entry 13: *define the reliable metric*, framed where it was always
+framed — on rep hours. I started by pricing one, which nobody in this repo had done.
+
+**The economics, from the two CSVs.** 1,915 logged contacts bought 78 conversions:
+**24.6 contacts, ~4.9 rep-hours, per conversion**. In the batch, **52 of 300 accounts hold
+260 of 481 contacts** — 54% of the effort on 17% of the accounts. Historically, 168 accounts
+took ≥4 contacts and never converted, absorbing **789 contacts, 41% of all effort ever
+logged**. That is the pool the hours framing is about.
+
+### The trap, which is the actual finding
+
+The obvious next step is to optimise contacts-per-conversion. I built the yield curve to do
+that and it refused to give one answer:
+
+| reading | best | policy it implies |
+|---|---|---|
+| conversion **rate** by contact count | 5 contacts → 13.6% (base 6.5%) | call more |
+| **cost** per conversion at that count | 1 contact → 14; 5 contacts → 37 | never call twice |
+
+Same 1,200 rows, opposite policies. Neither is causal: reps keep dialling accounts that are
+going well and drop the ones that die, so contact count is an *effect* of intent as much as a
+cause of conversion (Spearman(contacts, converted) = +0.077, p = 0.0075 — real, and
+uninterpretable). **There is no observational cut of this data that yields
+conversions-per-hour.**
+
+That is the same error as the model's, one level up. Last time it lived in the score; this
+time it would have lived in the metric, which is worse, because a bad metric is what you use
+to check the score. It also converts `ALLOCATE` from a nice-to-have into the measuring
+instrument: randomisation is not rigour theatre here, it is the only way the denominator
+becomes readable. Filed as a `high` finding owned by `process`.
+
+One more number that is easy to miss: **23 of 78 conversions (29%) came from accounts with
+zero logged contacts.** Whatever outreach policy wins, it competes against a baseline that
+already converts for free.
+
+### The metric, as shipped
+
+Two numbers, and the hierarchy between them is **structural, not typographic** — the risk
+with two numbers is that the VP keeps the one he likes.
+
+1. **North star** — conversions per 100 contacts, by arm, cumulative. The only thing that
+   proves the system works.
+2. **Weekly headline** — rep-hours redirected off accounts that stated a decline, filed as a
+   **bet** carrying the date it settles and the result that falsifies it. You cannot read it
+   as an outcome because it states which outcome it predicts.
+
+Plus: the stock is **declared decaying** (789 contacts is spent once — a falling number is
+the system working, not dying); **proxy validity** is scheduled at every readout, and if
+redirected hours stop predicting conversions the weekly metric is retired *in the same
+report*; and **decisions changed (35%) is demoted to instrumentation**, because it is
+maximised by being maximally contrarian. That last one is the class of metric that inflated
+the thing we audited, so it does not get to be the headline of the thing that replaces it.
+
+### Taking the metric seriously changed the design twice
+
+**1 · The north star was unreachable and nobody had checked.** Detecting a 50% relative lift
+at the 3% field rate needs **2,515 accounts per arm** (1,106 at the 6.5% training rate). At
+30 per arm per weekly cycle that is **84 weeks — 1.6 years**, longer than the previous
+scoring effort survived. The repo had been quoting "~1,500 per arm" without deriving it.
+Assigning the whole batch instead of a third — 97 per arm, 291 of 300 — lands the readout in
+two quarters **at no extra rep-hours**, since the same accounts are being worked either way.
+The allocation changed because the metric was checked, not the other way round.
+
+**2 · I had to overrule my own code.** I wrote `_settle_bets` to mark each bet won or lost at
+day 90. It ran and returned **`WON — 0/2 converted`** for the release bet. That is exactly
+the sin this entire repo is about: 0/2 is what a 3% base rate produces anyway. Observing zero
+only means something once zero is unlikely under the null — `(1−0.03)^n < 0.05` → **n ≥ 99**.
+The verdict is now `UNDERPOWERED`, and a finding fires saying the hours claims are filed with
+falsifiers no single cycle can check, with the fix (track rescued and released accounts as
+named cohorts, read cumulatively; following released accounts costs zero rep-hours because
+nobody is calling them). My first implementation would have shipped a fake win on n=2 — in
+the node whose entire purpose is refusing fake wins.
+
+### What did not change
+
+`VALUE` now runs its economics half on every run rather than being wholly bypassed without
+transcripts — the price of a conversion and the metric contract need only the CSVs. The
+ledger half is still gated on the conversation voice, and still reports **4.8 rep-hours**
+moved on 20 transcripts, with the ≈41 rep-hours at full coverage labelled as the
+extrapolation it is. Model and CSVs untouched: `model.pkl` still `fc2cd6aa…`.
+
+**Still open:** the blocking question is unchanged — does `sales_contacts_90d` precede the
+outcome window or overlap it? If it overlaps, the hours economics above is measuring
+leakage, and 24.6 contacts per conversion is not the price of anything.
+
+## Entry 15 — 2026-09-11 ~16:30–19:30 · From a pipeline to an MVP: named cases, a readable brief, and a loop that refuses to move
+
+The ask, verbatim: *"un MVP bueno con reportes claros y casos de éxito reportables, además de
+un plan de implementación y mejora automatizada a lo largo del tiempo en base a los
+resultados."* I audited the outputs as a manager would read them before building anything.
+
+### What the audit of my own outputs found
+
+- **The best case in the repo was a code in a CSV.** `ACC-01282` — model 4.0%, percentile 5,
+  prospect says *"we signed off on the budget last week"* — appeared as
+  `MODEL_WRONG_rep_was_right` in `disagreements.csv`, and the quote lived in `run.json`. No
+  artefact of cases existed.
+- **37 of the brief's 80 lines were prompt boxes.** The section titled *Verdict* was a
+  rendered template. Fine for the reviewer; unreadable for the manager it is addressed to.
+- **The rescued account entered no arm.** Neither did the released ones. Which is why the
+  bets in Entry 14 returned `NOT SETTLEABLE`: the system filed a claim and then made it
+  impossible to check.
+- **No memory.** The only state between cycles was `last_top30.json`. `ARM = 30` was
+  hardcoded. `READOUT` *described* the epsilon-greedy update and did not perform it.
+
+### What changed, in the order built
+
+**1 · The prospect's voice now moves accounts.** `ALLOCATE` puts `ready_to_act = True`
+into `exploit` ahead of the contact rule — it is the highest-confidence call in the book —
+and sends released accounts to a `holdout` cohort: nobody calls them, their outcome is
+tracked at zero rep-hours. Both bets went from `NOT SETTLEABLE` to `UNDERPOWERED`, which is
+the honest state for n = 4 and n = 2.
+
+**2 · A definition I had to tighten.** The released set contained `ACC-00270`: level C,
+*"we're building the business case"* — **with a working session booked**. Releasing an
+account that just asked for a meeting is the system overruling the prospect. Rule:
+`released` now requires `next_step_agreed = False`. An agreed next step is a live process
+regardless of what was said about money. Four released instead of five; 19 contacts and
+3.8 rep-hours instead of 24 and 4.8; the full-coverage extrapolation 41 → 32. The number
+went *down* because the definition got better, and I would rather report that than the
+larger one. I also centralised `rescued_mask` / `released_mask` so `VALUE`, `ALLOCATE`,
+`READOUT` and `cases.md` cannot drift — they already had, once (5 vs 4).
+
+**3 · `cases.md`.** Every rescued and released account, by name: vendor · effort · model
+score and percentile · flags · **the prospect's sentence** · the three voices side by side ·
+what changed · which bet it sits in and when it settles · what it proves and what it cannot.
+Plus the aggregate case (the inversion) and a table of the four levels of evidence.
+One bug worth recording: `r.flags` returned a pandas `Flags` object, because a Series has
+that attribute. `r["flags"]` from now on.
+
+**4 · The brief, reordered for the reader.** Verdict (text) → what changed this week (the two
+strongest cases, one line each, with the quote) → where the metric stands (north star not
+readable · weekly headline as a bet · **agent scorecard: synthetic 1.00 · real pending
+0/99**) → the experiment → actions → what is dark → *appendix: the prompts, verbatim*. The
+reviewer loses nothing; the manager stops at the line.
+
+**5 · The loop.** `cycles.jsonl` is append-only memory: one line per cycle with arms,
+outcomes, settled bets and agent tallies. `_learn()` in `READOUT` reads all of it and writes
+`next_cycle.json`, which `ALLOCATE` reads. Three things learn, each gated:
+
+| loop | changes | gate |
+|---|---|---|
+| allocation | ±5 accounts toward the best arm, **floor 20%** | every arm n ≥ 99 **and** best lower bound clears worst upper bound |
+| agent | real precision beside synthetic 1.00; a finding sends the contract to revision | n ≥ 99 settled |
+| metric | retires the weekly headline if it stops tracking the north star | same n as the north star |
+
+`--demo --cycles 4 --reset-cycles` runs four cycles back to back. A guard stops simulated
+memory from feeding a real run: `next_cycle.json` carries `simulated`, and `ALLOCATE`
+ignores it when the modes differ.
+
+### Where the loop corrected me
+
+My first allocation rule moved on *best lower bound* once every arm passed n = 99. In the
+demo — **no true difference between arms, by construction** — it fired at cycle 4:
+*"moved 5 from exploit (1.3%) to control (2.3%)"*. It was rewarding whichever arm got
+lucky. The 99 threshold answers *does a zero mean anything*; it says nothing about
+*can I tell two arms apart*, which at 3% needs ~2,500. The rule now requires the best
+arm's interval to clear the worst arm's. Re-run: **four cycles, four refusals**, the last
+one saying *"control [2.3%, 10.5%] and exploit [1.3%, 8.3%] overlap at n=120; separating a
+50% lift needs ~2,515/arm."* A loop that visibly declines to act on noise is the
+demonstration; one that moved would have been the previous scoring effort with extra steps.
+
+### State at hand-off
+
+16 nodes · 11 run / 3 partial / 2 bypassed on the CSVs · 16/16 in `--demo` · all modes
+exit 0 · `model.pkl` `fc2cd6aa…`, CSVs untouched. Outputs: `manager_brief.md`, `cases.md`,
+`metrics.md`, `rep_worklist.csv`, `actions.csv`, `disagreements.csv`, `cycles.jsonl`,
+`next_cycle.json`, `run.json`. New at the root: `ROLLOUT.md` — six phases, each with the
+result that stops the next one, and the three loops with their gates.
+
+Nothing is committed yet; that is a decision for the person whose repo it is.
+
+**Still open, unchanged:** does `sales_contacts_90d` precede the outcome window or overlap
+it? Every hours number above assumes *precede*.
+
+## Entry 16 — 2026-09-11 ~19:30–21:00 · The head-to-head, and the arm that was the sunk cost with a new name
+
+The ask: *"de los 300, qué diría el modelo vs lo que dice lo que construimos — si eso está
+flojo hay que seguir."* So I computed it before writing anything.
+
+### What was weak
+
+The model's answer to *who do I call* is its top 30. Ours was three arms. Side by side, on
+the real 300:
+
+- Of the model's 30: **15 not assigned** (12 stale), 10 in exploit, 4 in explore, 1 control.
+- **Exploit carried 18 of 30 accounts with our own `over invested` flag.** Exploit was
+  `ORDER BY sales_contacts_90d DESC` — the rule that beats the model out of sample — which
+  is also, by definition, *the most-called accounts*. We were handing the rep a list that
+  said "call `ACC-01326`, 9 contacts, no result" with a flag on it saying don't. The model's
+  #3 (`ACC-01064`, 5 contacts) and #7 (`ACC-00122`, 6 contacts) were both in our exploit
+  arm. **That is the sunk-cost policy with a new name**, and the user's instinct that it was
+  weak was right.
+
+### The fix, and the observational argument against it
+
+Exploit is now **1–4 contacts, most first** — engaged, not exhausted. Accounts with **5+
+contacts and no conversation on file** go to a new cohort, **`ask`**: the rep gets one
+question, not a call task — *"You have logged 6 contacts here with no result. What do you
+know that the data does not — and is the next hour worth it, or should this one rest?"*
+That is the `disagreement_question` agent finally having a job, and the `over invested`
+flag finally having a consequence. With a transcript, the cohort dissolves: READY or a
+next step agreed → exploit; declined → holdout.
+
+The honest case against: in training, **≥5 contacts converts at 13.3% against 6.9% for
+1–4.** Observationally the over-invested accounts are the *best*. But they cost 42 contacts
+per conversion against 33, and the 13.3% is the confounding this whole repo is about —
+reps keep calling accounts that are converting. `ask` does not abandon them; it makes the
+next hour conditional on an answer. And the answer is data nobody has today.
+
+### The head-to-head as it stands, real data, no transcript
+
+| the model's top 30 | count | why |
+|---|---|---|
+| refresh first | **12** | snapshot >180 days |
+| ask, don't call | **7** | 5+ contacts, no result, no voice |
+| explore | 4 | never contacted, has signal |
+| **exploit — called as-is** | **3** | |
+| pool / control | 4 | not drawn |
+
+**Three of the model's thirty survive unchanged.** The model's #1 (`ACC-01491`: 5 contacts,
+290 days, no result) is *refresh first*. Its #3 and #7 are *ask*. Its #9 (`ACC-00657`, 4
+MQLs, never called, 305 days) is *refresh first* then *explore*. Every verdict is a flag or
+a cohort the manager can verify on the row. `ALLOCATE` now prints this table every run and
+`EMIT` puts it in the brief — it is the system's own account of how it differs from the
+thing it replaces, not mine.
+
+Exploit now carries **0** over-invested accounts on the real data (1 in `--demo`: `ACC-00270`,
+5 contacts, but the prospect booked a working session — called, correctly). `ask` holds 18
+accounts and **102 contacts — 20 rep-hours a quarter** — that used to be spent without a
+question. That number is real and needs no transcript.
+
+### The walkthrough, once more, so nobody gets lost
+
+`RESULTS.md` §A has it node by node. The short form: **VALIDATE** finds 102 stale and 101
+mislabelled · **SCORE** promises 19.7 conversions the field will not deliver · **FLAGS**
+marks 245 of 300 with at least one reason to doubt · **RECONCILE** finds 55 places the model
+and the team's own effort disagree · **VALUE** prices a conversion at 24.6 contacts and
+shows the price cannot be optimised from this data · **ALLOCATE** turns that into three
+arms and two cohorts, and prints the head-to-head · **HYGIENE** finds 86 of 101 "Suspects"
+are not · **READOUT** waits for day 90, then settles bets and refuses to move arms on noise.
+
+**Still open, unchanged:** the contact-window question. Everything above assumes *precedes*.
+
+### Addendum — the agent's contribution, account by account, and one more bug
+
+Asked plainly: *what do the agents add over the model's number, on the cases we see?* I
+ran the same 20 accounts through the pipeline twice — rules only, then rules plus the
+extractor — and compared destinations.
+
+First pass: **11 of 20 changed**, and three prospects who had said *READY* stayed in the
+pool. Cause: `engaged` was drawn from `eligible`, the non-stale rows, and those three
+accounts had CRM snapshots 304–618 days old. A conversation last week was being blocked by
+a CRM row nobody had touched in a year. **A conversation is the freshest fact we hold
+about an account; staleness is a reason to distrust the columns, not the prospect.**
+`engaged` now comes from all rows.
+
+Second pass: **15 of 20 changed** — 13 on information the rules did not have, 2 by the
+control draw reshuffling. Of the 13: **8 into exploit** (7 said READY — including the
+model's #286, #248, #215, #208 — and 1 booked a working session), **4 into holdout** (said
+no; two of them the rules had in *exploit* on 4 contacts each), **1 ask → exploit** (said
+"building the case", meeting booked). The plain statement for the panel: *on the real 300
+without transcripts, the LLM agents add no information — every verdict in the head-to-head
+is a rule on a column. With transcripts, the extractor changes where 13 of 20 accounts go,
+and each change is a sentence the prospect said.*
+
+### Addendum — two things I had treated as facts that are hypotheses
+
+**Staleness.** I had stale accounts (>180 d) barred from every arm. The user's call: flag
+it, do not block it — the working hypothesis is that a two-quarter-old description is still
+actionable, and the presentation proceeds on that. So: the rep sees *snapshot 290 days* on
+the row and works the account; `READOUT` compares stale vs fresh conversion inside each arm
+(in `--demo`: fresh 2/61, stale 1/29 — simulated, no difference by construction); if stale
+loses, the flag becomes a filter. The guardrail changed from *0 stale in arms* to *stale
+must not convert materially below fresh*. Effect on real data: `ask` grows 18 → 29 (168
+contacts, 34 rep-hours — the over-invested stale accounts were being excluded, now they
+are asked); the model's top 30 goes **11 ask · 10 pool/control · 5 explore · 4 exploit**,
+three of the four flagged stale.
+
+**"Suspect".** I had written *"Suspect means no engagement"* as if the brief said so. It
+does not: the PDF lists the three values and says the non-customers are *"mostly
+untouched"*. The funnel reading (Suspect → Prospect → Customer) is the industry convention
+and **our hypothesis**. Under it, 85% of Suspects are mislabelled. Under *any* reading the
+field is empty — conversion identical across types (χ² p = 0.84), model importance 0.003.
+The finding now says so, and its first action is a question to the CRM owner, not a bulk
+update.
+
+## Entry 17 — 2026-09-11 · Can the rate go higher? Seven rules, one survivor, and the model's number measured as memory
+
+**Suspect, checked the way the user asked — with contacts.** Suspects carry *more* logged
+contacts than Prospects (1.69 vs 1.54 mean; 61% vs 59% with ≥1; 18% vs 14% with ≥4), the same
+MQL rate (50% vs 51%), the same trial rate; Mann-Whitney p = 0.20 — indistinguishable. Only 15%
+of Suspects are truly untouched, against 16% of Prospects. **Hypothesis validated: they are
+worked exactly like Prospects; the label is mislabelled.** Said, and moved on.
+
+**Staleness became a flag.** The user's call: mention it, flag it, do not cut. Working hypothesis
+for the presentation — a two-quarter-old description is still actionable — and `READOUT` now
+tests it (stale vs fresh conversion inside each arm). Effect: `ask` grew 18 → 29; the model's
+top 30 now goes 11 ask · 8 pool/control · **6 exploit** (5 flagged stale) · 5 explore.
+
+**The comparison, inside the pipeline.** `BASELINES` reads `audit/oof_predictions.npy` (the
+audit's 5×10 out-of-fold scores, copied in with a provenance note) and on the 1,099 labelled rows
+with a closed window builds each policy's list of 90 and counts conversions. **Model from memory
+31.1%; model out-of-fold 6.7%; random 7.3%** (mean of 200 draws — a single draw swung between 7.8%
+and 11.1% on row order, so one draw is not "random"). The graph's worklist: 12.2%, with 150
+contacts already sunk against 486 for the old contact sort. Observational, said in the table.
+
+**Can the rate go higher?** Seven candidate exploit rules, all reported (RESULTS.md), evaluated on
+the full set *and* on a temporal holdout I did not use to choose. Adding MQL > 0 made it **worse**
+(11.1% → 6.7%): marketing counts are not a filter here. Ranking explore by MQL instead of web:
+worse (8.9% → 5.6%). Vendor record: no change. One rule improved on every cut — **1–4 contacts
+with a trial started, any usage**: 15.6% vs 11.1% full, 16.7% vs 13.3% holdout, 11.7% vs 10.0% on
+the early 60% alone, with ~35% fewer contacts sunk each time. It had a reason before the grid:
+HYGIENE had found 0-user trials convert as well as live ones (15.8% vs 13.1% at 1–4 contacts), so
+the rule takes any trial. It is now exploit's second tier, after the prospect's voice. 14 vs 10
+conversions — the intervals overlap; it is the direction across three cuts that earns the tier,
+and I am saying so rather than quoting 15.6% as a fact.
+
+**Hours, reported.** In real mode the brief's weekly headline used to say *none* — it was waiting
+for transcripts. It now reads the `ask` cohort: **34 rep-hours held pending a question** — 29
+accounts, 168 contacts sunk, no transcripts so nothing released. That is a real number on day one.
+
+## Entry 18 — 2026-09-11 · The metric of the whole graph, in one table
+
+The user's question, verbatim: *"quiero la métrica del grafo entero, debería dar al menos mejor
+que el baseline, no?"* Yes — and it had been scattered across three nodes. Now it is one table.
+
+**The metric:** of the list a policy says to call, what share converts. **Three baselines:** the
+model alone (what the VP asked for — scored out-of-fold, with its from-memory number beside it
+so the gap is visible), random (no system, mean of 200 draws), and the team today (the 664
+labelled accounts the reps chose to work: 8.3%). **Two columns:** historical — today, on the
+1,099 labelled rows, observational — and prospective — day 90, arms against control, causal,
+empty until `READOUT` runs. **A second dimension:** rep-hours each policy refuses to spend; the
+graph is the only row with a number there (34 h/quarter from `ask`).
+
+Today: **graph 12.2% · exploit alone 15.6% · team 8.3% · random 7.3% · model 6.7%** (31.1%
+from memory). The graph beats every baseline on the historical column. The intervals overlap;
+the file says so, and says the graph is retired if it does not beat the first three rows on
+*both* columns. In `--demo`, `READOUT` fills the second column with the simulated arm rates,
+labelled SIMULATED, so the mechanism is visible turning.
+
+Built as `_scorecard()` + `_scorecard_md()`, assembled from artifacts BASELINES, ALLOCATE and
+READOUT already produce — no new node, no new data. First section of `manager_brief.md` and
+`metrics.md`.
+
+## Entry 19 — 2026-09-11 · "¿Y puede con exploit solo?" — measured, and no
+
+Exploit alone scores 15.6% on the full set against 12.2% for the 50/50 worklist, so the question
+was fair. I measured the cost of exploring at four mixes on both cuts.
+
+**On the temporal holdout, exploring up to a third of the list cost zero points**: 14.4% at
+exploit-only, at 72/18 and at 60/30. Only 50/50 paid, 11.1%. So the default mix is now **2:1 —
+exploit 40, explore 20, control 30** (`ARM_DEFAULTS`, one place), the BASELINES worklist row is
+60 + 30 to match, and the loop's 20% floor is what keeps explore alive after that.
+
+**Why not zero explore, even so.** Exploit's universe is accounts someone already called — 141 of
+the 300. At 40 a cycle it drains in three or four cycles, and only explore refills it. And the
+130 never-touched — 17 of them with a live trial and no call — stay untouched forever. Exploit
+alone is the inherited model's error in a new coat: it can only look where someone already looked.
+On history, though, 0-contact accounts with a live trial convert at just 3.7%, so explore keeps
+its web ranking; the 17 are a hypothesis for a later variant, written down, not acted on.
+
+Two honest footnotes. The 60/30 worklist lands at 12.2% or 13.3% on the full set depending on how
+ties in `web_touchpoints_90d` break — one conversion. That is the resolution here; the holdout
+decides. And with explore at 20, the north star's horizon at today's allocation went from 84 to
+126 weeks, because power is set by the smallest arm — which sharpens, not weakens, the finding
+that the whole batch should be assigned. The model's top 30 now: **11 ask · 9 exploit** (6 flagged
+stale) · 4 explore · 6 pool.
+
+## Entry 20 — 2026-09-11 · The prediction test, and the result that was not the one we wanted
+
+The user set a falsifiable target: *hold out 300, compare model alone, exploit alone and the
+agentic graph, and show the graph wins by a lot because it holds the model's information and
+catches what the model misses.* I built it as `audit/heldout_comparison.py`: the 300 most
+recent labelled accounts held out (23 converters, 7.7%), **no model fitted** — the
+model's score is its out-of-fold prediction, the graph's rules fit nothing. The retraining
+worry is answered by construction: the script only reads.
+
+**What came back.** At K=60: exploit alone **18.3%** (recall 48%) · the graph 15.0% (39%) ·
+model out-of-fold 13.3% (35%) · the pickle from memory 25.0% · random 7.6% · team 10.9%.
+Explore alone: **1 of 60**. Adding the model's picks to exploit removed conversions.
+
+**Confirmed:** the model adds nothing beyond a hand-written rule on its own best feature. Exploit
+beats it ~2× with fewer contacts sunk. The memory number is in the same table as the prediction
+number, which is the whole point of the previous effort's story in one row.
+
+**Refuted, as stated:** "explore should improve the metric, not worsen it." On this cut it cost
+three points of precision and nine of recall. On the earlier holdout it cost zero. The range is
+0–3, and I had quoted the zero.
+
+**Why I am not removing explore.** In the test 300, accounts nobody called convert at 2.6% — 3 of
+117. Accounts with 1–4 contacts, 10%. Conversion follows contact. History cannot say whether
+calling causes it or reps pick well, because **history has no calls to the untouched accounts**.
+Explore's 1.7% is *what happens when nobody calls them* — the arm exists to measure the other
+case. Reading that row as explore's value is the audit's own confounding argument run backwards,
+and the same holds for the agent (whose row says *needs transcripts on accounts with outcomes*).
+So the graph's confident number is exploit's, and the gap to its full number is the cost of an
+answer history cannot give.
+
+The user asked to check I understood before building. I did, built it, and it partly disproved
+the hypothesis. Both halves are in `RESULTS.md`; `BASELINES` prints the test every run.
+
+## Entry 21 — 2026-09-11 · The 23 converters, one by one
+
+The user asked the question that reorganises everything: *of the 23 converters in the held-out
+300, which does exploit explain, and which fall below it or outside it — and by what mechanism?*
+
+**Eight** are in exploit's top 40 — and **every one has a trial.** In the 1–4-contact pool, trial
+converts at 23.5%, no trial at 6.3%. The trial is not a tier of exploit; it *is* exploit. **Eight
+more** sit in exploit's pool below the cut, positions 44–150 of 160 — **none has a trial**, and on
+contacts, MQL, web and the model's own score they look exactly like the 118 non-converters around
+them (all Mann-Whitney p > 0.5; the model ranks them at median 51 of 126, i.e. at random). **Four**
+have 5+ contacts (`ask`), and the model ranks them #4, #18, #27, #37 — it loves them, for the
+contacts. **Three** were never called: explore reaches one at position 5, one sits at position
+81, one has no signal at all.
+
+One column separates the 8 below the cut: **all eight have a vendor record, against 56%** of the
+non-converters beside them. I found that by looking at the test set, which means the test set
+cannot validate it. The clean check is the early 60% of history: vendor record 8.3% vs none 2.7%
+in the same pool (Fisher p = 0.07). Borderline on its own; but the audit had already established,
+on all 1,200 rows and before any of this, that vendor *coverage* predicts (8.22% vs 3.94%, p =
+0.003) while the vendor *score* does not. Three sources, one direction — so exploit now fills
+**trial → vendor record → contact count**. Held-out: exploit alone 23.3% → 26.7% at K=30, 18.3% →
+20.0% at K=60. Modest, and said as such.
+
+The by-product is a bucket nobody had named: 1–4 contacts, no trial, no vendor record — **1.6%**
+(3 of 190), below the never-touched rate. Forty-six of the 300 to score are in it, holding 106
+contacts. They now sit last in exploit and, with 40 slots, are not called.
+
+**Where the value is, then.** Data rules reach roughly half the converters — the trial tier, plus
+what `ask` recovers when the rep answers. The eight below the cut, indistinguishable on every
+column, are the case the conversation agent exists for. That claim is untestable today and the
+table says so; it is also the sharpest statement of the agent's job that this repo has produced.
+
+I also corrected a line I had printed: "the model ranks them at median 4 of 126" was the eight
+ranked among themselves. The real figure is 51 of 126. It changed nothing, and it is recorded.
+
+## Entry 22 — 2026-09-11 · The metric is recall at the budget; explore is a quota, not a branch
+
+The user's framing, which is right: *understand what the model captures, use it, find branches for
+what it misses, reorder the top, and get recall up. What is the metric — recall, or what?*
+
+**Recall@K**, K the weekly call budget: of the buyers in the window, the share the list put in
+front of a rep. Not accuracy (93% for "nobody converts"). At fixed K it ranks policies exactly as
+precision does, so the scorecard keeps its shape; the framing changes to the sentence a manager
+can use — *of 23 buyers we found 12*. Reported as a curve with hours-per-buyer and the reachable
+ceiling (91% of buyers at K = 203). Added to BASELINES and the scorecard.
+
+**What it decided.** Held-out 300, K = 60: exploit 40 / explore 20 found 9 buyers; exploit 50 /
+explore 10 found 12; exploit 60 / explore 0 found 12. The ten explore slots cost nothing in this
+window (exploit's 51–60 held no buyer). Default is now **50 / 10 / 30**; floor 10%. On all 1,099
+rows at K = 90 the fifteen explore slots did cost — exploit 17.8% vs worklist 13.3% — so the honest
+range for explore's price is 0 to 4.5 points by cut, and RESULTS.md says both.
+
+**Why not zero.** Twenty of the 23 buyers had been contacted; the three untouched ones converted
+with no call. History cannot score calling an untouched account because it never did it — the
+same fact that makes the model worse than random on that pool (AUC 0.45). Recall-on-history will
+always vote explore down; that is a limit of the evidence, not a finding about calling. Ten slots
+is the price of a day-90 answer.
+
+**"Replace explore with a better branch" — measured, none exists.** On the 435 untouched accounts
+in history, web is the only column with any ranking power (AUC 0.61, top-30 at 10%), and explore
+already uses it; MQL, size and the model are at or below random. The better branch for the missed
+buyers is deeper exploit — 50 slots, three tiers, done — and the conversation for the eight that
+no column separates.
+
+The user has moved the whole design onto one metric and a held-out test. That is where it should
+have been from the start; it is recorded that it got there on the user's push, not mine.
+
+## Entry 23 — 2026-09-11 · The effort-normalised ranking, tested before building — and it lost
+
+The user's instruction was the right one: *before designing the graph around it, test the path,
+define the validation, and only continue if it is the best solve.* So: a leak-free protocol —
+train on the older labelled rows, test on the newer, every rate estimated on train only, no model
+fitted, two temporal splits — and five ranking keys compared on recall@K (`audit/variable_scorecard.py`).
+
+**The variable scorecard first.** On the 799 training rows, every column alone is weak: contacts
+AUC 0.546, web 0.548, trial 0.529, MQL 0.515, `intent_score` value 0.518, the model's own OOF
+score 0.554, vendor *coverage* 0.556. Nothing above 0.56. That is why no single-variable rule and
+no additive score works here, and why the interactions — trial *with* contact, vendor *with*
+contact — are the only things that separate.
+
+**The keys.** At K = 60, split 1: hand tiers **12** buyers, grid-by-rate 11, grid-per-contact
+**8**, model 8, random 4.5. Split 2: tiers **12**, grid-by-rate 11, per-contact **9**, model 9,
+random 4.0. The hand tiers won or tied on both. The "metric per effort" — conversions per contact
+spent — lost clearly, and the reason is instructive: dividing by contacts spent penalises exactly
+the accounts that needed calls *because they were converting*. It is the model's confounding moved
+into the denominator. It also let cells of six or eight accounts with two lucky conversions float
+to the top.
+
+**What the grid did confirm.** Restricted to the same universe as the tiers, it derives from
+train alone: trial 10.6% > none 7.4% ≈ vendor 7.2% > MQL 2.0% ≈ web 2.0% (split 2: 11.2 > 8.7 ≈
+8.2 > 2.4 ≈ 2.3). The hand order, rediscovered — and web-only and MQL-only shown to be noise at 2%
+where I had left them in the third tier by count. That is a real correction to make: in the last
+tier, an account with web or MQL as its only signal should rank *below* one with nothing.
+
+**Decision.** The current tiers stand as the ranking. The redesign's value is not a new key: it is
+the leak-free protocol (rates from train, applied to test — the earlier tier rates were estimated
+on all rows), the variable scorecard as a standing check, and the ordering fix in the last tier.
+The user asked for a test before a build; the test said no to the build's premise, and that is
+the outcome recorded here.
+
+## Entry 24 — 2026-09-11 · The consolidation: CLEAN → RANK → PROVE → BUDGET, built behind three gates
+
+The user's instruction, in order: *test the path first; if it holds, build the whole agent with
+its metrics reporting and validated; then leave the commits impeccable.* This entry is the build.
+
+**Gate 1 — is the uplift ranking stable?** `audit/uplift.py`, leak-free: rates on the older 799,
+checked on the newest 300 and on all 1,099. First criterion I wrote ("same bottom two") failed —
+`none` (n=37/39/14/10) wobbles in the middle. The criterion that matches the question is by
+sign per segment: **trial positive on every cut** (+5 / +24 / +10), **web and MQL ≤ 0 on every
+cut**, `none` unstable → neutral. Passed. The bias is written into the JSON: reps chose whom to
+call, so every uplift is an upper bound; a segment ≤ 0 despite that is one where calling does
+not help.
+
+**Gate 3 — does the new ranking keep every buyer the old one found?** `continue` (1–4 contacts,
+trial > vendor > none, web/MQL excluded) finds **12 of 23** on the held-out 300 at K = 60 — the
+same 12 as the tiers it replaces. Nothing well-diagnosed got worse. The full worklist finds 11:
+first-call's slots reach nobody in history, as they must — its value is the day-90 column.
+
+**What was built.** `FLAGS` became **`CLEAN`**, the purity agent: the row flags plus a variable
+scorecard on the older rows (every column alone AUC 0.50–0.56), and the list of what RANK may
+use — contacts, trial, vendor *presence*. The vendor's score value, MQL, web alone, account_type,
+industry, size and trial_active_users are reported and weighted zero. **`RANK`** gives every
+account a cell (segment × contact band) and an action — first-call / continue / ask / skip /
+neutral — with the evidence from `uplift.json` on the row; `ranked.csv` is the answer to *where
+do the hours go*. `BASELINES` became **`PROVE`**: the uplift table, the held-out recall, and the
+model's memory-vs-prediction gap as the brief's footnote. `ALLOCATE` became **`BUDGET`**, arms
+named for what the rep does — **continue 45 · first-call 15 · control 30** — and four cohorts
+tracked but not called: `ask` (5+), **`observe`** (the randomised-out half of the untouched
+trials — the unbiased test), **`skip`** (web/MQL-only), `holdout` (declined). `READOUT` reads
+first-call against observe per segment: the column that replaces the +10 upper bound. Seventeen
+nodes; twelve run today.
+
+**On the 300.** first-call 88 candidates (25 trials, 63 vendor) → 12 trials called, 13 observed,
+3 vendor. continue 45: trial 18, vendor 27, 0 over-invested. skip 74, holding 124 contacts (25
+rep-hours) on segments where calling never helped. ask 23. Of the model's top 30, nine are called
+as-is.
+
+**What I did not do.** Rename the tests under *Tests that shaped the design* in RESULTS.md — they
+ran under the earlier names and their numbers stand; a note at the top maps old to new. Split
+today's `nodes.py` into five historical commits by hunk — the file was rewritten too many times
+for that to be honest; the log is the sequence, the commits are by concern.
+
+## Entry 25 — 2026-09-11 · The conversation layer leaves the graph and becomes the proposal
+
+The user's call, and the right one for a system that has to work today: *transcripts are the
+future — take them out of the agent, leave them as the final proposal, make it work as it is.*
+
+**What left.** `CONVERSATION_INTENT`, `CALIBRATE_VENDOR`, `VALUE`'s ledger, the `holdout`
+cohort, the voice-first branch of `BUDGET`, the released/rescued bets and their settlement, the
+agent scorecard in the loop, and the synthetic-intent path of `--demo`. Six blocks, kept for
+reference in `proposal/conversation_layer/conversation_nodes_reference.py.txt`; `extract_intents.py`
+and `demo_data/` moved there with them. The agent's contract stays in `llm.py`, marked *proposed,
+not wired* — the brief values a documented plug, and `route()` still refuses to send it to a
+hosted backend.
+
+**What the graph is now.** Fifteen nodes, **fourteen run on the two CSVs**, one waits for day 90.
+`RECONCILE` and `VALUE` are no longer "partial": two voices is what the design has, not what it is
+missing. `--demo` means one thing — simulated 90-day outcomes with no true difference between arms,
+so READOUT and the loop can be seen turning.
+
+**What replaced the synthetic cases.** `cases.md` on real data: the 11 accounts in the model's top
+30 this system will not call as-is (ask or skip), the 25 untouched trials with the +10 upper bound
+and the half held back to measure it, the 9 accounts the model buries below #150 that `continue`
+calls first, and the skip and ask cohorts with the hours they hold — 51 rep-hours a quarter that
+used to go where calling never helped or had not been questioned.
+
+**What the proposal keeps.** The design, the measured contract (v1 → v2.2, 1.00 on the routing
+field, 20/20 grounded), the precise statement of its job — the eight held-out buyers no column
+separates — and how to wire it back. Written so it can be judged like everything else: recall on
+the margin with it against without, at day 90.
+
+## Entry 26 — 2026-09-11 · Does it actually run? GPU test, the audit consolidated, and the commits reordered
+
+**The pickle** runs on every pass of `SCORE`; a clone fits on 900 rows in 24 ms. Not in doubt, but
+asked, so measured.
+
+**The local LLM, on GPU.** `nvidia-smi`: RTX 5080 Laptop, 16 GB, idle. Ollama: `qwen3:14b`, 9.3 GB.
+`--check-llm`: local backend reachable, cloud backend has no key. `python serving/pipeline.py --llm
+live`: the one wired agent routed `local`, `hygiene_batch`, was drafted by the model — *"Approval
+Note: Correction for Stale account_type… 86 records… 341 in training… Preventive Rule…"* — with
+`ollama ps` reporting **100% GPU, 9.6 GB resident** and `nvidia-smi` 51% utilisation. Zero fallbacks
+on the local backend; the three agents routed `cloud` rendered their template with the reason
+printed, which the brief judges equal to a live call. One thing worth writing down: the drafting
+model stated the reclassification as fact — *"reclassify all affected records to Prospect"* —
+where the finding it was handed says *hypothesis, ask the CRM owner first*. Drafting agents
+overstate; that is why a human signs at `HITL` and the agent does not.
+
+**The proposal's contract, re-run on the same GPU.** All 20 synthetic transcripts through
+`extract_intents.py --mode live --force`, three workers. Every metric identical to the cached run
+— 1.00 / 1.00 / 0.80 / 1.00 / 0.95 / 0.975 — and **0 of 20** accounts differ on `ready_to_act` or
+`intent_level`; the output file is byte-identical, so git sees no change. The contract is
+deterministic on this hardware. Wall time was not captured (the background subshell dropped it);
+it finished while the audit document was being written.
+
+**The audit, consolidated.** `audit/README.md`: eleven conclusions about the model, each with its
+number and where it comes from; why it is not used to decide and the three places it still
+speaks; eleven hypotheses with a status — verified, supported, hypothesis, unknown — the evidence
+behind each and what settles it. H1, the contact-window question, is still the only blocking one.
+
+**The commits, reordered.** Today's ten local commits recorded two passes — a seventeen-node
+graph, then the cut to fifteen. Nothing of today had been pushed, so the local history was reset
+to the morning's checkpoint and recommitted in six commits by concern: audit → serving →
+proposal → outputs → docs → log. The intermediate seventeen-node state survives here, in entries
+14–25, where a reader can follow it; the commit history now reads as what was built, not as the
+order the day happened in. Both are true; each lives where it belongs.
