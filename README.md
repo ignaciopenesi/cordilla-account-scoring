@@ -1,4 +1,23 @@
-# Cordilla Systems, Model Audit & AI-Assisted Serving Exercise
+# Cordilla Systems — model audit & AI-assisted serving
+
+Take-home for the AI Transformation Analyst role at Dialpad. The short version:
+
+- **The inherited model does not work, and the reason is inside the pickle.** Its
+  in-sample AUC of 0.759 is what the same architecture scores on random labels
+  (null median 0.762, p = 0.575). Refit forward in time it scores 0.474 — below chance.
+  A one-line `ORDER BY sales_contacts_90d DESC` beats it. → `audit/01_model_audit.ipynb`
+- **The nine columns contain no account-intrinsic signal.** The only two that carry any
+  measure what Cordilla already did to the account. So the ask is not a better model —
+  it is producing the data that is missing while the system runs. → `PROPOSAL.md`
+- **`serving/` is a stateful graph** that scores the 300 accounts, compares the score
+  against its baselines and against recorded-call intent, allocates effort in three
+  matched arms with a control, proposes CRM corrections, and writes one weekly verdict —
+  with one human approval before anything touches Salesforce.
+- **How I worked, including where AI was wrong and what I changed** → `RESEARCH-LOG.md`
+
+Everything below is the original starter README, kept as provided.
+
+---
 
 ## Setup
 
@@ -32,9 +51,9 @@ Expected feature columns, in the order the model was trained on: `account_type`,
   without running anything. It never refits the shipped model; §0.4 explains the one
   place it fits a *clone* of the architecture, and why that is diagnosis rather than
   retraining.
-- `serving/`, your AI-assisted serving step: load the model, score `accounts_to_score.csv`, and do something workflow-shaped with the output.
-- `PROPOSAL.md`, your written design proposal (see the take-home packet for the required sections).
-- `RESEARCH-LOG.md`, your running log as you work: hypotheses, what you tried, dead ends, and specifically what you asked your AI tool and how you used what came back.
+- `serving/`, the AI-assisted serving step — see `serving/README.md` once it lands.
+- `PROPOSAL.md`, the written design proposal: framing, audit, serving design, productionization and trust.
+- `RESEARCH-LOG.md`, kept as I went: six entries, timestamped, never rewritten — including three places where I corrected my own work and two where I overrode what an AI tool gave me.
 
 ## Working process
 
