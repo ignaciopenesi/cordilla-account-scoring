@@ -1695,3 +1695,22 @@ to the morning's checkpoint and recommitted in six commits by concern: audit →
 proposal → outputs → docs → log. The intermediate seventeen-node state survives here, in entries
 14–25, where a reader can follow it; the commit history now reads as what was built, not as the
 order the day happened in. Both are true; each lives where it belongs.
+
+## Entry 27 — 2026-09-11 · Pruned to the essentials: seven documents, one role each
+
+Ten markdown files had grown during the day, three of them redundant. Removed: `RESULTS.md`
+(7,600 words that overlapped `audit/README.md` and what the pipeline prints every run — its two
+verified tables that lived nowhere else, the 23 held-out buyers by mechanism and what each policy
+sends to the phone on the 300, moved into `audit/README.md` §3b), `audit/oof_predictions.md`
+(three sentences, folded into the audit's opening), `demo_data/README.md` (the synthetic warning,
+folded into the proposal's README). `serving/README.md` lost its argument section — the argument
+is made once, in the proposal — and kept the operating manual. The root README was rewritten as
+a map: five lines of findings, a table of where things live, five commands.
+
+Where each kind of information now lives, and why there: the **proposal** in `PROPOSAL.md`, the
+brief's own format and word count, with its evidence in the audit; the **hypotheses** in
+`audit/README.md` §3, one table, a status per row, what settles each; the **agent** in
+`serving/README.md`, operational only — what runs, the arms, the outputs, the config; the
+**future** in `ROLLOUT.md` — phases with stop conditions, the loops, the proposed extension — with
+`proposal/conversation_layer/` as its first item; the **how** here, never rewritten. Entries in this
+log that mention `RESULTS.md` are left as written: they were true when written.

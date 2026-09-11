@@ -70,48 +70,9 @@ would produce and what unblocks it.
 | `EMIT` | ✅ | what the rep, the manager and Salesforce each get |
 | `READOUT` | ⛔ | **uplift per segment, unbiased** (first-call vs observe) · settles the bets · scores the agent against reality · updates the allocation (`_learn`); needs 90-day outcomes |
 
-## The four ideas worth arguing about
+## Why it is built this way
 
-**1. The model is one voice of three, never the decision.** `RECONCILE` compares the
-score, our own logged effort, and (once recorded) what the prospect said. Agreement teaches
-nothing. **Disagreement is the new data** — 24 accounts the model ranks high that nobody
-has contacted, 9 the rep keeps working that it ranks low, 22 absorbing effort with nothing
-to show. That is the right job for an instrument shown to be noise-level: not to decide,
-but to disagree in places worth checking.
-
-**2. The conversation layer is a proposal, not a node.** The one input that is not a function of
-Cordilla's own effort is what the prospect said. A layer that extracts it is designed and measured
-on synthetic transcripts (1.00 on the routing field, quotes grounded 20/20) and kept out of the graph
-until real transcripts with outcomes exist. It would work the margin — the eight held-out buyers no
-column separates. See `proposal/conversation_layer/`.
-
-**3. The metric is two numbers with a structural hierarchy.** The scarce resource is hours,
-so `VALUE` prices one: **1,915 logged contacts bought 78 conversions — 24.6 contacts, ~4.9
-rep-hours, each**, and 52 of 300 accounts hold 54% of this batch's effort. The obvious move
-is to optimise that ratio, and it is a trap: the same yield curve says *call more* read as a
-rate (5 contacts → 13.6% against a 6.5% base) and *never call twice* read as a cost (1
-contact → 14 per conversion, 5 → 37). Opposite policies, same 1,200 rows, because reps keep
-dialling accounts that are going well and drop the ones that die. **No observational cut of
-this data yields conversions-per-hour** — which is why the arms are the measuring instrument
-and not a side experiment. It is the model's own error one level up, in the metric rather
-than the score.
-
-So the north star (**conversions per 100 contacts, by arm, cumulative**) is declared *not
-readable yet* — a 50% lift at the field rate needs 2,515 accounts per arm, 84 weeks at
-today's 30 — and the weekly number (**rep-hours redirected off accounts that stated a
-decline**) is filed as a **bet** with the date it settles and the result that falsifies it.
-At day 90 each is marked won, lost or **underpowered**: zero conversions means nothing below
-n ≥ 99 at a 3% base rate, so the current cycle returns `UNDERPOWERED 0/2` rather than a win.
-*Decisions changed* (35%) is demoted to instrumentation on purpose — it is maximised by
-being maximally contrarian, which is the class of number that inflated the model we audited.
-See `out/metrics.md`.
-
-**4. Every finding carries its fix.** `VERDICT` and `HYGIENE` do not emit text, they emit
-typed findings — `what · evidence · severity · owner · action · cost · expect` — and
-`PRESCRIBE` turns them into a ranked list by owner (`crm` / `vendor` / `pipeline` /
-`model` / `process`). The manager approves **actions**, not a report. Every hygiene
-proposal includes the rule that stops the defect recurring, because a one-off cleanup is
-worth much less. The current run surfaces ten, one of them blocking.
+The argument — the model as one voice, the conversation layer as a proposal, the metric as two numbers with a structural hierarchy, every finding carrying its fix — is made once, in `PROPOSAL.md`, with the evidence in `audit/README.md`. This file is the operating manual.
 
 ## Configuring the agents
 

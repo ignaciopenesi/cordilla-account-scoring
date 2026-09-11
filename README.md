@@ -1,41 +1,35 @@
 # Cordilla Systems — model audit & AI-assisted serving
 
-Take-home for the AI Transformation Analyst role at Dialpad. The short version:
+Take-home for the AI Transformation Analyst role at Dialpad. Five lines:
 
-- **The inherited model does not work, and the reason is inside the pickle.** Its
-  in-sample AUC of 0.759 is what the same architecture scores on random labels
-  (null median 0.762, p = 0.575). Refit forward in time it scores 0.474 — below chance.
-  A one-line `ORDER BY sales_contacts_90d DESC` beats it. → `audit/01_model_audit.ipynb`
-- **The nine columns contain no account-intrinsic signal.** The only two that carry any
-  measure what Cordilla already did to the account. So the ask is not a better model —
-  it is producing the data that is missing while the system runs. → `PROPOSAL.md`
-proposal/conversation_layer/ the conversation agent — designed, measured, deliberately not wired
-audit/uplift.py              uplift by intent segment, leak-free, with its bias named → audit/uplift.json
-audit/heldout_comparison.py  300 held-out accounts: model · continue · the graph · random, recall@K
-audit/variable_scorecard.py  every column alone, and the ranking keys tried and rejected
-audit/oof_predictions.npy    out-of-fold scores for the 1,200 training rows (provenance in the .md beside it)
-ROLLOUT.md                   phased implementation plan, and the three loops that learn from results
-- **`serving/` is a stateful graph that runs end to end in four seconds.** It scores the
-  300, keeps the model as *one voice of three* and uses it only where it disagrees,
-  ranks every account by where the next hour changes most (uplift by intent segment, estimated on older rows), cuts at the budget into three arms with a control, proposes CRM corrections with
-  the rule that stops each defect recurring, and writes one weekly verdict — with a single
-  human approval before anything touches Salesforce. **Nodes whose inputs do not exist yet
-  are declared as bypassed, not stubbed:** 11 run, 2 are partial, 2 are bypassed, and each
-  bypass records what would unblock it. → `serving/README.md`
-- **How I worked, including where AI was wrong and what I changed** → `RESEARCH-LOG.md`
+1. **The inherited model does not work, and the reason is inside the pickle.** Fitted with no holdout; its in-sample AUC (0.759) is what the same architecture scores on random labels (0.762); its list of 90 converts at **31% scored from memory and 6.7% out of fold** — random is 7.3%. → `audit/README.md`
+2. **It reads effort as intent.** Its strongest feature is our own contact count; its #1 account has 5 fruitless contacts and a 290-day-old snapshot; on accounts nobody has called it is worse than random. → `audit/README.md` §1
+3. **Where the next hour changes most is measurable — as an upper bound — and it is the first call on an untouched trial account: +10 points on every cut.** Web-only and MQL-only accounts: calling never helped. → `audit/uplift.py`
+4. **`serving/` ranks every account by that, cuts at the budget into three arms with a control, asks the rep before the sixth call, skips where calling never helped, and splits the untouched trials at random so day 90 measures the +10 without the bias.** Fifteen nodes, fourteen run today, one human signature before anything writes. → `serving/README.md`
+5. **The conversation layer — the one input not a function of Cordilla's own effort — is designed, measured, and deliberately not wired.** → `proposal/conversation_layer/`
+
+## Where things live
+
+| file | role |
+|---|---|
+| `PROPOSAL.md` | the proposal, 1,199 words, the four areas the brief asks for |
+| `audit/README.md` | the audit: eleven conclusions on the model, why it is not used, eleven hypotheses with status; `01_model_audit.ipynb` is the evidence, the four scripts beside it the outcome tests |
+| `serving/README.md` | the agent: the fifteen nodes, arms and cohorts, configuration, outputs |
+| `ROLLOUT.md` | the future: six phases with the result that stops each, the loops that learn, the proposed extension |
+| `proposal/conversation_layer/` | the conversation layer: design, measured contract, how to wire it back |
+| `RESEARCH-LOG.md` | how it was done — 27 entries, timestamped, never rewritten |
+
+## Run
 
 ```
-audit/01_model_audit.ipynb   110 cells, runs in ~4 min, committed with outputs
-serving/pipeline.py          python serving/pipeline.py          (14 of 15 nodes, ~4s)
-                             python serving/pipeline.py --demo --cycles 4 --reset-cycles
-                                                                 (the READOUT→BUDGET loop, four simulated cycles)
-                             python serving/pipeline.py --demo   (all 15, synthetic inputs)
-serving/README.md            the graph, what runs today and what does not
-PROPOSAL.md                  ~1,250 words, the four areas
-RESEARCH-LOG.md              8 entries, kept as I went
+python serving/check.sh                              # everything: six modes, three audit scripts, protected shas (~1 min)
+python serving/pipeline.py                           # real mode: 14 of 15 nodes, ~4 s → serving/out/
+python serving/pipeline.py --demo --cycles 4 --reset-cycles   # + simulated day-90 outcomes: READOUT and the loop, four cycles
+python serving/pipeline.py --llm live                # the wired agent drafts on the local model (config.toml)
+jupyter nbconvert --to notebook --execute --inplace audit/01_model_audit.ipynb
 ```
 
-Everything below is the original starter README, kept as provided.
+Everything below is the original starter README, lightly corrected.
 
 ---
 
@@ -63,7 +57,7 @@ Expected feature columns, in the order the model was trained on: `account_type`,
 - `model/model.pkl`, a real, already-trained scikit-learn pipeline. Don't retrain it, your job is to understand and audit it, not rebuild it.
 - `data/training_data.csv`, the labeled historical data the model above was actually trained on. Provided so you can audit *how* it was trained, not just what it predicts.
 - `data/accounts_to_score.csv`, an unlabeled batch you'll run the model against as part of the serving step. Don't modify or regenerate either CSV; everyone works from the same files.
-- `audit/01_model_audit.ipynb`, the model audit. Runs end to end in ~3 minutes:
+- `audit/01_model_audit.ipynb`, the model audit. Runs end to end in ~4 minutes:
 
       jupyter nbconvert --to notebook --execute --inplace audit/01_model_audit.ipynb
 
@@ -71,9 +65,9 @@ Expected feature columns, in the order the model was trained on: `account_type`,
   without running anything. It never refits the shipped model; §0.4 explains the one
   place it fits a *clone* of the architecture, and why that is diagnosis rather than
   retraining.
-- `serving/`, the AI-assisted serving step — see `serving/README.md` once it lands.
+- `serving/`, the AI-assisted serving step — `serving/README.md`.
 - `PROPOSAL.md`, the written design proposal: framing, audit, serving design, productionization and trust.
-- `RESEARCH-LOG.md`, kept as I went: six entries, timestamped, never rewritten — including three places where I corrected my own work and two where I overrode what an AI tool gave me.
+- `RESEARCH-LOG.md`, kept as I went, timestamped, never rewritten — including the places where the AI was wrong and what I changed.
 
 ## Working process
 

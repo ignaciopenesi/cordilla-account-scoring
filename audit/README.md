@@ -7,7 +7,7 @@ the CSVs never modified**; every clone fitted for diagnosis lives in this folder
 
 **Evidence, in two layers.** `01_model_audit.ipynb` (110 cells, ~4 min) opens the model. The four
 scripts beside it measure it against outcomes, leak-free: `oof_predictions.npy` (what the model
-knows about rows it never saw), `heldout_comparison.py` (300 accounts none of the methods saw),
+knows about rows it never saw — `RepeatedStratifiedKFold(5, 10, random_state=7)`, a `clone()` per fold, averaged; the notebook's §2.3 by another route), `heldout_comparison.py` (300 accounts none of the methods saw),
 `variable_scorecard.py` (every column alone; ranking keys tried and rejected), `uplift.py` (what a
 call changes, by segment). `RESEARCH-LOG.md` holds the sequence and the corrections.
 
@@ -24,7 +24,7 @@ call changes, by segment). `RESEARCH-LOG.md` holds the sequence and the correcti
 | 5 | **It reads effort as intent.** Its strongest feature is `sales_contacts_90d`. Its #1 account (`ACC-01491`) has 5 contacts, no result and a 290-day-old snapshot; its top 10 average 3.6 contacts against 1.6 for the batch. Accounts with 5+ fruitless contacts sit at median rank 37 of 300; untouched accounts with a live trial at median rank 108, none in its top 30. | | `RANK` · `cases.md` |
 | 6 | **Importance tracks cardinality, not signal.** Spearman(importance, distinct values) = +0.77; a pure-noise column in `intent_score`'s slot earns 75% of its importance. The vendor score's *value* contributes −0.001 AUC; only its *missingness* does (+0.028). | p = 0.041 | notebook §3.3–3.4 |
 | 7 | **It adds nothing on top of a hand-written rule.** Tested three ways on held-out data: as the ranker (13.3% vs 20.0% for the rules, K=60), added to the rules (replacing half of `continue`'s picks with its best removed conversions, 7 → 5), and as a tiebreaker inside a rule (the worst of five tried: 8 buyers vs 11). | | `variable_scorecard.py` · `heldout_comparison.py` |
-| 8 | **On the accounts nobody has called it is worse than random.** AUC 0.446 on the 435 untouched accounts in history. It learned that no contact means no conversion, because that is what the record shows. | | `RESULTS.md` |
+| 8 | **On the accounts nobody has called it is worse than random.** AUC 0.446 on the 435 untouched accounts in history. It learned that no contact means no conversion, because that is what the record shows. | | §3b below · `heldout_comparison.py` |
 | 9 | **A third of its top 30 is the seed.** Changing only `random_state` replaces 21.4 of 30; the #30 and #31 accounts differ by 0.0005. | | notebook §4.1 |
 | 10 | **It promises what the business does not see.** Σp = 19.7 expected conversions in 300 accounts (6.6%) against a field rate of 1–3%. Brier and log-loss are worse than printing 6.5% on every row. | | `SCORE` · `VERDICT` |
 | 11 | **It breaks on the least-maintained field.** A null `account_type` raises `TypeError` and kills the batch; `intent_score = −50` raises the score; unseen categories score silently. | | notebook §4.2 · `VALIDATE` |
@@ -44,7 +44,7 @@ way.
 
 **What decides instead:** rules on the three columns that survive the scorecard — contacts, trial
 started, vendor *presence* — validated on outcomes the rules never saw, and an experiment with a
-control so day 90 can say whether they were right. `serving/README.md` §RANK, `RESULTS.md`.
+control so day 90 can say whether they were right. `serving/README.md`.
 
 ## 3 · The hypotheses, consolidated
 
@@ -57,13 +57,59 @@ observational, direction stable) · **hypothesis** (stated, tested at day 90) ·
 | H2 | **Conversion follows contact** — 20 of the 23 held-out buyers had been contacted; untouched accounts convert at 2.6% *when nobody calls* | **verified as correlation**; causality **unknown** | `uplift.py`, `heldout_comparison.py` | the arms: `first-call` vs `observe`, `continue` vs `control` |
 | H3 | **The first call on an untouched trial account changes the outcome most**: +10 pts (5.0% → 15.2%), CI [+2, +18], p = 0.034; positive on train, test and all | **supported — an upper bound** (reps chose whom to call) | `uplift.py`; dose: 1 call 16%, 2: 18%, 3: 15%, 4: 7% | `first-call` (called) vs `observe` (not), ~138 per group for 5%→15% |
 | H4 | **Calling web-only or MQL-only accounts never helps**: uplift −7 / 0 on every cut, despite selection bias in their favour; with 1–4 contacts, 0 of 141 converted | **supported** → `skip` | `uplift.py`, `variable_scorecard.py` | tracked: if they convert anyway, the rule was wrong |
-| H5 | **Vendor coverage predicts; the vendor's score does not.** Covered 8.22% vs 3.94% (p = 0.003); by quintile among the covered: 9.0 / 5.3 / 12.8 / 7.6 / 9.8. In the 1–4-contact, no-trial pool: 8.3% vs 2.7% on the early 60% (p = 0.07), 8.2% vs 1.6% on all (p = 0.002) | **verified** (coverage) · **verified** (score is flat) | notebook §3.4; `RESULTS.md` | already used: `continue`'s second tier |
+| H5 | **Vendor coverage predicts; the vendor's score does not.** Covered 8.22% vs 3.94% (p = 0.003); by quintile among the covered: 9.0 / 5.3 / 12.8 / 7.6 / 9.8. In the 1–4-contact, no-trial pool: 8.3% vs 2.7% on the early 60% (p = 0.07), 8.2% vs 1.6% on all (p = 0.002) | **verified** (coverage) · **verified** (score is flat) | notebook §3.4; `variable_scorecard.py` | already used: `continue`'s second tier |
 | H6 | **"Suspect" is mislabelled.** The brief does not define it. Under the funnel reading (no engagement yet), Suspects carry *more* contacts than Prospects (1.69 vs 1.54; 61% vs 59% with ≥1; 18% vs 14% with ≥4), the same MQLs and trials, Mann-Whitney p = 0.20; 15% truly untouched vs 16%. Under *any* reading the field is empty: conversion identical across types (χ² p = 0.84), importance 0.003 | **checked — the label carries no information** | `HYGIENE`, `CLEAN` | one question to the CRM owner: what is it supposed to mean |
 | H7 | **A two-quarter-old snapshot is still actionable.** 102 of 300 are >180 days; every feature is a 90-day window | **hypothesis — flagged, not blocked** | `CLEAN` flags it; `READOUT` compares stale vs fresh inside each arm | day 90; if stale converts materially below fresh, the flag becomes a filter |
-| H8 | **Trials with 0 active users are not dead**: 15.8% vs 13.1% for live trials at 1–4 contacts | **supported** — the rule takes any trial | `HYGIENE`; `RESULTS.md` | ask product: provisioned-and-unused, or missing telemetry |
+| H8 | **Trials with 0 active users are not dead**: 15.8% vs 13.1% for live trials at 1–4 contacts | **supported** — the rule takes any trial | `HYGIENE`; `uplift.py` dose table | ask product: provisioned-and-unused, or missing telemetry |
 | H9 | **`web_touchpoints_90d = 0` may mean "not measured"**: 0 converts at 7.4% vs 4.5% for 1–3 | **hypothesis** — directional (p = 0.12) | notebook §3.6 | data contract with the attribution vendor: NULL when unmeasured |
 | H10 | **101 training labels were closed before their window** (snapshot < 90 days old, labelled 0); those rows carry 33% more MQLs | **verified** | notebook §3.10; `VALIDATE` | excluded from every evaluation here; label = NULL in the labelling job |
 | H11 | **The prospect's own words are the one signal not a function of Cordilla's effort**, and they would rank the eight held-out buyers no column separates | **hypothesis — designed, measured on synthetic transcripts, not wired** | `proposal/conversation_layer/`; 1.00 on the routing field, 20/20 grounded, on 12 templates of my own ground truth | real transcripts on accounts with outcomes; recall on the margin with vs without |
+
+## 3b · Where the 23 held-out buyers are, one by one
+
+| account | contacts | trial | vendor record | MQL | web | model rank /300 | reached by |
+|---|---|---|---|---|---|---|---|
+| `ACC-00560` | 5 | yes | yes | 2 | 0 | #4 | ask (5+ contacts) — recoverable if the rep answers |
+| `ACC-00054` | 5 | — | yes | 2 | 0 | #27 | ask (5+ contacts) — recoverable if the rep answers |
+| `ACC-00984` | 5 | — | yes | 1 | 5 | #37 | ask (5+ contacts) — recoverable if the rep answers |
+| `ACC-00731` | 5 | — | yes | 1 | 6 | #18 | ask (5+ contacts) — recoverable if the rep answers |
+| `ACC-01259` | 4 | yes | yes | 1 | 0 | #33 | continue tier 'trial', position 4 — in the top 40 |
+| `ACC-00807` | 4 | — | yes | 0 | 0 | #68 | continue tier 'vendor record', position 41 — below the cut |
+| `ACC-01231` | 4 | — | yes | 0 | 4 | #71 | continue tier 'vendor record', position 43 — below the cut |
+| `ACC-00064` | 3 | yes | yes | 0 | 0 | #36 | continue tier 'trial', position 5 — in the top 40 |
+| `ACC-00214` | 3 | yes | — | 0 | 3 | #249 | continue tier 'trial', position 24 — in the top 40 |
+| `ACC-00372` | 3 | — | yes | 3 | 0 | #231 | continue tier 'vendor record', position 54 — below the cut |
+| `ACC-00139` | 3 | — | yes | 0 | 7 | #119 | continue tier 'vendor record', position 49 — below the cut |
+| `ACC-01072` | 2 | — | yes | 2 | 8 | #98 | continue tier 'vendor record', position 83 — below the cut |
+| `ACC-00848` | 2 | — | yes | 1 | 4 | #228 | continue tier 'vendor record', position 79 — below the cut |
+| `ACC-01143` | 2 | yes | yes | 2 | 0 | #59 | continue tier 'trial', position 17 — in the top 40 |
+| `ACC-01468` | 2 | yes | — | 2 | 0 | #99 | continue tier 'trial', position 29 — in the top 40 |
+| `ACC-00103` | 2 | yes | yes | 1 | 3 | #136 | continue tier 'trial', position 12 — in the top 40 |
+| `ACC-00975` | 1 | — | yes | 0 | 6 | #167 | continue tier 'vendor record', position 101 — below the cut |
+| `ACC-00235` | 1 | yes | yes | 0 | 2 | #41 | continue tier 'trial', position 19 — in the top 40 |
+| `ACC-00981` | 1 | — | yes | 2 | 0 | #152 | continue tier 'vendor record', position 103 — below the cut |
+| `ACC-01357` | 1 | yes | yes | 5 | 2 | #87 | continue tier 'trial', position 22 — in the top 40 |
+| `ACC-00607` | 0 | — | — | 0 | 0 | #294 | 0 contacts, no signal — nothing reaches it |
+| `ACC-01313` | 0 | — | yes | 0 | 9 | #76 | explore, position 5 |
+| `ACC-01499` | 0 | — | yes | 1 | 0 | #288 | explore, position 81 |
+
+| mechanism | converters | of 23 | what it means |
+|---|---|---|---|
+| **continue, top 40** | **8** | 35% | **every one has a trial.** In the 1–4-contact pool, trial converts 23.5%, no trial 6.3% — the trial does continue's work |
+| **continue pool, below the cut** | **8** | 35% | **none has a trial.** On contacts, MQL, web and the model's own score they are indistinguishable from the 118 non-converters beside them (Mann-Whitney p = 0.59 / 0.95 / 0.79 / 0.56; the model ranks them at median 51 of 126 — random). One column separates them: **all 8 have a vendor record, vs 56%** |
+| ask (5+ contacts) | 4 | 17% | the model ranks them #4, #18, #27, #37 — it loves them, for the contacts. Recoverable if the rep answers *live deal* |
+| first-call, top 20 | 1 | 4% | `ACC-01313`, 9 web touches, never called — explore finds it at position 5 |
+| first-call, deep | 1 | 4% | position 81 of 82 — no ranking reaches it |
+| no signal at all | 1 | 4% | 0 contacts, 0 MQL, 0 web, no vendor — nothing in the data sees it |
+
+**What each policy sends to the phone, on the 300 to score (no outcomes):**
+
+| list | n | stale (flagged) | exhausted (5+) | never touched | contacts already sunk | hours in exhausted accounts |
+|---|---|---|---|---|---|---|
+| MODEL top-60 | 60 | 24 | **20** | 16 | 168 | **23 h** |
+| GRAPH continue + first-call | 60 | 18 | **0** | 30 | 78 | **0 h** |
+
+The model's top 60 carries 20 exhausted accounts and 23 rep-hours already sunk in them; the graph's 60 carries none. Twelve of the model's top 60 are on snapshots older than 180 days — flagged, worked, and tested at day 90.
 
 ## 4 · Does everything actually run? Checked 2026-09-11
 
