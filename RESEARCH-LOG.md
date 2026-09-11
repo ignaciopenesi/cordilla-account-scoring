@@ -465,7 +465,7 @@ log is kept as I go, not rewritten — and recording the removal here.
 
 ---
 
-## Entry 6 — 2026-09-11 ~08:45–10:00 · Objective first, then the shape of what to build
+## Entry 6 — 2026-09-11 ~08:30–09:05 · Objective first, then the shape of what to build
 
 ### The objective, before any solution
 
