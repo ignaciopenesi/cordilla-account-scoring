@@ -16,6 +16,8 @@ import pandas as pd
 import llm
 from pipeline import FEATURES, OUT, ROOT, TODAY, State
 
+DEMO = Path(__file__).resolve().parent / "demo_data"
+
 CAT = ["account_type", "industry"]
 RANGES = {"intent_score": (0, 100), "employee_count": (1, 10_000_000),
           "mql_count_90d": (0, 1000), "trial_active_users": (0, 1_000_000),
@@ -34,11 +36,22 @@ def INGEST(s: State) -> State:
 
     # Capabilities are what is actually wired up. The bypasses below read this.
     s.capabilities = {"crm_accounts", "labeled_history", "scoring_model"}
-    # not present: "call_transcripts", "outcomes_90d"
+
+    if s.args.demo:
+        cache = DEMO / "intents.json"
+        if cache.exists():
+            blob = json.loads(cache.read_text())
+            s.artifacts["intents"] = blob.get("intents", {})
+            s.artifacts["intent_extractor"] = blob.get("extracted_with", "unknown")
+            s.artifacts["intent_metrics"] = blob.get("metrics_vs_ground_truth", {})
+            s.capabilities.add("call_transcripts")
+        s.capabilities.add("outcomes_90d")       # simulated, see READOUT
 
     s.say(f"  {len(s.accounts)} accounts to score, {len(s.training)} labeled rows")
     s.say(f"  capabilities wired: {', '.join(sorted(s.capabilities))}")
-    s.say("  NOT wired: call_transcripts, outcomes_90d")
+    missing = {"call_transcripts", "outcomes_90d"} - s.capabilities
+    s.say(f"  NOT wired: {', '.join(sorted(missing))}" if missing
+          else "  demo sources loaded — SYNTHETIC, see serving/demo_data/README.md")
     return s
 
 
@@ -215,27 +228,71 @@ def CONVERSATION_INTENT(s: State) -> State:
            expect="the 40% of the base the vendor cannot see gets a first-hand intent signal",
            source="CONVERSATION_INTENT")
 
-    if not s.has("call_transcripts"):
-        s.bypass(node="CONVERSATION_INTENT",
-                 reason="the two CSVs carry no call transcripts",
-                 unblocked_by="call recording with disclosure (two-party-consent states and GDPR "
-                              "make this a precondition) + Dialpad Ai Call Purpose / Custom Moments, "
-                              "or any ASR feeding the `conversation_intent` agent in llm.py",
-                 would_produce="per account: intent_level A-F grounded in a verbatim prospect quote, "
-                               "objections[], next_step_agreed, speaker_role, call_purpose, confidence",
-                 still_computed=f"the four coverage quadrants: {quad}")
+    if s.has("call_transcripts"):
+        intents = s.artifacts["intents"]
+        a["intent_level"] = a.account_id.map(lambda x: intents.get(x, {}).get("intent_level"))
+        a["intent_conf"] = a.account_id.map(lambda x: intents.get(x, {}).get("confidence"))
+        a["intent_quote"] = a.account_id.map(lambda x: intents.get(x, {}).get("evidence_quote"))
+        n_have = int(a.intent_level.notna().sum())
+        s.say(f"  extracted intent for {n_have} accounts using "
+              f"'{s.artifacts.get('intent_extractor')}'  ⚠ SYNTHETIC transcripts")
+        s.say("  level distribution: " +
+              ", ".join(f"{k}={v}" for k, v in sorted(a.intent_level.value_counts().items())))
+        m = s.artifacts.get("intent_metrics") or {}
+        if m:
+            s.say(f"  agent quality vs ground truth: exact level {m.get('intent_level_exact', 0):.0%}, "
+                  f"within one {m.get('intent_level_within_one', 0):.0%}, "
+                  f"hot-vs-cold {m.get('hot_vs_cold_correct', 0):.0%}, "
+                  f"role {m.get('speaker_role_exact', 0):.0%}")
+            weak = (m.get("hot_vs_cold_correct", 1) <= 0.85
+                    or m.get("intent_level_exact", 1) <= 0.7
+                    or m.get("speaker_role_exact", 1) <= 0.7)
+            if weak:
+                s.find(what="The intent extractor is not accurate enough to act on the level alone",
+                       evidence=f"against known ground truth on {m.get('n_extracted')} transcripts: "
+                                f"exact level {m.get('intent_level_exact', 0):.0%}, within one "
+                                f"{m.get('intent_level_within_one', 0):.0%}, hot-vs-cold "
+                                f"{m.get('hot_vs_cold_correct', 0):.0%}, speaker role "
+                                f"{m.get('speaker_role_exact', 0):.0%}, next step "
+                                f"{m.get('next_step_exact', 0):.0%}, mean self-reported confidence "
+                                f"{m.get('mean_confidence', 0):.2f}",
+                       severity="high", owner="model",
+                       action="Use what is EXTRACTED (quote, objections, next step) — that is "
+                              "reliable. Treat what is INFERRED (level, speaker role) as a "
+                              "hypothesis until READOUT has measured it against outcomes. Try a "
+                              "larger model — the routing table is one line — and re-run "
+                              "extract_intents.py to re-measure before relying on the level.",
+                       cost="a model swap and one re-run of extract_intents.py",
+                       expect="the same standard this audit applied to the inherited model, applied "
+                              "to the one this repo introduces",
+                       source="CONVERSATION_INTENT")
+        s.bypass(node="CONVERSATION_INTENT (coverage)",
+                 reason=f"only {n_have} of {int(had_call.sum())} accounts with a logged call have a "
+                        f"transcript, and those transcripts are synthetic",
+                 unblocked_by="recording every call; then coverage equals the fill_gap + calibrate "
+                              "quadrants above",
+                 would_produce=f"intent for all {int(had_call.sum())} accounts with a logged call, "
+                               f"not {n_have}",
+                 still_computed=f"intent extracted for {n_have} accounts")
+        return s
 
-        # The node is bypassed for the 300 because there are no transcripts. The CONTRACT
-        # is not hypothetical though, so it runs against one sample transcript -- on a
-        # local backend, because this is the PII-bearing agent (see config.toml [routing]).
-        sample = Path(__file__).resolve().parent / "sample_transcript.txt"
-        if sample.exists():
-            s.say("  demonstrating the contract on serving/sample_transcript.txt "
-                  f"(agent routed to '{llm.CONFIG.get('routing', {}).get('conversation_intent')}')")
-            out = llm.draft("conversation_intent", mode=s.args.llm, account_id="ACC-00453",
-                            date="2026-07-22", transcript=sample.read_text())
-            s.artifacts["conversation_intent_demo"] = out
-            print(out)
+    s.bypass(node="CONVERSATION_INTENT",
+             reason="the two CSVs carry no call transcripts",
+             unblocked_by="call recording with disclosure (two-party-consent states and GDPR "
+                          "make this a precondition) + Dialpad Ai Call Purpose / Custom Moments, "
+                          "or any ASR feeding the `conversation_intent` agent in llm.py",
+             would_produce="per account: intent_level A-F grounded in a verbatim prospect quote, "
+                           "objections[], next_step_agreed, speaker_role, call_purpose, confidence",
+             still_computed=f"the four coverage quadrants: {quad}")
+    sample = Path(__file__).resolve().parent / "sample_transcript.txt"
+    if sample.exists():
+        s.say("  demonstrating the contract on serving/sample_transcript.txt "
+              f"(agent routed to '{llm.CONFIG.get('routing', {}).get('conversation_intent')}')")
+        out = llm.draft("conversation_intent", mode=s.args.llm, account_id="ACC-00453",
+                        date="2026-07-22", transcript=sample.read_text())
+        s.artifacts["conversation_intent_demo"] = out
+        print(out)
+    s.say("  → run with --demo to execute this node on synthetic transcripts")
     return s
 
 
@@ -243,22 +300,54 @@ def CONVERSATION_INTENT(s: State) -> State:
 def CALIBRATE_VENDOR(s: State) -> State:
     """Is the intent vendor right? Nobody at Cordilla can answer that today.
 
-    In the 103 accounts where a vendor record AND a call both exist, the vendor's claim can
-    be contrasted against what the prospect actually said. That is the only way to find out
-    whether the score you are paying for is any good -- and evidence for the renewal."""
-    n = int(s.artifacts["intent_quadrants"]["calibrate_vendor (vendor record + a call happened)"])
+    Where a vendor record AND a call both exist, the vendor's claim is contrastable
+    against what the prospect actually said. That is the only way to find out whether the
+    score you are paying for is worth anything -- and it is evidence for the renewal."""
+    a = s.accounts
+    n_contrastable = int(s.artifacts["intent_quadrants"]
+                         ["calibrate_vendor (vendor record + a call happened)"])
+
+    if s.has("call_transcripts") and "intent_level" in a:
+        both = a[a.intent_level.notna() & a.intent_score.notna()].copy()
+        if len(both):
+            # vendor says "high" if its score is in the top half of its own observed range
+            cut = a.intent_score.median()
+            both["vendor_says"] = np.where(both.intent_score >= cut, "high", "low")
+            both["call_says"] = np.where(both.intent_level.isin(["A", "B", "C"]), "high", "low")
+            tab = pd.crosstab(both.vendor_says, both.call_says)
+            agree = float((both.vendor_says == both.call_says).mean())
+            s.say(f"  {len(both)} accounts where both the vendor and a call exist")
+            s.say("  vendor (rows) vs conversation (cols):\n" + tab.to_string().replace("\n", "\n    "))
+            s.say(f"  agreement: {agree:.0%}")
+            s.artifacts["vendor_calibration"] = {"n": len(both), "agreement": agree,
+                                                 "table": tab.to_dict()}
+            over = both[(both.vendor_says == "high") & (both.call_says == "low")]
+            if len(over):
+                s.find(what="The intent vendor overstates on accounts we can check",
+                       evidence=f"of {len(both)} accounts with both a vendor score and a call, "
+                                f"{len(over)} are scored high by the vendor and read low from the "
+                                f"conversation (overall agreement {agree:.0%}). ⚠ synthetic demo data — "
+                                f"the METHOD is the deliverable, not this number",
+                       severity="medium", owner="vendor",
+                       action="Run this table monthly on real calls and take it into the renewal. "
+                              "Pay for coverage, which predicts (p=0.003); stop paying for the "
+                              "score, which does not (p=0.42).",
+                       cost="free once calls are recorded",
+                       expect="the renewal is negotiated on evidence instead of the vendor's claim",
+                       source="CALIBRATE_VENDOR")
+            return s
+
     s.bypass(node="CALIBRATE_VENDOR",
              reason="needs CONVERSATION_INTENT, which has no transcripts to work from",
              unblocked_by="the same recording capability; then no new data is required",
-             would_produce=f"on the {n} accounts where both exist: agreement rate between vendor "
-                           f"intent decile and conversation intent level, by segment; the segments "
-                           f"where the vendor systematically over- or under-states; a renewal memo "
-                           f"with that evidence",
-             still_computed=f"the contrastable set: {n} accounts")
+             would_produce=f"on the {n_contrastable} accounts where both exist: agreement between "
+                           f"vendor intent and conversation intent, by segment; where the vendor "
+                           f"systematically over- or under-states; a renewal memo with that evidence",
+             still_computed=f"the contrastable set: {n_contrastable} accounts")
     s.find(what="The intent vendor's score has never been validated against anything",
-           evidence=f"{n} scoring accounts have both a vendor record and a logged call, so the "
-                    f"vendor's claim is contrastable today. In training, vendor coverage predicts "
-                    f"conversion (p=0.003) while the score itself does not (Spearman p=0.42)",
+           evidence=f"{n_contrastable} scoring accounts have both a vendor record and a logged call, "
+                    f"so the vendor's claim is contrastable today. In training, vendor coverage "
+                    f"predicts conversion (p=0.003) while the score itself does not (Spearman p=0.42)",
            severity="medium", owner="vendor",
            action="Pay for coverage, not for the score: keep a boolean `intent_known`, stop using "
                   "the numeric value in any model or view. Once calls are recorded, measure "
@@ -288,7 +377,32 @@ def RECONCILE(s: State) -> State:
     for k, v in counts.items():
         s.say(f"  {v:3d}  {k}")
 
-    # The question is a fallback: with transcripts, the rep has already said this on the call.
+    # The third voice. These two cells are the ones that need no human at all: the
+    # conversation settles who was right.
+    if s.has("call_transcripts") and "intent_level" in a:
+        hot = a.intent_level.isin(["A", "B"])
+        cold = a.intent_level.isin(["E", "F"])
+        a.loc[(a.p <= q_lo) & (a.sales_contacts_90d >= 3) & hot, "disagreement"] = \
+            "MODEL_WRONG_rep_was_right"
+        a.loc[(a.p >= q_hi) & (a.sales_contacts_90d >= 5) & cold, "disagreement"] = \
+            "SUNK_COST_stop_calling"
+        a.loc[hot & (a.sales_contacts_90d == 0), "disagreement"] = "HOT_and_untouched"
+        settled = a.disagreement.isin(["MODEL_WRONG_rep_was_right", "SUNK_COST_stop_calling",
+                                       "HOT_and_untouched"]).sum()
+        s.say(f"  with the third voice, {int(settled)} disagreements are SETTLED without asking anyone:")
+        for k in ["MODEL_WRONG_rep_was_right", "SUNK_COST_stop_calling", "HOT_and_untouched"]:
+            cnt = int((a.disagreement == k).sum())
+            if cnt:
+                s.say(f"    {cnt:3d}  {k}")
+        ex = a[a.disagreement == "MODEL_WRONG_rep_was_right"].head(1)
+        if len(ex):
+            r = ex.iloc[0]
+            s.say(f'    e.g. {r.account_id}: model {r.p:.1%}, {int(r.sales_contacts_90d)} contacts, '
+                  f'call says {r.intent_level} — "{str(r.intent_quote)[:70]}…"')
+        return s
+
+    # Fallback when there are no transcripts: ask the rep. With recording, they already
+    # said it on the call and nobody has to be interrupted.
     ex = a[a.disagreement == "rep_insists_model_low"].head(1)
     if len(ex):
         r = ex.iloc[0]
@@ -573,15 +687,73 @@ def EMIT(s: State) -> State:
 
 # ═════════════════════════════════════════════════════════════════════════════
 def READOUT(s: State) -> State:
-    """Day 90. The first honest number Cordilla will have had."""
-    s.bypass(node="READOUT",
-             reason="90-day outcomes for the accounts assigned today do not exist yet",
-             unblocked_by="one cycle of the arms above, with outcomes written back per account",
-             would_produce="conversions per logged contact by arm with confidence intervals; the "
-                           "same broken out by conversation intent level (testing whether intent "
-                           "from calls predicts better than any CRM column); and the epsilon-greedy "
-                           "update — the winning arm grows, exploration never goes to zero",
-             still_computed=f"the arms are assigned and recorded: {s.artifacts.get('arms', {})}")
-    s.say("  with 30 accounts per arm at ~6%, the first readout will be noisy. It accumulates:")
-    s.say("  cycle 1 = 30/arm, cycle 2 = 60, cycle 3 = 90. The point is that it starts.")
+    """Day 90. The first honest number Cordilla will have had.
+
+    In --demo this runs on SIMULATED outcomes, drawn from the brief's own field rate with
+    NO difference between arms. That is deliberate: the point of the demo is to show the
+    shape of the readout and how little 30 accounts per arm can tell you -- not to
+    manufacture a result that flatters the design."""
+    a = s.accounts
+    assigned = a[a.arm.notna()].copy()
+
+    if not s.has("outcomes_90d") or not len(assigned):
+        s.bypass(node="READOUT",
+                 reason="90-day outcomes for the accounts assigned today do not exist yet",
+                 unblocked_by="one cycle of the arms above, with outcomes written back per account",
+                 would_produce="conversions per logged contact by arm with confidence intervals; the "
+                               "same broken out by conversation intent level (testing whether intent "
+                               "from calls predicts better than any CRM column); and the "
+                               "epsilon-greedy update -- the winning arm grows, exploration never "
+                               "goes to zero",
+                 still_computed=f"the arms are assigned and recorded: {s.artifacts.get('arms', {})}")
+        s.say("  with 30 accounts per arm at ~6%, the first readout will be noisy. It accumulates:")
+        s.say("  cycle 1 = 30/arm, cycle 2 = 60, cycle 3 = 90. The point is that it starts.")
+        return s
+
+    # SIMULATED. Same rate for every arm -- we are showing the instrument, not the answer.
+    TRUE_RATE = 0.03                       # the brief's field rate, not training's 6.5%
+    rng = np.random.default_rng(2026)
+    assigned["converted"] = rng.random(len(assigned)) < TRUE_RATE
+
+    def wilson(k, n_, z=1.96):
+        if n_ == 0:
+            return (np.nan, np.nan)
+        ph, d = k / n_, 1 + z**2 / n_
+        c = (ph + z**2 / (2 * n_)) / d
+        h = z * np.sqrt(ph * (1 - ph) / n_ + z**2 / (4 * n_**2)) / d
+        return max(0, c - h), min(1, c + h)
+
+    rows = []
+    for arm, d in assigned.groupby("arm"):
+        k, n_ = int(d.converted.sum()), len(d)
+        lo, hi = wilson(k, n_)
+        rows.append({"arm": arm, "accounts": n_, "conversions": k, "rate": k / n_,
+                     "95% CI": f"[{lo:.1%}, {hi:.1%}]"})
+    tab = pd.DataFrame(rows).set_index("arm")
+    s.say("  SIMULATED 90-day readout by arm (there is NO true difference between arms):")
+    s.say("    " + tab.to_string().replace("\n", "\n    "))
+    s.artifacts["readout"] = tab.reset_index().to_dict("records")
+
+    if "intent_level" in assigned and assigned.intent_level.notna().any():
+        byl = assigned[assigned.intent_level.notna()].groupby("intent_level").converted.agg(
+            accounts="size", conversions="sum")
+        s.say("  …and by conversation intent level — this is H1 being tested:")
+        s.say("    " + byl.to_string().replace("\n", "\n    "))
+
+    rates = tab["rate"]
+    spread = rates.max() - rates.min()
+    s.say(f"\n  observed spread between arms: {spread:.1%} — and the true difference is ZERO by")
+    s.say("  construction. With 30 accounts per arm at a 3% rate, that is what noise looks like.")
+    s.find(what="One cycle of 30 accounts per arm cannot resolve a realistic difference",
+           evidence=f"simulated at the brief's 1-3% field rate with NO true difference between arms, "
+                    f"the observed spread is {spread:.1%} and every confidence interval overlaps "
+                    f"every other. Detecting a 50% relative lift at this base rate needs roughly "
+                    f"1,500 accounts per arm",
+           severity="high", owner="process",
+           action="Run the arms continuously and read cumulatively, not once. Commit to the cycle "
+                  "for at least two quarters before drawing a conclusion, and say so up front so "
+                  "nobody reads cycle 1 as an answer.",
+           cost="patience, and saying this to the VP before the first readout rather than after",
+           expect="nobody kills or ships the approach on a number that cannot support either",
+           source="READOUT")
     return s

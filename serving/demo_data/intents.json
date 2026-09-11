@@ -1,0 +1,232 @@
+{
+  "_warning": "SYNTHETIC demo data. Not Cordilla data. See demo_data/README.md.",
+  "extracted_with": "qwen3:14b",
+  "metrics_vs_ground_truth": {
+    "n_extracted": 20,
+    "intent_level_exact": 0.5,
+    "intent_level_within_one": 0.8,
+    "hot_vs_cold_correct": 0.8,
+    "speaker_role_exact": 0.05,
+    "next_step_exact": 1.0,
+    "mean_confidence": 0.625
+  },
+  "failures": {},
+  "intents": {
+    "ACC-00109": {
+      "intent_level": "A",
+      "evidence_quote": "Board approved the spend. We want to be in production by Q4",
+      "objections": [],
+      "next_step_agreed": true,
+      "speaker_role": "user",
+      "call_purpose": "discovery",
+      "confidence": 0.95
+    },
+    "ACC-00160": {
+      "intent_level": "A",
+      "evidence_quote": "We've got budget approved for this fiscal year, it came through in June. Let's find time in the next couple of weeks.",
+      "objections": [],
+      "next_step_agreed": true,
+      "speaker_role": "user",
+      "call_purpose": "discovery",
+      "confidence": 0.9
+    },
+    "ACC-00270": {
+      "intent_level": "E",
+      "evidence_quote": "Let's find time in the next couple of weeks.",
+      "objections": [
+        "Nothing's approved yet",
+        "We've been told yes before and it didn't hold up"
+      ],
+      "next_step_agreed": true,
+      "speaker_role": "unknown",
+      "call_purpose": "discovery",
+      "confidence": 0.6
+    },
+    "ACC-00272": {
+      "intent_level": "D",
+      "evidence_quote": "It's on the roadmap for sometime next year maybe. Not this quarter.",
+      "objections": [
+        "We've been told yes before and it didn't hold up",
+        "I wouldn't expect much movement"
+      ],
+      "next_step_agreed": false,
+      "speaker_role": "unknown",
+      "call_purpose": "discovery",
+      "confidence": 0.3
+    },
+    "ACC-00275": {
+      "intent_level": "A",
+      "evidence_quote": "We've got budget approved for this fiscal year, it came through in June. We're just deciding between you and two others.",
+      "objections": [
+        "It's not where we want it. It got worse, actually.",
+        "We've been told yes before and it didn't hold up."
+      ],
+      "next_step_agreed": true,
+      "speaker_role": "decision_maker",
+      "call_purpose": "follow_up",
+      "confidence": 0.95
+    },
+    "ACC-00313": {
+      "intent_level": "E",
+      "evidence_quote": "I wouldn't expect much movement.",
+      "objections": [
+        "Proof, mostly. We've been told yes before and it didn't hold up.",
+        "It's on the roadmap for sometime next year maybe. Not this quarter."
+      ],
+      "next_step_agreed": false,
+      "speaker_role": "unknown",
+      "call_purpose": "discovery",
+      "confidence": 0.2
+    },
+    "ACC-00369": {
+      "intent_level": "E",
+      "evidence_quote": "You can, but I wouldn't expect much movement.",
+      "objections": [
+        "Proof, mostly. We've been told yes before and it didn't hold up."
+      ],
+      "next_step_agreed": false,
+      "speaker_role": "unknown",
+      "call_purpose": "discovery",
+      "confidence": 0.2
+    },
+    "ACC-00414": {
+      "intent_level": "F",
+      "evidence_quote": "We're not interested.",
+      "objections": [
+        "Proof, mostly. We've been told yes before and it didn't hold up.",
+        "You can, but I wouldn't expect much movement."
+      ],
+      "next_step_agreed": false,
+      "speaker_role": "user",
+      "call_purpose": "discovery",
+      "confidence": 1.0
+    },
+    "ACC-00481": {
+      "intent_level": "F",
+      "evidence_quote": "I wouldn't expect much movement.",
+      "objections": [
+        "It's not where we want it. It got worse, actually.",
+        "We've been told yes before and it didn't hold up."
+      ],
+      "next_step_agreed": false,
+      "speaker_role": "unknown",
+      "call_purpose": "follow_up",
+      "confidence": 0.9
+    },
+    "ACC-00561": {
+      "intent_level": "E",
+      "evidence_quote": "I'm comparing three vendors and I need to see the multi-region piece work before I commit.",
+      "objections": [],
+      "next_step_agreed": true,
+      "speaker_role": "user",
+      "call_purpose": "discovery",
+      "confidence": 0.6
+    },
+    "ACC-00602": {
+      "intent_level": "A",
+      "evidence_quote": "Board approved the spend. We want to be in production by Q4, so whatever your onboarding looks like, we need it to fit that.",
+      "objections": [],
+      "next_step_agreed": true,
+      "speaker_role": "user",
+      "call_purpose": "discovery",
+      "confidence": 0.95
+    },
+    "ACC-00730": {
+      "intent_level": "D",
+      "evidence_quote": "Let's find time in the next couple of weeks.",
+      "objections": [
+        "Proof, mostly. We've been told yes before and it didn't hold up."
+      ],
+      "next_step_agreed": true,
+      "speaker_role": "unknown",
+      "call_purpose": "follow_up",
+      "confidence": 0.6
+    },
+    "ACC-00806": {
+      "intent_level": "F",
+      "evidence_quote": "Please take us off your list.",
+      "objections": [
+        "We just renewed with our current vendor for three years"
+      ],
+      "next_step_agreed": false,
+      "speaker_role": "decision_maker",
+      "call_purpose": "discovery",
+      "confidence": 0.95
+    },
+    "ACC-00915": {
+      "intent_level": "E",
+      "evidence_quote": "I wouldn't expect much movement.",
+      "objections": [
+        "Proof, mostly. We've been told yes before and it didn't hold up."
+      ],
+      "next_step_agreed": false,
+      "speaker_role": "unknown",
+      "call_purpose": "discovery",
+      "confidence": 0.2
+    },
+    "ACC-00935": {
+      "intent_level": "F",
+      "evidence_quote": "I wouldn't expect much movement.",
+      "objections": [
+        "Nothing's driving this right now",
+        "We've been told yes before and it didn't hold up"
+      ],
+      "next_step_agreed": false,
+      "speaker_role": "unknown",
+      "call_purpose": "follow_up",
+      "confidence": 0.2
+    },
+    "ACC-00972": {
+      "intent_level": "E",
+      "evidence_quote": "We looked at this category two years ago and decided to build internally. That's still where we are.",
+      "objections": [
+        "Proof, mostly. We've been told yes before and it didn't hold up.",
+        "You can, but I wouldn't expect much movement."
+      ],
+      "next_step_agreed": false,
+      "speaker_role": "unknown",
+      "call_purpose": "discovery",
+      "confidence": 0.2
+    },
+    "ACC-01128": {
+      "intent_level": "A",
+      "evidence_quote": "We signed off on the budget last week and we need this live before the fiscal year closes in November.",
+      "objections": [],
+      "next_step_agreed": true,
+      "speaker_role": "user",
+      "call_purpose": "negotiation",
+      "confidence": 0.95
+    },
+    "ACC-01145": {
+      "intent_level": "B",
+      "evidence_quote": "There's money allocated.",
+      "objections": [],
+      "next_step_agreed": true,
+      "speaker_role": "user",
+      "call_purpose": "discovery",
+      "confidence": 0.7
+    },
+    "ACC-01282": {
+      "intent_level": "A",
+      "evidence_quote": "We signed off on the budget last week and we need this live before the fiscal year closes in November.",
+      "objections": [
+        "Proof, mostly. We've been told yes before and it didn't hold up."
+      ],
+      "next_step_agreed": true,
+      "speaker_role": "user",
+      "call_purpose": "discovery",
+      "confidence": 0.95
+    },
+    "ACC-01414": {
+      "intent_level": "F",
+      "evidence_quote": "I wouldn't expect much movement.",
+      "objections": [
+        "Proof, mostly. We've been told yes before and it didn't hold up."
+      ],
+      "next_step_agreed": false,
+      "speaker_role": "unknown",
+      "call_purpose": "follow_up",
+      "confidence": 0.2
+    }
+  }
+}

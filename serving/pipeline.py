@@ -19,6 +19,7 @@ the point: what runs today is real, and what doesn't is declared.
 
 Usage:
     python serving/pipeline.py                  # dry run, writes nothing outside serving/out
+    python serving/pipeline.py --demo           # end to end on synthetic demo data
     python serving/pipeline.py --approve        # simulate the manager signing off
     python serving/pipeline.py --llm live       # use the backends configured in config.toml
     python serving/pipeline.py --check-llm      # probe those backends and the agent routing
@@ -129,8 +130,13 @@ NODE_MAP = [
 ]
 
 
-def print_map() -> None:
+def print_map(demo: bool = False) -> None:
     icon = {"runs": "✅", "partial": "🟡", "bypass": "⛔"}
+    if demo:
+        NODE_MAP[5] = ("CONVERSATION_INTENT", "runs", "extracts intent from the synthetic transcripts")
+        NODE_MAP[6] = ("CALIBRATE_VENDOR", "runs", "contrasts the vendor's score against what was said")
+        NODE_MAP[7] = ("RECONCILE", "runs", "all three voices present")
+        NODE_MAP[14] = ("READOUT", "runs", "on SIMULATED outcomes — the shape, not the answer")
     print("\nNODE MAP — what runs on today's data and what does not\n" + "─" * 78)
     for name, status, desc in NODE_MAP:
         print(f"  {icon[status]} {name:<20} {desc}")
@@ -151,6 +157,8 @@ def run(args) -> State:
              PRESCRIBE, HITL, EMIT, READOUT]
 
     print(f"\nCordilla serving pipeline — reference date {TODAY:%Y-%m-%d}")
+    if args.demo:
+        print("DEMO MODE — synthetic transcripts and simulated outcomes. Not Cordilla data.")
     print("=" * 78)
     for node in graph:
         state.say(f"\n▸ {node.__name__}")
@@ -177,20 +185,23 @@ def main() -> None:
     p.add_argument("--llm", choices=["template", "live"], default="template",
                    help="'template' renders the prompt and a worked example (the packet judges "
                         "this the same as a live call); 'live' calls the API if a key is set")
+    p.add_argument("--demo", action="store_true",
+                   help="run end to end on SYNTHETIC transcripts and SIMULATED outcomes from "
+                        "serving/demo_data/ — everything derived from them is labelled demo")
     p.add_argument("--map", action="store_true", help="print the node map and exit")
     p.add_argument("--check-llm", action="store_true", dest="check_llm",
                    help="probe the configured LLM backends and agent routing, then exit")
     args = p.parse_args()
 
     if args.map:
-        print_map()
+        print_map(args.demo)
         return
     if args.check_llm:
         import llm
         llm.healthcheck()
         return
     run(args)
-    print_map()
+    print_map(args.demo)
 
 
 if __name__ == "__main__":

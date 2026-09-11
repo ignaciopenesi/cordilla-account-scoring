@@ -1,0 +1,17 @@
+[Call · ACC-00275 · 2026-05-26 · 12 min · recorded with disclosure]
+
+REP (Cordilla): Appreciate you picking up. I wanted to follow up on the whitepaper your team downloaded.
+
+PROSPECT (Director of RevOps): Yeah — it's not where we want it. It got worse, actually.
+
+REP: Who else would need to be involved in a decision like that?
+
+PROSPECT (Director of RevOps): We've got budget approved for this fiscal year, it came through in June. We're just deciding between you and two others.
+
+REP: Understood. What would you need to see to get past incumbent tool?
+
+PROSPECT (Director of RevOps): Proof, mostly. We've been told yes before and it didn't hold up.
+
+REP: Would a working session with our ops lead help? Not a demo — the actual config.
+
+PROSPECT (Director of RevOps): That would help. Let's find time in the next couple of weeks.

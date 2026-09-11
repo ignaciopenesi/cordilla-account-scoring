@@ -1,11 +1,19 @@
 # serving/ — the pipeline
 
 ```bash
-python serving/pipeline.py              # dry run: scores, allocates, proposes. Writes nothing outside out/
+python serving/pipeline.py              # 11 of 15 nodes; the rest declare what they need
+python serving/pipeline.py --demo       # ALL 15, on synthetic transcripts + simulated outcomes
 python serving/pipeline.py --approve    # simulate the SDR manager signing off
-python serving/pipeline.py --llm live   # make the real LLM calls (needs ANTHROPIC_API_KEY)
+python serving/pipeline.py --check-llm  # probe the configured backends and agent routing
 python serving/pipeline.py --map        # just the node map
 ```
+
+**Two modes, deliberately.** Without `--demo` the pipeline runs on the two provided CSVs
+and **declares** what it cannot do: 11 nodes run, 2 are partial, 2 are bypassed, each
+recording what would unblock it. With `--demo` it runs all 15 end to end on clearly
+labelled synthetic inputs from `demo_data/` — because a design you cannot execute is hard
+to judge, and harder to poke holes in. Nothing from the demo is presented as a finding
+about Cordilla; everything derived from it is marked `SYNTHETIC` or `SIMULATED`.
 
 Runs in about four seconds on the pinned dependencies. No extra packages: `anthropic` is
 imported only inside the live-call branch, and the one markdown table is written by hand
@@ -139,6 +147,50 @@ So extraction stays in the building and drafting goes to the better writer. `rou
 to, and falls back to template with a warning.
 
     python serving/pipeline.py --check-llm     # probe backends and agent routing
+
+### What the end-to-end demo run actually produced
+
+Running `--demo` exercises the three nodes that cannot otherwise run. What came back is
+more useful than a green checkmark:
+
+**The extraction agent, measured against known ground truth** (20 transcripts generated
+*from* a known intent level, `qwen3:14b`, 497s for all 20 at 3 workers):
+
+| | |
+|---|---|
+| `next_step_exact` | **1.00** |
+| `intent_level_within_one` | 0.80 |
+| `hot_vs_cold_correct` | 0.80 |
+| `intent_level_exact` | **0.50** |
+| `speaker_role_exact` | **0.05** |
+| mean self-reported confidence | 0.62 |
+
+The pattern is consistent and it is the design input: **what is extracted is reliable,
+what is inferred is not.** Quote, objections and agreed next step come back clean; the
+intent level is a coin flip at the exact grade and the speaker role is worse than random.
+So the pipeline raises it as a finding — *"use what is extracted; treat the level as a
+hypothesis until READOUT has measured it"* — in the same table as every other defect.
+Model size is one line in the routing table, and which size suffices is now a question
+that can be answered by re-running `extract_intents.py`, not by preference.
+
+**`CALIBRATE_VENDOR` produced the table nobody at Cordilla can produce today**: on the 12
+accounts where both a vendor score and a call exist, vendor and conversation agree 58% of
+the time, with 3 accounts the vendor calls hot that the conversation reads cold. On
+synthetic data that number means nothing — the *method* is the deliverable, and it costs
+nothing once calls are recorded.
+
+**`RECONCILE` settled 4 disagreements with no human involved.** One is the cell that
+matters: `ACC-01282`, model score 4.0% (bottom quartile), 3 logged contacts, and the call
+says *"We signed off on the budget last week and we need this live before the fiscal year
+closes."* The model is wrong, the rep was right, and the system can now prove it rather
+than ask.
+
+**`READOUT` produced exactly the null it was built to produce.** Outcomes simulated at the
+brief's 3% field rate with **no true difference between arms**: exploit 6.7%, control 3.3%,
+explore 3.3% — a 3.3-point spread out of pure noise, every confidence interval overlapping
+every other. That is the honest shape of one cycle, and the pipeline files it as a finding:
+*one cycle of 30 per arm cannot resolve a realistic difference; commit to two quarters and
+say so before the first readout rather than after.*
 
 ### What testing this against a real local model showed
 

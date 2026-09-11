@@ -1,0 +1,224 @@
+[
+  {
+    "account_id": "ACC-00160",
+    "intent_level": "B",
+    "speaker_role": "decision_maker",
+    "call_purpose": "follow_up",
+    "next_step_agreed": true,
+    "objections": [
+      "incumbent tool",
+      "price"
+    ],
+    "quote": "We've got budget approved for this fiscal year, it came through in June. We're just deciding between you and two others."
+  },
+  {
+    "account_id": "ACC-00275",
+    "intent_level": "B",
+    "speaker_role": "decision_maker",
+    "call_purpose": "follow_up",
+    "next_step_agreed": true,
+    "objections": [
+      "incumbent tool",
+      "price"
+    ],
+    "quote": "We've got budget approved for this fiscal year, it came through in June. We're just deciding between you and two others."
+  },
+  {
+    "account_id": "ACC-00270",
+    "intent_level": "C",
+    "speaker_role": "gatekeeper",
+    "call_purpose": "follow_up",
+    "next_step_agreed": true,
+    "objections": [
+      "no budget yet"
+    ],
+    "quote": "We're building the business case. Nothing's approved yet but my director asked me to get numbers together for the planning cycle."
+  },
+  {
+    "account_id": "ACC-00272",
+    "intent_level": "D",
+    "speaker_role": "decision_maker",
+    "call_purpose": "negotiation",
+    "next_step_agreed": false,
+    "objections": [
+      "timing"
+    ],
+    "quote": "It's on the roadmap for sometime next year maybe. Not this quarter."
+  },
+  {
+    "account_id": "ACC-00915",
+    "intent_level": "E",
+    "speaker_role": "decision_maker",
+    "call_purpose": "negotiation",
+    "next_step_agreed": false,
+    "objections": [
+      "wrong contact"
+    ],
+    "quote": "I'm not the right person for this, you'd want to talk to whoever owns ops. I just took the call because it landed in my inbox."
+  },
+  {
+    "account_id": "ACC-00369",
+    "intent_level": "C",
+    "speaker_role": "gatekeeper",
+    "call_purpose": "discovery",
+    "next_step_agreed": false,
+    "objections": [
+      "internal buy-in"
+    ],
+    "quote": "I'd need to justify this internally. If you can help me with an ROI story I can take it to my VP next month."
+  },
+  {
+    "account_id": "ACC-00109",
+    "intent_level": "A",
+    "speaker_role": "decision_maker",
+    "call_purpose": "negotiation",
+    "next_step_agreed": true,
+    "objections": [
+      "implementation speed"
+    ],
+    "quote": "Board approved the spend. We want to be in production by Q4, so whatever your onboarding looks like, we need it to fit that."
+  },
+  {
+    "account_id": "ACC-00806",
+    "intent_level": "F",
+    "speaker_role": "gatekeeper",
+    "call_purpose": "negotiation",
+    "next_step_agreed": false,
+    "objections": [
+      "locked into contract"
+    ],
+    "quote": "We just renewed with our current vendor for three years. Please take us off your list."
+  },
+  {
+    "account_id": "ACC-01414",
+    "intent_level": "E",
+    "speaker_role": "decision_maker",
+    "call_purpose": "negotiation",
+    "next_step_agreed": false,
+    "objections": [
+      "wrong contact"
+    ],
+    "quote": "I'm not the right person for this, you'd want to talk to whoever owns ops. I just took the call because it landed in my inbox."
+  },
+  {
+    "account_id": "ACC-01145",
+    "intent_level": "B",
+    "speaker_role": "decision_maker",
+    "call_purpose": "follow_up",
+    "next_step_agreed": true,
+    "objections": [
+      "technical fit"
+    ],
+    "quote": "There's money allocated. I'm comparing three vendors and I need to see the multi-region piece work before I commit."
+  },
+  {
+    "account_id": "ACC-00561",
+    "intent_level": "B",
+    "speaker_role": "decision_maker",
+    "call_purpose": "follow_up",
+    "next_step_agreed": true,
+    "objections": [
+      "technical fit"
+    ],
+    "quote": "There's money allocated. I'm comparing three vendors and I need to see the multi-region piece work before I commit."
+  },
+  {
+    "account_id": "ACC-00730",
+    "intent_level": "C",
+    "speaker_role": "user",
+    "call_purpose": "follow_up",
+    "next_step_agreed": true,
+    "objections": [
+      "no budget yet"
+    ],
+    "quote": "We're building the business case. Nothing's approved yet but my director asked me to get numbers together for the planning cycle."
+  },
+  {
+    "account_id": "ACC-00602",
+    "intent_level": "A",
+    "speaker_role": "decision_maker",
+    "call_purpose": "negotiation",
+    "next_step_agreed": true,
+    "objections": [
+      "implementation speed"
+    ],
+    "quote": "Board approved the spend. We want to be in production by Q4, so whatever your onboarding looks like, we need it to fit that."
+  },
+  {
+    "account_id": "ACC-00935",
+    "intent_level": "D",
+    "speaker_role": "user",
+    "call_purpose": "discovery",
+    "next_step_agreed": false,
+    "objections": [
+      "no trigger event"
+    ],
+    "quote": "Honestly we're just looking at what's out there. Nothing's driving this right now, I'm keeping an eye on the space."
+  },
+  {
+    "account_id": "ACC-00481",
+    "intent_level": "E",
+    "speaker_role": "gatekeeper",
+    "call_purpose": "discovery",
+    "next_step_agreed": false,
+    "objections": [
+      "wrong contact"
+    ],
+    "quote": "I'm not the right person for this, you'd want to talk to whoever owns ops. I just took the call because it landed in my inbox."
+  },
+  {
+    "account_id": "ACC-00313",
+    "intent_level": "D",
+    "speaker_role": "decision_maker",
+    "call_purpose": "discovery",
+    "next_step_agreed": false,
+    "objections": [
+      "timing"
+    ],
+    "quote": "It's on the roadmap for sometime next year maybe. Not this quarter."
+  },
+  {
+    "account_id": "ACC-00414",
+    "intent_level": "F",
+    "speaker_role": "decision_maker",
+    "call_purpose": "negotiation",
+    "next_step_agreed": false,
+    "objections": [
+      "explicit no"
+    ],
+    "quote": "I'd rather you didn't call again. We're not interested."
+  },
+  {
+    "account_id": "ACC-01282",
+    "intent_level": "A",
+    "speaker_role": "decision_maker",
+    "call_purpose": "discovery",
+    "next_step_agreed": true,
+    "objections": [
+      "procurement timeline"
+    ],
+    "quote": "We signed off on the budget last week and we need this live before the fiscal year closes in November. I'm ready to talk contracts."
+  },
+  {
+    "account_id": "ACC-01128",
+    "intent_level": "A",
+    "speaker_role": "decision_maker",
+    "call_purpose": "discovery",
+    "next_step_agreed": true,
+    "objections": [
+      "procurement timeline"
+    ],
+    "quote": "We signed off on the budget last week and we need this live before the fiscal year closes in November. I'm ready to talk contracts."
+  },
+  {
+    "account_id": "ACC-00972",
+    "intent_level": "E",
+    "speaker_role": "decision_maker",
+    "call_purpose": "negotiation",
+    "next_step_agreed": false,
+    "objections": [
+      "built in-house"
+    ],
+    "quote": "We looked at this category two years ago and decided to build internally. That's still where we are."
+  }
+]

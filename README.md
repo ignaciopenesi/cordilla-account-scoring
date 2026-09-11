@@ -20,7 +20,8 @@ Take-home for the AI Transformation Analyst role at Dialpad. The short version:
 
 ```
 audit/01_model_audit.ipynb   110 cells, runs in ~4 min, committed with outputs
-serving/pipeline.py          python serving/pipeline.py   (~4s, no extra deps)
+serving/pipeline.py          python serving/pipeline.py          (11 of 15 nodes, ~4s)
+                             python serving/pipeline.py --demo   (all 15, synthetic inputs)
 serving/README.md            the graph, what runs today and what does not
 PROPOSAL.md                  ~1,250 words, the four areas
 RESEARCH-LOG.md              8 entries, kept as I went

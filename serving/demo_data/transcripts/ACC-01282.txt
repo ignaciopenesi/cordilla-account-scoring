@@ -1,0 +1,17 @@
+[Call · ACC-01282 · 2026-05-22 · 11 min · recorded with disclosure]
+
+REP (Cordilla): Good to finally connect. Your colleague suggested I reach out about the approvals workflow.
+
+PROSPECT (VP Operations): Yeah — it's not where we want it. It got worse, actually.
+
+REP: What's driving the timing on this?
+
+PROSPECT (VP Operations): We signed off on the budget last week and we need this live before the fiscal year closes in November. I'm ready to talk contracts.
+
+REP: Understood. What would you need to see to get past procurement timeline?
+
+PROSPECT (VP Operations): Proof, mostly. We've been told yes before and it didn't hold up.
+
+REP: Would a working session with our ops lead help? Not a demo — the actual config.
+
+PROSPECT (VP Operations): That would help. Let's find time in the next couple of weeks.

@@ -1,0 +1,17 @@
+[Call · ACC-01145 · 2026-06-27 · 7 min · recorded with disclosure]
+
+REP (Cordilla): Thanks for making time. Last we spoke you'd mentioned the ops team was drowning in handoffs.
+
+PROSPECT (VP Operations): Yeah — it's not where we want it. Same as it was.
+
+REP: Who else would need to be involved in a decision like that?
+
+PROSPECT (VP Operations): There's money allocated. I'm comparing three vendors and I need to see the multi-region piece work before I commit.
+
+REP: Understood. What would you need to see to get past technical fit?
+
+PROSPECT (VP Operations): Proof, mostly. We've been told yes before and it didn't hold up.
+
+REP: Would a working session with our ops lead help? Not a demo — the actual config.
+
+PROSPECT (VP Operations): That would help. Let's find time in the next couple of weeks.

@@ -115,7 +115,7 @@
       "node": "CALIBRATE_VENDOR",
       "reason": "needs CONVERSATION_INTENT, which has no transcripts to work from",
       "unblocked_by": "the same recording capability; then no new data is required",
-      "would_produce": "on the 103 accounts where both exist: agreement rate between vendor intent decile and conversation intent level, by segment; the segments where the vendor systematically over- or under-states; a renewal memo with that evidence",
+      "would_produce": "on the 103 accounts where both exist: agreement between vendor intent and conversation intent, by segment; where the vendor systematically over- or under-states; a renewal memo with that evidence",
       "still_computed": "the contrastable set: 103 accounts"
     },
     {
@@ -129,7 +129,7 @@
       "node": "READOUT",
       "reason": "90-day outcomes for the accounts assigned today do not exist yet",
       "unblocked_by": "one cycle of the arms above, with outcomes written back per account",
-      "would_produce": "conversions per logged contact by arm with confidence intervals; the same broken out by conversation intent level (testing whether intent from calls predicts better than any CRM column); and the epsilon-greedy update \u2014 the winning arm grows, exploration never goes to zero",
+      "would_produce": "conversions per logged contact by arm with confidence intervals; the same broken out by conversation intent level (testing whether intent from calls predicts better than any CRM column); and the epsilon-greedy update -- the winning arm grows, exploration never goes to zero",
       "still_computed": "the arms are assigned and recorded: {'exploit': 30, 'explore': 30, 'control': 30}"
     }
   ],

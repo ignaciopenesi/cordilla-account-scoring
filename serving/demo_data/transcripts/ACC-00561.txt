@@ -1,0 +1,17 @@
+[Call · ACC-00561 · 2026-06-18 · 8 min · recorded with disclosure]
+
+REP (Cordilla): Good to finally connect. Your colleague suggested I reach out about the approvals workflow.
+
+PROSPECT (VP Operations): Yeah — it's not where we want it. It got worse, actually.
+
+REP: Is that still being handled manually?
+
+PROSPECT (VP Operations): There's money allocated. I'm comparing three vendors and I need to see the multi-region piece work before I commit.
+
+REP: Understood. What would you need to see to get past technical fit?
+
+PROSPECT (VP Operations): Proof, mostly. We've been told yes before and it didn't hold up.
+
+REP: Would a working session with our ops lead help? Not a demo — the actual config.
+
+PROSPECT (VP Operations): That would help. Let's find time in the next couple of weeks.

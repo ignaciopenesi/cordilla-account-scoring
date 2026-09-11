@@ -1,0 +1,17 @@
+[Call · ACC-01128 · 2026-07-21 · 15 min · recorded with disclosure]
+
+REP (Cordilla): Thanks for making time. Last we spoke you'd mentioned the ops team was drowning in handoffs.
+
+PROSPECT (Director of RevOps): Yeah — it's not where we want it. Same as it was.
+
+REP: Is that still being handled manually?
+
+PROSPECT (Director of RevOps): We signed off on the budget last week and we need this live before the fiscal year closes in November. I'm ready to talk contracts.
+
+REP: Understood. What would you need to see to get past procurement timeline?
+
+PROSPECT (Director of RevOps): Proof, mostly. We've been told yes before and it didn't hold up.
+
+REP: Would a working session with our ops lead help? Not a demo — the actual config.
+
+PROSPECT (Director of RevOps): That would help. Let's find time in the next couple of weeks.

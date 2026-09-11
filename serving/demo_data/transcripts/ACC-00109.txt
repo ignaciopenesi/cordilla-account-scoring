@@ -1,0 +1,17 @@
+[Call · ACC-00109 · 2026-07-25 · 7 min · recorded with disclosure]
+
+REP (Cordilla): Thanks for the fifteen minutes. I know you're mid-quarter so I'll be quick.
+
+PROSPECT (VP Operations): Yeah — it's not where we want it. It got worse, actually.
+
+REP: How are you solving that today?
+
+PROSPECT (VP Operations): Board approved the spend. We want to be in production by Q4, so whatever your onboarding looks like, we need it to fit that.
+
+REP: Understood. What would you need to see to get past implementation speed?
+
+PROSPECT (VP Operations): Proof, mostly. We've been told yes before and it didn't hold up.
+
+REP: Would a working session with our ops lead help? Not a demo — the actual config.
+
+PROSPECT (VP Operations): That would help. Let's find time in the next couple of weeks.
