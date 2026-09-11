@@ -10,7 +10,7 @@ Each transcript is generated from a known intent level, and that level is writte
 ground_truth.json. So running the extractor over them is not just a demo — it *measures*
 the agent, which is the standard this repo applies to every other instrument in it.
 
-    python proposal/conversation_layer/demo_data/make_transcripts.py
+    python extensions/conversation_layer/demo_data/make_transcripts.py
 """
 import json
 import random

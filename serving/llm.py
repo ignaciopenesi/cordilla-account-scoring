@@ -119,9 +119,8 @@ kill it. End with the readout date and one sentence on why the control arm exist
         "**ask** — 5+ contacts, no result, no conversation on file. The rep gets one question, "
         "not a call: what do you know that the data does not? Their answer decides whether the "
         "account rests or returns.\n\n"
-        "**holdout** — Prospects who said no after 4+ contacts and agreed to no next step. Nobody "
-        "calls them. If they convert anyway, the extractor misread them.\n\n"
-        "First readout 2026-10-30. It will be noisy — 30 per arm cannot resolve a realistic "
+        "**idle** — The rest of the system's two thirds, not touched this week; tracked like everything else.\n\n"
+        "First readout 2026-10-30. It will be noisy — fifteen per arm cannot resolve a realistic "
         "difference — and it accumulates. The control arm exists because Cordilla has never had "
         "one, which is why nobody could write up how the last scoring effort died."),
 ))
@@ -195,7 +194,7 @@ Write the manager's paragraph. End with one concrete recommendation for this wee
             "data changed, which is the model's own seed, not the market. Only 7 of the top "
             "30 carry no flags at all. The model expects 19.7 conversions across 300 "
             "accounts (6.6%) against a field rate the business reports at 1–3%. "
-            "Recommendation this week: run the exploit arm off sales_contacts, not off the "
+            "Recommendation this week: fill the continue arm off trial and vendor presence, not off the "
             "score, and do not publish the probabilities.",
 ))
 
@@ -231,7 +230,7 @@ INTENT_SCHEMA = {
 }
 
 # PROPOSED, NOT WIRED (2026-09-11). The contract below is designed and was measured on synthetic
-# transcripts (proposal/conversation_layer/). No node in serving/pipeline.py calls it; it stays here
+# transcripts (extensions/conversation_layer/). No node in serving/pipeline.py calls it; it stays here
 # as the documented spot where a real call would plug in, and route() still refuses to send it to
 # a hosted backend.
 agent(Agent(

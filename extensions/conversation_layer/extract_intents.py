@@ -8,9 +8,9 @@ Because the demo transcripts carry a known intent level, this also MEASURES the 
 how often does it recover the level, the role, the next step? That number goes in the
 report. An extractor nobody measured is exactly the instrument this whole repo is about.
 
-    python proposal/conversation_layer/extract_intents.py                 # resume; only processes what is missing
-    python proposal/conversation_layer/extract_intents.py --force         # re-extract everything
-    python proposal/conversation_layer/extract_intents.py --workers 3
+    python extensions/conversation_layer/extract_intents.py                 # resume; only processes what is missing
+    python extensions/conversation_layer/extract_intents.py --force         # re-extract everything
+    python extensions/conversation_layer/extract_intents.py --workers 3
 """
 from __future__ import annotations
 
@@ -86,7 +86,7 @@ def main() -> None:
 
     files = sorted((DEMO / "transcripts").glob("*.txt"))
     if not files:
-        print("no transcripts — run proposal/conversation_layer/demo_data/make_transcripts.py first")
+        print("no transcripts — run extensions/conversation_layer/demo_data/make_transcripts.py first")
         return
 
     cache = {} if args.force or not CACHE.exists() else json.loads(CACHE.read_text()).get("intents", {})

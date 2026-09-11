@@ -16,7 +16,7 @@ _Historical: each policy builds its list from the 1,099 labelled training rows w
 
 ## This week's verdict
 
-Run of 2026-08-01. Every feature is stable against training (max PSI 0.06); snapshot age is not — but that is how the batch was drawn, not drift. The top 30 shares 21 of 30 accounts with last week's list even though no underlying data changed, which is the model's own seed, not the market. Only 7 of the top 30 carry no flags at all. The model expects 19.7 conversions across 300 accounts (6.6%) against a field rate the business reports at 1–3%. Recommendation this week: run the exploit arm off sales_contacts, not off the score, and do not publish the probabilities.
+Run of 2026-08-01. Every feature is stable against training (max PSI 0.06); snapshot age is not — but that is how the batch was drawn, not drift. The top 30 shares 21 of 30 accounts with last week's list even though no underlying data changed, which is the model's own seed, not the market. Only 7 of the top 30 carry no flags at all. The model expects 19.7 conversions across 300 accounts (6.6%) against a field rate the business reports at 1–3%. Recommendation this week: fill the continue arm off trial and vendor presence, not off the score, and do not publish the probabilities.
 
 ## What changed this week
 
@@ -115,7 +115,7 @@ _Test: the 300 most recent labelled accounts (2026-01-08 → 2026-05-03), 23 con
 | the team today — every account it chose to work | 20 | 10.9% | [7%, 16%] | 87% | 497 |
 | the graph WITH the conversation agent | — | — | needs call transcripts on accounts with a known outcome — none exist; the proposed extension in serving/README.md | — | — |
 
-**What this test can judge:** the model against the rules — exploit beats the model's honest score about 2×, and adding the model's picks to exploit removes conversions. **What it cannot judge:** explore and the agent. Both pick accounts history never called; their historical rate is *what happens when nobody calls*, which is the question the arms exist to answer. Reading explore's row as its value would be the same confounding error in reverse.
+**What this test can judge:** the model against the rules — continue beats the model's honest score about 2×, and adding the model's picks to continue removes conversions. **What it cannot judge:** first-call and the conversation layer. Both pick accounts history never called; their historical rate is *what happens when nobody calls*, which is the question the arms exist to answer. Reading explore's row as its value would be the same confounding error in reverse.
 
 _The weekly number is filed as a bet with its falsifier; it cannot be read as a result. Detail, guardrails and the kill switch in `metrics.md`._
 
@@ -124,8 +124,8 @@ _The weekly number is filed as a bet with its falsifier; it cannot be read as a 
 | rung | what | unit and formula | real when |
 |---|---|---|---|
 | **this week** | hours held or not spent | ask 111 + skip 79 contacts × 12 min = **38 rep-h** — a count on the row, not a result | now |
-| **day 90 · the first causal number** | first call on an untouched trial: called vs observed, randomised | uplift = k_called/n_called − k_obs/n_obs, in points, with its interval · today 15 called / 9 observed | readable at ~138 per group |
-| **day 90 · the policy** | the system's third vs the control third, **every account counted** (intention-to-treat) | I = (p_system − p_control) × N_system = incremental conversions, with a two-proportion interval · today 207 vs 93 | interval excludes zero |
+| **day 90 · the first causal number** | first call on an untouched trial: called vs observed, randomised | uplift = k_called/n_called − k_obs/n_obs, in points, with its interval · today 9 called / 9 observed | readable at ~138 per group |
+| **day 90 · the policy** | the system's two thirds vs the control third, **every account counted** (intention-to-treat) | I = (p_system − p_control) × N_system = incremental conversions, with a two-proportion interval · today 207 vs 93 | interval excludes zero |
 | **quarter 2** | conversions per 100 rep-hours, system vs control, cumulative | 100 × k / contacts logged after assignment × 5 | ~2,515 per side |
 
 **The sentence, when it reads:** *"Over N accounts assigned between [date] and [date], the system produced I more conversions than the reps' own picks would have — between lo and hi — for the same rep-hours, and it stopped spending H hours where calling has never converted."* Until then it is spoken with the interval and without the point. No dollars: there is no deal size on file, and a dollar figure is read as a point. Readout dates are fixed in advance; nothing is read before the pre-registered n.
@@ -142,9 +142,9 @@ _The weekly number is filed as a bet with its falsifier; it cannot be read as a 
 
 **ask** — 5+ contacts, no result, no conversation on file. The rep gets one question, not a call: what do you know that the data does not? Their answer decides whether the account rests or returns.
 
-**holdout** — Prospects who said no after 4+ contacts and agreed to no next step. Nobody calls them. If they convert anyway, the extractor misread them.
+**idle** — The rest of the system's two thirds, not touched this week; tracked like everything else.
 
-First readout 2026-10-30. It will be noisy — 30 per arm cannot resolve a realistic difference — and it accumulates. The control arm exists because Cordilla has never had one, which is why nobody could write up how the last scoring effort died.
+First readout 2026-10-30. It will be noisy — fifteen per arm cannot resolve a realistic difference — and it accumulates. The control arm exists because Cordilla has never had one, which is why nobody could write up how the last scoring effort died.
 
 ## Actions awaiting your signature
 
@@ -166,10 +166,11 @@ First readout 2026-10-30. It will be noisy — 30 per arm cannot resolve a reali
 
 | node | reason | unblocked_by |
 |---|---|---|
+| READOUT | 90-day outcomes for the accounts assigned today do not exist yet | one cycle, with outcomes written back per account — first read 2026-10-30 |
 
 ## Proposed, not wired — the conversation layer
 
-The one input that is not a function of Cordilla's own effort is what the prospect said on the call. A layer that extracts it is designed, measured on synthetic transcripts (1.00 on the routing field, quotes grounded 20/20) and deliberately kept out of this graph until real transcripts with outcomes exist. It would work the margin — the accounts no column separates. See `proposal/conversation_layer/`.
+The one input that is not a function of Cordilla's own effort is what the prospect said on the call. A layer that extracts it is designed, measured on synthetic transcripts (1.00 on the routing field, quotes grounded 20/20) and deliberately kept out of this graph until real transcripts with outcomes exist. It would work the margin — the accounts no column separates. See `extensions/conversation_layer/`.
 
 ---
 
@@ -199,7 +200,7 @@ _Every prompt, verbatim, with the worked example that stands in for a live call.
 │ 
 │ Write the manager's paragraph. End with one concrete recommendation for this week.
 ├─ RETURNS (worked example) ───────────────────────────────────────────────
-│ Run of 2026-08-01. Every feature is stable against training (max PSI 0.06); snapshot age is not — but that is how the batch was drawn, not drift. The top 30 shares 21 of 30 accounts with last week's list even though no underlying data changed, which is the model's own seed, not the market. Only 7 of the top 30 carry no flags at all. The model expects 19.7 conversions across 300 accounts (6.6%) against a field rate the business reports at 1–3%. Recommendation this week: run the exploit arm off sales_contacts, not off the score, and do not publish the probabilities.
+│ Run of 2026-08-01. Every feature is stable against training (max PSI 0.06); snapshot age is not — but that is how the batch was drawn, not drift. The top 30 shares 21 of 30 accounts with last week's list even though no underlying data changed, which is the model's own seed, not the market. Only 7 of the top 30 carry no flags at all. The model expects 19.7 conversions across 300 accounts (6.6%) against a field rate the business reports at 1–3%. Recommendation this week: fill the continue arm off trial and vendor presence, not off the score, and do not publish the probabilities.
 └──────────────────────────────────────────────────────────────────────────
 ```
 
@@ -243,8 +244,8 @@ _Every prompt, verbatim, with the worked example that stands in for a live call.
 │ 
 │ **ask** — 5+ contacts, no result, no conversation on file. The rep gets one question, not a call: what do you know that the data does not? Their answer decides whether the account rests or returns.
 │ 
-│ **holdout** — Prospects who said no after 4+ contacts and agreed to no next step. Nobody calls them. If they convert anyway, the extractor misread them.
+│ **idle** — The rest of the system's two thirds, not touched this week; tracked like everything else.
 │ 
-│ First readout 2026-10-30. It will be noisy — 30 per arm cannot resolve a realistic difference — and it accumulates. The control arm exists because Cordilla has never had one, which is why nobody could write up how the last scoring effort died.
+│ First readout 2026-10-30. It will be noisy — fifteen per arm cannot resolve a realistic difference — and it accumulates. The control arm exists because Cordilla has never had one, which is why nobody could write up how the last scoring effort died.
 └──────────────────────────────────────────────────────────────────────────
 ```

@@ -38,7 +38,7 @@ And the reason none of this can be optimised directly: the same yield curve says
 **conversions per 100 logged contacts, by arm, cumulative**
 
 - needs **2,515 accounts per arm** to detect a 50% relative lift at the field rate (1,106 at the training rate)
-- at today's 30 per arm per cycle: **168 weeks**. Assigning **97 per arm** instead lands it in two quarters, with no new rep hours.
+- at today's 15 per cycle in the smallest arm: **168 weeks**. Assigning **97 per arm** instead lands it in two quarters, with no new rep hours.
 
 ## 2 · Weekly headline — *a bet, not a result*
 
@@ -50,7 +50,7 @@ And the reason none of this can be optimised directly: the same yield curve says
 
 | bet | claim | settles | falsified_if |
 |---|---|---|---|
-| redirected hours convert better than the hours they replaced | conversions per 100 rep-hours are higher in the system's third than in the control third, every account counted | not before 2,515 accounts per arm (168 weeks at 15/arm, 26 cycles at 97/arm) | the cumulative interval for the system's third sits below the control third's once the halves are powered — at which point the system is reallocating hours to worse places |
+| redirected hours convert better than the hours they replaced | conversions per 100 rep-hours are higher in the system's two thirds than in the control third, every account counted | not before 2,515 accounts per arm (168 weeks at 15/arm, 26 cycles at 97/arm) | the cumulative interval for the system's two thirds sits below the control third's once the halves are powered — at which point the system is reallocating hours to worse places |
 
 ## Guardrails — what must not get worse while the bets mature
 
@@ -68,4 +68,4 @@ at each 90-day readout, does the weekly headline still track the north star?
 
 ## Kill switch
 
-if the system third's cumulative rate sits below the control third's once both pass 2,515 accounts, the reallocation is wrong and the system stops directing hours.
+if the system's two thirds' cumulative rate sits below the control third's once both pass 2,515 accounts, the reallocation is wrong and the system stops directing hours.

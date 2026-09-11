@@ -235,7 +235,7 @@ def _run_cycles(args) -> None:
         cum = nxt.get("cumulative", {})
         print(f"\ncycle {i + 1}")
         print(f"  arms drawn    : " + " · ".join(f"{k} {v}" for k, v in state.artifacts.get("arms", {}).items())
-              + f" · holdout {state.artifacts.get('holdout', 0)}")
+              + " · " + " · ".join(f"{k} {v}" for k, v in state.artifacts.get("cohorts", {}).items()))
         print(f"  cumulative    : " + " · ".join(f"{k} {v['k']}/{v['n']}" for k, v in cum.items()))
         print(f"  agent, real   : released→{sc.get('real_released_should_not_convert', '—')}")
         print(f"                  rescued →{sc.get('real_rescued_should_convert', '—')}")

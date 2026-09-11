@@ -10,7 +10,7 @@ Every column in the data measures what Cordilla *did* to an account — contacts
 team provisioned — or what a vendor guessed. The one input that is not a function of Cordilla's
 own effort is **what the prospect said on the call**. On the held-out 300, eight of the 23 buyers
 sit in `continue`'s pool below the cut and are indistinguishable from the non-converters beside
-them on every column (Mann-Whitney p > 0.5 on contacts, MQL, web and the model's own score). A
+them on every column (Mann-Whitney rank test, p > 0.5 on contacts, MQL, web and the model's own score). A
 conversation is the only remaining signal for them. That is this layer's job: **the margin** —
 the accounts the rules cannot rank — not the top of the list and not the skip bucket.
 
@@ -28,7 +28,7 @@ Two nodes and a ledger were removed from the graph and are kept here for referen
 quadrants), `CALIBRATE_VENDOR` (the vendor's score against what prospects said), and `VALUE`'s
 ledger (rescued / released accounts, priced in hours, filed as dated bets). With the voice wired,
 `BUDGET` would move accounts first: READY or a next step agreed → `continue`; declined after 4+
-contacts with no next step → a `holdout` cohort, tracked and never called.
+contacts with no next step → a `holdout` cohort — the layer's name for *declined, tracked, never called*; not the audit's held-out data.
 
 ## What was measured — on 20 synthetic transcripts from 12 templates, `qwen3:14b` locally
 
@@ -52,10 +52,7 @@ my own ground truth, not a field result.**
 
 ## What it would add, and how it would be judged
 
-On the 20 synthetic transcripts it changed where 13 of 20 accounts went — stopping two calls the
-rules would have made to accounts that said no, surfacing eight the rules had in the pool
-(including the model's #286: *"we signed off on the budget last week"*), answering two `ask`
-questions. Its field metric is the same as every other mechanism's: at day 90, recall on the
+On the 20 synthetic transcripts it changed where 13 of 20 accounts went — three to a declined cohort (two the rules had in `continue` on four contacts each, one stale), eight surfaced into `continue` (seven said READY — including the model's #286: *"we signed off on the budget last week"* — and one booked a meeting), and two `ask` questions answered, one each way. Its field metric is the same as every other mechanism's: at day 90, recall on the
 margin *with* the layer against *without*, and the bets it files — *released accounts do not
 convert; rescued accounts do* — settled against real outcomes, with `n ≥ 99` before a zero means
 anything.
@@ -63,7 +60,7 @@ anything.
 ## To wire it back
 
 1. Recording with per-call disclosure on the 67 fill-gap accounts (they already receive calls).
-2. `python proposal/conversation_layer/extract_intents.py` against the local backend in
+2. `python extensions/conversation_layer/extract_intents.py` against the local backend in
    `serving/config.toml` — writes `intents.json`.
 3. Restore `CONVERSATION_INTENT` after `PROVE` and the voice-first branch in `BUDGET` (reference file above; `git log -S CONVERSATION_INTENT` finds the wired version).
 
