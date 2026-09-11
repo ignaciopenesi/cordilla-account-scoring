@@ -323,3 +323,102 @@ it from the files, and it is the first thing I would ask the data owner.
 **Next: an adversarial pass over the notebook before I build anything on top of it.**
 
 ---
+
+## Entry 4 — 2026-09-11 ~00:40 · I had the audit attacked, and it found three real holes
+
+Before building anything on top of the notebook I ran an adversarial pass over it: five
+reviewers, one lens each — text-vs-number consistency, statistical method, ML validity, a
+hostile panel, and what a thorough auditor would have checked and I hadn't. Each was told
+to run its own code and that filing nothing was an acceptable answer.
+
+It ran out of budget partway through, so the independent second opinions never ran.
+**I verified every claim myself before changing anything** — which turned out to matter,
+because the findings ranged from "correct and important" to "correct but stated too
+strongly."
+
+### What it found that was real, in order of how much it hurt
+
+**1. I never validated forward in time, on a file that spans two years of snapshots.**
+This is the one that should have been obvious. Random K-fold lets each fold learn from
+rows dated *after* the rows it scores; deployment never does that. Refitting quarter by
+quarter — train on everything before a cut-off, score the next quarter:
+
+| scored quarter | n | positives | AUC |
+|---|---|---|---|
+| 2025Q3 | 226 | 18 | 0.485 |
+| 2025Q4 | 232 | 16 | **0.398** |
+| 2026Q1 | 264 | 20 | 0.565 |
+| 2026Q2 | 157 | 5 | 0.520 |
+| **pooled** | **879** | **59** | **0.474** |
+
+**Below chance.** And `ORDER BY sales_contacts_90d DESC` on those same rows scores
+**0.608** — 13 points of AUC ahead, and the only one of the two above chance at all.
+
+This is now the strongest result in the audit, and it is a better explanation of the
+brief's folklore than anything I had: a model that looks fine under a shuffled split and
+inverts under a temporal one is precisely a model that looks good in testing and stops
+matching the field two quarters after launch.
+
+**2. "The ceiling is not in the algorithm" was false, and falsifiable in a minute.**
+I had written that retraining would just produce another model with the same ceiling. A
+panelist with a laptop breaks that: a two-parameter logistic on
+`[sales_contacts >= 4, intent_known]` — exactly the recoding §3.4 argues for — scores
+**0.595 against the shipped GBM's 0.568** on identical folds, paired t = +4.70, with a
+third of the split-to-split variance.
+
+A better model *does* help. It helps by discarding seven of the nine columns, and what
+survives still isn't a property of the account. That version is both true and stronger
+than what I had, but I only got there because someone tried to break the sentence.
+
+**3. My allocation section was close to vacuous.** I reported that the top 30 fails the
+4/5ths ratio on industry, size and `account_type`. A *random* list of 30 out of 300 fails
+it too — 100% of the time on industry, 89% on `account_type`. Quoting it unqualified is a
+one-line kill: *"I'll shuffle the list and it fails your test."* Null-calibrated against
+2000 random lists: company size is at the 2nd percentile and intent coverage at the 2nd —
+real. Industry is at the 19th — weaker than I implied. `account_type` is at the 58th —
+**not a finding, and I withdrew it.**
+
+### And one bug in my own experiment
+
+Variant C of the intent decomposition (values kept, missingness pattern reassigned) filled
+the 482 true gaps with the constant 25.3 *before* reshuffling, so 286 originally-missing
+rows stayed visible sitting on the imputation spike and the trees could still read the
+original pattern off it. That is why C sat at 0.560, suspiciously above D. Filling from
+the observed distribution instead drops C to **0.546**, and the C−D contrast to
++0.005 ± 0.004 (t = 1.41) — non-significant, which is what the section claims. The
+conclusion was right; one of the four arms supporting it was leaking.
+
+### Stale numbers, again
+
+Five more markdown claims that disagreed with the output printed directly above them:
+`trial_started` 10.8%/6.3% (actually **9.9% / 5.7%**, n = 223 not 204), trial-with-zero-users
+12% at n = 66 (**11.0%, n = 73**), MQL χ² 0.37 (**0.45**) and its 5+ cell at 12% (**10.7%**),
+industry spread 5.8–8.8% (**5.5–7.6%**), Spearman +0.79/+0.78 where the chart says **+0.77**.
+
+Every one of them came from the Entry 0 chat document rather than from my own cells. That
+is the whole failure mode of this exercise in miniature: I verified the *big* claims from
+that session and let the small ones through by habit. In a notebook whose entire thesis is
+"the number you were shown is not the number," a stale number in the prose is not a typo,
+it is the argument failing on itself.
+
+### What I did not accept
+
+"Systematically lower engagement on other channels" for uncovered accounts — I had written
+it and it is not supported: every channel comparison returns p ≥ 0.25, and on web
+touchpoints and MQLs the uncovered accounts are marginally *higher*. The honest version is
+narrower and more interesting: coverage predicts the outcome (p = 0.0028) through a
+mechanism **nothing in these nine columns can explain.** Rewrote it that way, and softened
+the "already left a visible footprint" story in §3.12 that depended on it.
+
+### Where the audit now stands
+
+113 cells, 11 figures, runs end to end in about four minutes. The verdict did not move —
+don't ship the scores — but three of the reasons are different and better than they were
+yesterday, and two claims I would have defended in the room turned out to be indefensible.
+
+**Still open, and still the first thing I would ask:** does `sales_contacts_90d` count the
+90 days *before* the snapshot, or the same 90 days in which conversion is measured?
+
+**Next: the serving step, and the proposal.**
+
+---
