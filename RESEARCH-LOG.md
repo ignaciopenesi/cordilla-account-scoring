@@ -1756,3 +1756,37 @@ validate the plan against the `--demo` null. Both went into `serving/README.md`.
 **Consolidation.** `ROLLOUT.md` is gone; its phases, C's measurement section and B's lines now live
 in `serving/README.md`, which the user asked to be the single place the agent is reported. The brief
 gained *How this becomes a number*. Six documents remain.
+
+## Entry 29 — 2026-09-11 · Two reviewers on the finished repo: a clean clone that runs, and a word I had wrong
+
+Two more subagents, on the committed state, each with a brief that named what it could and could not
+touch. **E — repo health** cloned the repository into an empty directory, built a venv from the pinned
+requirements and ran everything a panel member would: pip installed in ten seconds without a warning,
+`check.sh` passed eleven of eleven in six seconds, the node map read fourteen run and one bypassed,
+`--check-llm` degraded to template with the reason printed when no local model was reachable, and the
+notebook executed all 110 cells without an error in under a minute. It found one real bug — the
+transcript generator had moved one level deeper and kept a path that now pointed at the wrong folder —
+and fixed it; and it found what a cold reader would trip on: a pandas warning printed on every run, a
+"30/30 overlap with the previous run" on a first week that had no previous run, a `check.sh` that
+printed six misleading failures if the venv was missing, a folder named `proposal/` that did not hold
+the proposal, an orphan sample transcript, and pins that will not install on Python 3.13. All fixed or
+stated; `check.sh` gained seven assertions, among them that the worklist has no arm column and that
+`PROPOSAL.md` is within the brief's word count by a method now written down.
+
+**D — writing** made some forty edits across five documents: glosses at first use (AUC, OOF, PSI,
+intention-to-treat, Wilson, Mantel–Haenszel), a bulleted outputs list, live counts where prose had
+drifted, and the vocabulary held to one set of names. Its judgment list carried the correction that
+matters: `SYSTEM_SHARE` is two thirds, and I had written "the system's third" in the code's own output,
+the metrics file, the proposal and the manual. It is two thirds against a third, everywhere now. It
+also caught that the brief's "Not running today" table was empty because READOUT is bypassed after
+EMIT has already written the page; the row is stated from what INGEST knows.
+
+**Then the pass the user asked for: no fact in two places.** The root README is a map — one row per
+document, what it is and why you would open it, the run commands, the setup — and nothing that another
+file states. `serving/README.md` no longer re-argues the audit; one paragraph and a pointer. `proposal/`
+is `extensions/`, so the proposal is `PROPOSAL.md` and nothing else looks like it. Six documents, one
+role each, and the count method for the proposal's words stated once.
+
+On `serving/out/`: kept, tracked. The outputs regenerate byte-identical from a clean clone, so
+tracking costs nothing in noise and buys the panel the weekly page without running a line — which is
+the shape the brief asked for.
