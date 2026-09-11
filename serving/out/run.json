@@ -53,6 +53,26 @@
       "source": "CALIBRATE_VENDOR"
     },
     {
+      "what": "The model ranks accounts that declined ABOVE accounts that are ready to buy",
+      "evidence": "on accounts with a transcript, mean score is 6.9% for those that said no vs 5.5% for those that said yes \u2014 inverted. The cause is contact count (3.2 vs 2.0), the model's strongest feature. \u26a0 synthetic demo transcripts; the mechanism is audit \u00a73.5, which is not",
+      "severity": "high",
+      "owner": "model",
+      "action": "Never rank on this score. Where a conversation exists, it overrides; where it does not, use the explore arm rather than the score. Breaking the loop requires a signal that is not a function of our own past effort.",
+      "cost": "0 \u2014 it is the policy this pipeline already implements",
+      "expect": "effort stops concentrating on accounts that are expensive because they have already been expensive",
+      "source": "VALUE"
+    },
+    {
+      "what": "The conversation layer changes decisions the score alone would get wrong",
+      "evidence": "on 20 accounts with a transcript: 2 rescued (bottom-quartile score, prospect stated budget or timeline), 5 released (24 contacts going into accounts that said no). Extraction measured at 100% on ready_to_act against known ground truth. \u26a0 synthetic demo transcripts \u2014 the mechanism is the finding, not the count",
+      "severity": "high",
+      "owner": "process",
+      "action": "Extend recording to the 67 accounts in the fill-gap quadrant first: they already receive calls, so this needs no new rep time. Measure the same table against real outcomes at day 90.",
+      "cost": "recording and transcription on calls that already happen",
+      "expect": "the same 35% decision-change rate across the 170 accounts that have had a call, not just 20",
+      "source": "VALUE"
+    },
+    {
       "what": "account_type does not mean what it says",
       "evidence": "341 of 402 training 'Suspects' and 86 of 101 scoring ones have an MQL, trial or contact; conversion is identical across the three types (chi2 p = 0.84)",
       "severity": "high",
@@ -403,6 +423,32 @@
         }
       }
     },
+    "value": [
+      {
+        "outcome": "RESCUED  model said skip, prospect said buy",
+        "accounts": 2,
+        "contacts": 5,
+        "what it buys": "opportunities the ranking would have dropped"
+      },
+      {
+        "outcome": "RELEASED effort in, prospect said no",
+        "accounts": 5,
+        "contacts": 24,
+        "what it buys": "24 contacts redirectable this quarter"
+      },
+      {
+        "outcome": "CONFIRMED everyone agrees",
+        "accounts": 6,
+        "contacts": 11,
+        "what it buys": "nothing \u2014 agreement changes no decision"
+      }
+    ],
+    "score_inversion": {
+      "mean_score_said_no": 0.06949358602661045,
+      "mean_score_said_yes": 0.05483162072638578,
+      "mean_contacts_said_no": 3.1666666666666665,
+      "mean_contacts_said_yes": 2.0
+    },
     "arms": {
       "exploit": 30,
       "explore": 30,
@@ -463,6 +509,16 @@
         "source": "SCORE"
       },
       {
+        "what": "The model ranks accounts that declined ABOVE accounts that are ready to buy",
+        "evidence": "on accounts with a transcript, mean score is 6.9% for those that said no vs 5.5% for those that said yes \u2014 inverted. The cause is contact count (3.2 vs 2.0), the model's strongest feature. \u26a0 synthetic demo transcripts; the mechanism is audit \u00a73.5, which is not",
+        "severity": "high",
+        "owner": "model",
+        "action": "Never rank on this score. Where a conversation exists, it overrides; where it does not, use the explore arm rather than the score. Breaking the loop requires a signal that is not a function of our own past effort.",
+        "cost": "0 \u2014 it is the policy this pipeline already implements",
+        "expect": "effort stops concentrating on accounts that are expensive because they have already been expensive",
+        "source": "VALUE"
+      },
+      {
         "what": "The model's ranking has never been validated out of sample in production",
         "evidence": "audit \u00a72: in-sample AUC 0.759 sits at the median of what the same architecture scores on random labels (p = 0.575); out-of-fold 0.573; forward in time 0.474, below chance",
         "severity": "high",
@@ -491,6 +547,16 @@
         "cost": "recording + transcription on existing calls; no new rep time",
         "expect": "the 40% of the base the vendor cannot see gets a first-hand intent signal",
         "source": "CONVERSATION_INTENT"
+      },
+      {
+        "what": "The conversation layer changes decisions the score alone would get wrong",
+        "evidence": "on 20 accounts with a transcript: 2 rescued (bottom-quartile score, prospect stated budget or timeline), 5 released (24 contacts going into accounts that said no). Extraction measured at 100% on ready_to_act against known ground truth. \u26a0 synthetic demo transcripts \u2014 the mechanism is the finding, not the count",
+        "severity": "high",
+        "owner": "process",
+        "action": "Extend recording to the 67 accounts in the fill-gap quadrant first: they already receive calls, so this needs no new rep time. Measure the same table against real outcomes at day 90.",
+        "cost": "recording and transcription on calls that already happen",
+        "expect": "the same 35% decision-change rate across the 170 accounts that have had a call, not just 20",
+        "source": "VALUE"
       },
       {
         "what": "Trials with zero active users are ambiguous",
@@ -555,7 +621,7 @@
       "explore": 30,
       "control": 30
     },
-    "actions": 10,
+    "actions": 12,
     "hygiene_batches": 1
   }
 }

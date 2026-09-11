@@ -958,3 +958,93 @@ less confident than a proposal usually does, that is deliberate. The last model 
 was confident.
 
 ---
+
+## Entry 11 — 2026-09-11 ~11:00–12:15 · Measuring the agent, improving it three times, and then measuring VALUE instead of accuracy
+
+### Three contract revisions, each decided by a number
+
+The v1 extractor scored 50% on exact intent level and 5% on speaker role. Rather than
+reach for a bigger model, I read the error pattern and changed the questions.
+
+| | v1 | v2 | v2.1 | **v2.2** |
+|---|---|---|---|---|
+| **`ready_to_act`** (routed on) | — | 1.00 | 0.90 | **1.00** |
+| ↳ missed / false alarms | — | 0/0 | 0/2 | **0/0** |
+| `next_step_agreed` | 1.00 | 0.55 | 1.00 | **1.00** |
+| `intent_level` exact | 0.50 | 0.60 | 0.45 | **0.80** |
+| within one level | 0.80 | 0.90 | 0.80 | **1.00** |
+| hot vs cold | 0.80 | 0.75 | 0.75 | **0.95** |
+| `speaker_role` | 0.05 | *deleted* | — | — |
+
+**v1→v2.** The six-level grade scored 50% exact, but collapsing the *same* answers to a
+binary scored 95%. A rep's decision is binary, so `ready_to_act` became primary and the
+grade became context. `speaker_role` deleted — 5% is worse than guessing, and a transcript
+rarely states a title. The CRM has it.
+
+**v2→v2.1.** `ready_to_act` hit 1.00 and `next_step_agreed` collapsed to 0.55, **all nine
+errors false negatives**. Cause: v2's prompt listed five numbered work steps and
+`next_step_agreed` was in none of them, so the model stopped looking for it. *Changing a
+prompt silently broke a field I never mentioned.* Two replies also contradicted themselves
+— `ready_because: budget_stated` with `ready_to_act: false` — which a typed schema cannot
+catch. Agents now declare **invariants**: cross-field rules checked after schema
+validation, retried on violation.
+
+**v2.1→v2.2.** The invariant turned those contradictions into two false alarms, both
+`timeline_stated`: *"sometime next year maybe, not this quarter"* and *"I can take it to my
+VP next month"*. The model read any mention of time as a timeline. The fix was in the
+definition, not the model — budget must already be allocated; a date must be for buying or
+going live, not an internal errand, and not hedged. Everything improved, **including the
+six-level grade, 0.45 → 0.80, which nobody touched.**
+
+The lesson is about the contract. Same 14B model, same 20 transcripts, 50% → 100% on the
+field that matters, three cycles, ~20 minutes of compute.
+
+### Confidence: calibrated on the question it can answer
+
+v2.2 confidence is 0.85–1.00, mean 0.97. Against `ready_to_act` that is honest — it says
+0.97 and scores 1.00. Against the six-level grade it is not: same 0.97, scores 0.80.
+**The model knows the binary question is easy; it does not know the six-way one is hard.**
+So confidence is trusted for the field we route on and ignored for the field we don't.
+
+The 0.4–0.8 gate stays in `RECONCILE` even though v2.2 puts zero accounts in it. In v1
+that band scored 25% on hot-vs-cold — worse than chance — while both tails scored 86–100%.
+It costs nothing and it is what would catch the next regression.
+
+### Then I stopped measuring accuracy and measured value
+
+100% accuracy is worth nothing if the agent never contradicts what the team was going to
+do anyway. So `VALUE` counts only decisions **changed**:
+
+| | accounts | contacts | what it buys |
+|---|---|---|---|
+| **RESCUED** model said skip, prospect said buy | 2 | 5 | opportunities the ranking would have dropped |
+| **RELEASED** effort in, prospect said no | 5 | **24** | 24 contacts redirectable this quarter |
+| CONFIRMED everyone agrees | 6 | 11 | **nothing** |
+
+7 of 20 decisions changed (35%); 24 of the quarter's 481 contacts freed (5.0%). And the
+**CONFIRMED row is reported at zero on purpose** — six correct extractions that change no
+decision. Counting them as benefit is exactly the inflated metric this audit found in the
+inherited model.
+
+Both value legs are stated as conditionals, because both are unproven: *if* `ready_to_act`
+predicts conversion (H1), each rescued account is a dropped opportunity; *if* the freed
+contacts are re-spent, that is 5% of outreach moved off dead accounts. `READOUT` at day 90
+settles both.
+
+### The finding I did not expect
+
+On accounts with a transcript, the model's mean score is **6.9% for those that said no** and
+**5.5% for those that said yes**. It has them inverted — and the cause is contact count
+(3.2 vs 2.0), its strongest feature. `ACC-00806` received four contacts, the prospect said
+*"we just renewed for three years, please take us off your list"*, and the model scores it
+6.4% — above the median.
+
+That is audit §3.5's circularity, which I could only argue statistically, **operating
+visibly on named accounts**: effort already spent on a dead account raises its rank, which
+justifies more effort. The conversation is what breaks the loop, and that is a better
+argument for the whole design than anything in the proposal. Now a finding the pipeline
+raises on its own.
+
+⚠️ Synthetic transcripts. The counts are demo; the mechanism is audit §3.5, which is not.
+
+---

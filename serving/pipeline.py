@@ -120,6 +120,7 @@ NODE_MAP = [
     ("CONVERSATION_INTENT", "partial", "the 4 coverage quadrants run; intent extraction needs transcripts"),
     ("CALIBRATE_VENDOR",    "bypass",  "needs conversation intent to contrast the vendor against"),
     ("RECONCILE",           "partial", "model vs effort runs; the conversation voice is missing"),
+    ("VALUE",               "bypass",  "counts decisions changed; needs the conversation voice"),
     ("ALLOCATE",            "runs",    "three matched arms: exploit / explore / rep's choice (control)"),
     ("HYGIENE",             "runs",    "CRM contradictions, as proposals with evidence"),
     ("VERDICT",             "runs",    "is this run worth anything? PSI, drift vs last run, concentration"),
@@ -136,7 +137,8 @@ def print_map(demo: bool = False) -> None:
         NODE_MAP[5] = ("CONVERSATION_INTENT", "runs", "extracts intent from the synthetic transcripts")
         NODE_MAP[6] = ("CALIBRATE_VENDOR", "runs", "contrasts the vendor's score against what was said")
         NODE_MAP[7] = ("RECONCILE", "runs", "all three voices present")
-        NODE_MAP[14] = ("READOUT", "runs", "on SIMULATED outcomes — the shape, not the answer")
+        NODE_MAP[8] = ("VALUE", "runs", "decisions changed, and the contacts that frees")
+        NODE_MAP[15] = ("READOUT", "runs", "on SIMULATED outcomes — the shape, not the answer")
     print("\nNODE MAP — what runs on today's data and what does not\n" + "─" * 78)
     for name, status, desc in NODE_MAP:
         print(f"  {icon[status]} {name:<20} {desc}")
@@ -148,12 +150,12 @@ def print_map(demo: bool = False) -> None:
 
 def run(args) -> State:
     from nodes import (INGEST, VALIDATE, SCORE, BASELINES, FLAGS, CONVERSATION_INTENT,
-                       CALIBRATE_VENDOR, RECONCILE, ALLOCATE, HYGIENE, VERDICT,
+                       CALIBRATE_VENDOR, RECONCILE, VALUE, ALLOCATE, HYGIENE, VERDICT,
                        PRESCRIBE, HITL, EMIT, READOUT)
 
     state = State(args=args)
     graph = [INGEST, VALIDATE, SCORE, BASELINES, FLAGS, CONVERSATION_INTENT,
-             CALIBRATE_VENDOR, RECONCILE, ALLOCATE, HYGIENE, VERDICT,
+             CALIBRATE_VENDOR, RECONCILE, VALUE, ALLOCATE, HYGIENE, VERDICT,
              PRESCRIBE, HITL, EMIT, READOUT]
 
     print(f"\nCordilla serving pipeline — reference date {TODAY:%Y-%m-%d}")

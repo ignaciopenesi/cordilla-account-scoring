@@ -448,6 +448,120 @@ def RECONCILE(s: State) -> State:
 
 
 # ═════════════════════════════════════════════════════════════════════════════
+def VALUE(s: State) -> State:
+    """What did this run actually buy, in rep hours and in opportunities?
+
+    Accuracy is not value. An extractor at 100% is worth nothing if it never contradicts
+    what the team was already going to do. This node counts only the cases where the
+    system CHANGES a decision, and prices each one in the unit the SDR manager spends:
+    logged contacts.
+
+    Three things it deliberately does NOT do: claim a conversion lift (that is READOUT's
+    job, 90 days out, against a control), convert anything to currency (we have no deal
+    size), or count agreement as value."""
+    a = s.accounts
+    if "ready_to_act" not in a or a.ready_to_act.isna().all():
+        s.bypass(node="VALUE",
+                 reason="no conversation intent, so nothing can contradict the model",
+                 unblocked_by="CONVERSATION_INTENT",
+                 would_produce="rescued / released / discovered counts, and the contacts "
+                               "redirected between them",
+                 still_computed="the disagreement counts in RECONCILE are the upper bound")
+        return s
+
+    covered = a.ready_to_act.notna()
+    q_lo, q_hi = a.p.quantile(0.25), a.p.quantile(0.75)
+
+    # RESCUED — the model said no, the prospect said yes. Recovered opportunity.
+    rescued = a[covered & (a.ready_to_act == True) & (a.p <= q_lo)]
+    # RELEASED — effort is going in, the prospect said no. Recoverable hours.
+    released = a[covered & (a.ready_to_act == False) & (a.sales_contacts_90d >= 4)]
+    # CONFIRMED — everyone agrees. Real, but it changes no decision, so it is not value.
+    confirmed = a[covered & (a.ready_to_act == True) & (a.p > q_lo)]
+
+    freed = int(released.sales_contacts_90d.sum())
+    total = int(a.sales_contacts_90d.sum())
+
+    rows = [
+        {"outcome": "RESCUED  model said skip, prospect said buy", "accounts": len(rescued),
+         "contacts": int(rescued.sales_contacts_90d.sum()),
+         "what it buys": "opportunities the ranking would have dropped"},
+        {"outcome": "RELEASED effort in, prospect said no", "accounts": len(released),
+         "contacts": freed, "what it buys": f"{freed} contacts redirectable this quarter"},
+        {"outcome": "CONFIRMED everyone agrees", "accounts": len(confirmed),
+         "contacts": int(confirmed.sales_contacts_90d.sum()),
+         "what it buys": "nothing — agreement changes no decision"},
+    ]
+    s.say("  " + pd.DataFrame(rows).to_string(index=False).replace("\n", "\n  "))
+    s.artifacts["value"] = rows
+
+    decisions_changed = len(rescued) + len(released)
+    s.say(f"\n  decisions changed: {decisions_changed} of {int(covered.sum())} accounts with a "
+          f"transcript ({decisions_changed / max(covered.sum(), 1):.0%})")
+    s.say(f"  contacts freed: {freed} of {total} logged this quarter ({freed / total:.1%})")
+
+    # The honest arithmetic, stated as conditionals because both legs are unproven.
+    s.say("\n  What that is worth, and what it depends on:")
+    s.say(f"    · IF ready_to_act predicts conversion (H1 — unmeasured), each rescued account")
+    s.say(f"      is an opportunity the model ranked in the bottom quartile.")
+    s.say(f"    · IF those {freed} freed contacts are re-spent on rescued or explore accounts,")
+    s.say(f"      that is {freed / total:.0%} of the quarter's outreach moved off dead accounts.")
+    s.say(f"    · Neither leg is established. READOUT at day 90 is what settles both.")
+
+    # The audit's circularity finding, visible on live accounts: sales_contacts is the
+    # model's strongest feature, so the more you called a dead account the higher it ranks.
+    if len(rescued) or len(released):
+        said_no = a[covered & (a.ready_to_act == False)]
+        said_yes = a[covered & (a.ready_to_act == True)]
+        if len(said_no) and len(said_yes):
+            s.say(f"\n  The score is INVERTED against what prospects said:")
+            s.say(f"    accounts that said NO  → mean score {said_no.p.mean():.1%} "
+                  f"({said_no.sales_contacts_90d.mean():.1f} contacts)")
+            s.say(f"    accounts that said YES → mean score {said_yes.p.mean():.1%} "
+                  f"({said_yes.sales_contacts_90d.mean():.1f} contacts)")
+            s.say("    This is audit §3.5's circularity operating live: sales_contacts is the")
+            s.say("    model's strongest feature, so effort already spent on a dead account")
+            s.say("    raises its rank. The conversation is what breaks the loop.")
+            s.artifacts["score_inversion"] = {
+                "mean_score_said_no": float(said_no.p.mean()),
+                "mean_score_said_yes": float(said_yes.p.mean()),
+                "mean_contacts_said_no": float(said_no.sales_contacts_90d.mean()),
+                "mean_contacts_said_yes": float(said_yes.sales_contacts_90d.mean()),
+            }
+            s.find(what="The model ranks accounts that declined ABOVE accounts that are ready to buy",
+                   evidence=f"on accounts with a transcript, mean score is {said_no.p.mean():.1%} for "
+                            f"those that said no vs {said_yes.p.mean():.1%} for those that said yes — "
+                            f"inverted. The cause is contact count ({said_no.sales_contacts_90d.mean():.1f} "
+                            f"vs {said_yes.sales_contacts_90d.mean():.1f}), the model's strongest feature. "
+                            f"⚠ synthetic demo transcripts; the mechanism is audit §3.5, which is not",
+                   severity="high", owner="model",
+                   action="Never rank on this score. Where a conversation exists, it overrides; where "
+                          "it does not, use the explore arm rather than the score. Breaking the loop "
+                          "requires a signal that is not a function of our own past effort.",
+                   cost="0 — it is the policy this pipeline already implements",
+                   expect="effort stops concentrating on accounts that are expensive because they "
+                          "have already been expensive",
+                   source="VALUE")
+
+    if decisions_changed:
+        s.find(what="The conversation layer changes decisions the score alone would get wrong",
+               evidence=f"on {int(covered.sum())} accounts with a transcript: {len(rescued)} rescued "
+                        f"(bottom-quartile score, prospect stated budget or timeline), {len(released)} "
+                        f"released ({freed} contacts going into accounts that said no). "
+                        f"Extraction measured at 100% on ready_to_act against known ground truth. "
+                        f"⚠ synthetic demo transcripts — the mechanism is the finding, not the count",
+               severity="high", owner="process",
+               action=f"Extend recording to the {s.artifacts['intent_quadrants']['fill_the_gap (no vendor record + a call happened)']} "
+                      f"accounts in the fill-gap quadrant first: they already receive calls, so this "
+                      f"needs no new rep time. Measure the same table against real outcomes at day 90.",
+               cost="recording and transcription on calls that already happen",
+               expect=f"the same {decisions_changed / max(covered.sum(), 1):.0%} decision-change rate "
+                      f"across the 170 accounts that have had a call, not just 20",
+               source="VALUE")
+    return s
+
+
+# ═════════════════════════════════════════════════════════════════════════════
 def ALLOCATE(s: State) -> State:
     """Three matched arms, not a ranked list.
 
