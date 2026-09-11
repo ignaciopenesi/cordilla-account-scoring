@@ -915,3 +915,46 @@ is about. I saw it work twice today, on the empty-string bug and on a timeout.
 routing without running anything.
 
 ---
+
+## Entry 10 — 2026-09-11 ~11:45 · Aligning the proposal with what actually runs, and being strict about which numbers are real
+
+Rewrote `PROPOSAL.md` against the pipeline as built rather than as planned. The discipline
+that mattered was separating three kinds of number, because after building a demo it is
+very easy to quote a synthetic figure in a document that reads as findings.
+
+**Real — from the two provided CSVs and the pickle.** Everything in §2. And in §3: the
+four intent quadrants (103 / 67 / 81 / 49), the 197-of-481 contacts in uncovered accounts,
+130 never contacted with 25 carrying a live trial, the 24 / 22 / 9 disagreements, 86 of 101
+scoring Suspects with activity, the three arms of 30 balanced across industry, Σp = 19.66,
+and the ten findings the normal run emits. These are what the proposal argues from.
+
+**Real measurement, synthetic input.** The extractor's scores — next-step 1.00,
+within-one 0.80, hot-vs-cold 0.80, exact level 0.50, speaker role 0.05. `qwen3:14b` really
+produced those, but against transcripts I generated. So it measures the model's capability
+in a controlled setting, not its accuracy on Cordilla's calls. Stated that way in §4.
+
+**Synthetic — demo only.** The vendor-agreement table (58% on 12 accounts), the simulated
+readout (6.7 / 3.3 / 3.3), and `ACC-01282`. **None of these are in the proposal as
+findings.** The readout's *shape* is cited — one cycle at a realistic rate with no true
+difference still produces a 3.3-point spread — because that is a property of the design,
+not a result about Cordilla. The 58% is in `serving/README.md` with the caveat attached,
+where it belongs: the method is the deliverable, the number is not.
+
+A cheap check while doing this: two different quantities both come out as 103 in the
+scoring set (accounts with `web_touchpoints == 0`, and accounts with both a vendor record
+and a logged call). I assumed a bug and recomputed. Coincidence.
+
+**On length.** 1,274 words against a stated ~800–1,200. Five compression passes; two of
+them made it *longer*, which is a good lesson in editing by search-and-replace. What did
+not get cut: any number, any caveat, or the blocking question. What did: adjectives, and a
+paragraph in §4 that was making the same point twice.
+
+**What the proposal does not claim**, and this is the line I was most careful about: it
+does not say the conversation layer works. It says vendor coverage predicts and the vendor
+score does not (both real, both measured), that 41% of the team's contacts already happen
+where the vendor is blind (real), and that whether intent extracted from those calls
+predicts conversion is **H1 — the hypothesis the arms exist to test**. If that reads as
+less confident than a proposal usually does, that is deliberate. The last model at Cordilla
+was confident.
+
+---
