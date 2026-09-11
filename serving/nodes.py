@@ -35,7 +35,8 @@ CONTACT_MINUTES = 12
 # history contains no calls to untouched accounts, so it cannot score calling them; only the
 # day-90 readout can. The model is worse than random on that pool (AUC 0.45); web is the only
 # column that ranks it (AUC 0.61) and explore already uses it -- there is no better data branch.
-ARM_DEFAULTS = {"continue": 45, "first-call": 15, "control": 30}
+ARM_DEFAULTS = {"continue": 45, "first-call": 15, "control": 30}   # control size is informational: control is the coin-flipped third
+SYSTEM_SHARE = 2 / 3      # of the batch, at random, before any rule runs; the rest is the rep's as usual
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -613,8 +614,8 @@ def _metric_contract(s: State) -> State:
     s.say(f"  NORTH STAR   conversions per 100 contacts, by arm, read cumulatively")
     s.say(f"    to detect a 50% relative lift needs {n_train:,} accounts per arm at the "
           f"{base_train:.1%} training rate,")
-    s.say(f"    {n_field:,} at the {base_field:.0%} rate the business reports. At {ARM} per arm "
-          f"per weekly cycle that is")
+    s.say(f"    {n_field:,} at the {base_field:.0%} rate the business reports. At {ARM} per cycle in the "
+          f"smallest arm that is")
     s.say(f"    {weeks_at_30} weeks — {weeks_at_30 / 52:.1f} years. The north star is NOT reachable "
           f"at today's allocation.")
     s.say(f"    Reaching it in two quarters requires {arm_for_2q} accounts per arm per cycle "
@@ -626,10 +627,10 @@ def _metric_contract(s: State) -> State:
     bets = []
     bets.append({
         "bet": "redirected hours convert better than the hours they replaced",
-        "claim": "conversions per 100 contacts is higher in explore than in control",
+        "claim": "conversions per 100 rep-hours are higher in the system's third than in the control third, every account counted",
         "settles": f"not before {n_field:,} accounts per arm ({weeks_at_30} weeks at {ARM}/arm, "
                    f"{2 * CYCLES_PER_QUARTER} cycles at {arm_for_2q}/arm)",
-        "falsified_if": "the cumulative interval for explore sits below control once the arms are "
+        "falsified_if": "the cumulative interval for the system's third sits below the control third's once the halves are "
                         "powered — at which point the system is reallocating hours to worse places",
         "note": "THIS is the one that proves the system works. Nothing before it does.",
     })
@@ -677,7 +678,7 @@ def _metric_contract(s: State) -> State:
                    "that writeup, scheduled in advance.",
         },
         "guardrails": guardrails,
-        "kill_switch": f"if the explore arm's cumulative rate sits below control's once both pass "
+        "kill_switch": f"if the system third's cumulative rate sits below the control third's once both pass "
                        f"{n_field:,} accounts, the reallocation is wrong and the system stops "
                        f"directing hours.",
     }
@@ -716,12 +717,24 @@ def BUDGET(s: State) -> State:
       skip        web-only / MQL-only: calling never helped on any cut; never called, tracked"""
     a = s.accounts
     sizes = _arm_sizes(s)
+
+    # The coin flip comes FIRST. Two thirds of the batch go to the system, one third to the rep,
+    # at random -- before any rule looks at any row. Everything the system does (arms, ask, skip,
+    # observe) happens inside its two thirds; the rep works the other third as they always have,
+    # and nothing from here touches it. That makes the two halves exchangeable, so at day 90
+    # "system third vs control third" is a causal comparison of POLICIES, intention-to-treat --
+    # including the accounts the system chose not to call. Drawing control from the leftovers
+    # after the system had picked, as an earlier version did, compared the system to what it
+    # rejected; that is not a control.
+    rng = np.random.default_rng(2026)
+    a["half"] = np.where(rng.random(len(a)) < SYSTEM_SHARE, "system", "control")
+    sys_ = a[a.half == "system"]
     taken = set()
 
-    skip = a[a.action == "skip"]; taken |= set(skip.account_id)
-    ask = a[(a.action == "ask") & ~a.account_id.isin(taken)]; taken |= set(ask.account_id)
+    skip = sys_[sys_.action == "skip"]; taken |= set(skip.account_id)
+    ask = sys_[(sys_.action == "ask") & ~sys_.account_id.isin(taken)]; taken |= set(ask.account_id)
 
-    fc_pool = a[(a.action == "first-call") & ~a.account_id.isin(taken)]
+    fc_pool = sys_[(sys_.action == "first-call") & ~sys_.account_id.isin(taken)]
     trials = fc_pool[fc_pool.segment == "trial"].sample(frac=1, random_state=11)
     half = len(trials) // 2
     called_trials, observe = trials.iloc[:half], trials.iloc[half:]
@@ -729,28 +742,30 @@ def BUDGET(s: State) -> State:
     first_call = pd.concat([called_trials, rest_fc]).head(sizes["first-call"])
     taken |= set(first_call.account_id) | set(observe.account_id)
 
-    cont = a[(a.action == "continue") & ~a.account_id.isin(taken)].sort_values(
+    cont = sys_[(sys_.action == "continue") & ~sys_.account_id.isin(taken)].sort_values(
         ["seg_rank", "sales_contacts_90d", "account_id"], ascending=[True, False, True]).head(sizes["continue"])
     taken |= set(cont.account_id)
-
-    rest = a[~a.account_id.isin(taken)]
-    control = rest.sample(n=min(sizes["control"], len(rest)), random_state=7)
+    control = a[a.half == "control"]                       # the rep's third: every account, as usual
+    idle = sys_[~sys_.account_id.isin(taken)]              # the system's third it chose not to touch this week
 
     a["arm"] = np.nan
     for name, d in (("continue", cont), ("first-call", first_call), ("control", control),
-                    ("ask", ask), ("observe", observe), ("skip", skip)):
+                    ("ask", ask), ("observe", observe), ("skip", skip), ("idle", idle)):
         a.loc[a.account_id.isin(d.account_id), "arm"] = name
     s.artifacts["arms"] = {"continue": int(len(cont)), "first-call": int(len(first_call)), "control": int(len(control))}
-    s.artifacts["cohorts"] = {"ask": int(len(ask)), "observe": int(len(observe)), "skip": int(len(skip))}
+    s.artifacts["cohorts"] = {"ask": int(len(ask)), "observe": int(len(observe)), "skip": int(len(skip)), "idle": int(len(idle))}
+    s.artifacts["halves"] = {"system": int(len(sys_)), "control": int(len(control)), "system_share": SYSTEM_SHARE}
     s.artifacts["ask"] = int(len(ask))
     s.artifacts["arm_sizes_requested"] = sizes
-    s.artifacts["continue_tiers"] = {f"1-4 contacts · {sg}": int((cont.segment == sg).sum()) for sg in ["trial", "vendor", "none"]}
+    s.artifacts["continue_by_segment"] = {f"1-4 contacts · {sg}": int((cont.segment == sg).sum()) for sg in ["trial", "vendor", "none"]}
 
-    s.say(f"  arms     continue {len(cont)} · first-call {len(first_call)} · control {len(control)}")
-    s.say(f"  cohorts  ask {len(ask)} · observe {len(observe)} · skip {len(skip)}   (tracked, not called)")
+    s.say(f"  coin flip first: system {len(sys_)} · control {len(control)} — the rep works the control third as usual; "
+          f"nothing here touches it")
+    s.say(f"  arms     continue {len(cont)} · first-call {len(first_call)} · control {len(control)} (the whole third)")
+    s.say(f"  cohorts  ask {len(ask)} · observe {len(observe)} · skip {len(skip)} · idle {len(idle)}   (system's third, not called this week)")
     s.say(f"  first-call: {len(called_trials)} untouched trials called, {len(observe)} observed — the unbiased test; "
           f"+ {len(first_call) - len(called_trials)} untouched vendor")
-    s.say("  continue, by segment: " + " · ".join(f"{k} {v}" for k, v in s.artifacts["continue_tiers"].items()))
+    s.say("  continue, by segment: " + " · ".join(f"{k} {v}" for k, v in s.artifacts["continue_by_segment"].items()))
     s.say(f"  continue carries {int(cont.f_over_invested.sum())} over-invested accounts")
     if s.artifacts.get("arm_sizes_source"):
         s.say(f"  arm sizes from {s.artifacts['arm_sizes_source']}")
@@ -760,7 +775,7 @@ def BUDGET(s: State) -> State:
     arm_block = "\n".join([
         f"- **continue** ({len(cont)} accounts): 1–4 logged contacts, trial > vendor record > no signal, most contacts first",
         f"- **first-call** ({len(first_call)} accounts): never contacted, trial first (half called, half observed — that is how the +10 gets measured for real), then vendor record",
-        f"- **control** ({len(control)} accounts): the rep picks — what would happen without the system",
+        f"- **control** ({len(control)} accounts, a third of the batch by coin flip): the rep works them as usual — nothing from the system touches them. Day 90 compares the system's third against this one, every account counted",
         f"- **ask** ({len(ask)}, not an arm): 5+ contacts, no result — the rep gets a question",
         f"- **observe** ({len(observe)}, not an arm): the other half of the untouched trials, deliberately not called",
         f"- **skip** ({len(skip)}, not an arm): web-only or MQL-only — calling never helped on any cut",
@@ -783,11 +798,13 @@ def _model_vs_us(s: State) -> None:
         if r.arm == "ask":
             return "ask, don't call — 5+ contacts, no result, no voice"
         if r.arm == "continue":
-            return "exploit — called"
+            return "continue — called"
         if r.arm == "first-call":
-            return "explore — never contacted, has signal"
+            return "first-call — never contacted, trial or vendor"
         if r.arm == "control":
-            return "control — rep's pick"
+            return "control third — the rep works it as usual"
+        if r.arm in ("skip", "observe", "idle"):
+            return f"{r.arm} — tracked, not called"
         return "pool — not drawn this cycle"
     top["fate"] = top.apply(fate, axis=1)
     n_stale_called = int((top.f_stale_180 & top.arm.isin(["continue", "first-call"])).sum())
@@ -1023,19 +1040,21 @@ def EMIT(s: State) -> State:
     ranked = a.sort_values("rank_pos")[["rank_pos", "account_id", "action", "segment", "cell", "evidence_pts", "arm",
                                         "sales_contacts_90d", "trial_started", "age_days", "flags"]]
     ranked.to_csv(OUT / "ranked.csv", index=False)
-    rep = a[a.arm.isin(["continue", "first-call", "control", "ask"])][
+    # No `arm` column: a rep who knows "this one is the system's" works it harder, and the rate
+    # rises for a reason the policy did not earn. They see the action and the reason on the row.
+    rep = a[a.arm.isin(["continue", "first-call", "ask"])][
         ["account_id", "arm", "segment", "account_type", "industry", "employee_count",
          "sales_contacts_90d", "age_days", "flags"]].copy()
     rep.insert(1, "action", np.where(rep.arm == "ask", "ask", "call"))
     # The question is the disagreement_question agent's contract, rendered from the row.
     # In live mode that agent drafts it; the template is the documented spot it plugs into.
     rep["question"] = np.where(
-        rep.arm == "ask",
+        rep.action == "ask",
         "You have logged " + rep.sales_contacts_90d.astype(int).astype(str)
         + " contacts here with no result. What do you know that the data does not — "
           "and is the next hour worth it, or should this one rest?",
         "")
-    rep = rep.sort_values(["action", "arm", "account_id"])
+    rep = rep.drop(columns="arm").sort_values(["action", "segment", "account_id"])
     rep.to_csv(OUT / "rep_worklist.csv", index=False)
 
     dis = a[a.disagreement != ""][["account_id", "disagreement", "sales_contacts_90d", "flags"]]
@@ -1113,7 +1132,7 @@ def EMIT(s: State) -> State:
     s.say(f"  ranked.csv            all {len(ranked)} accounts: position · action · segment · evidence · arm")
     s.say(f"  rep_worklist.csv      {int((rep.action == 'call').sum())} to call + "
           f"{int((rep.action == 'ask').sum())} to ask, with flags and NO score"
-          + f" — observe {s.artifacts['cohorts'].get('observe', 0)} and skip {s.artifacts['cohorts'].get('skip', 0)} deliberately absent")
+          + f" — no arm column; observe {s.artifacts['cohorts'].get('observe', 0)}, skip {s.artifacts['cohorts'].get('skip', 0)} and the control third absent")
     s.say(f"  disagreements.csv     {len(dis)} accounts where the voices disagree")
     s.say(f"  actions.csv           {len(s.artifacts['actions'])} prescriptions with an owner")
     s.say(f"  manager_brief.md      verdict + experiment card + action table")
@@ -1138,10 +1157,9 @@ def READOUT(s: State) -> State:
                  reason="90-day outcomes for the accounts assigned today do not exist yet",
                  unblocked_by="one cycle of the arms above, with outcomes written back per account",
                  would_produce="conversions per logged contact by arm with confidence intervals; the "
-                               "same broken out by conversation intent level (testing whether intent "
-                               "from calls predicts better than any CRM column); and the "
-                               "epsilon-greedy update -- the winning arm grows, exploration never "
-                               "goes to zero",
+                               "system third against the control third, every account counted; "
+                               "first-call against observe by segment; and the allocation update -- "
+                               "arms move only when intervals separate, never below the floor",
                  still_computed=f"the arms are assigned and recorded: {s.artifacts.get('arms', {})}")
         s.say("  with 30 accounts per arm at ~6%, the first readout will be noisy. It accumulates:")
         s.say("  cycle 1 = 30/arm, cycle 2 = 60, cycle 3 = 90. The point is that it starts.")
@@ -1168,15 +1186,36 @@ def READOUT(s: State) -> State:
         lo, hi = wilson(k, n_)
         rows.append({"arm": arm, "accounts": n_, "conversions": k, "rate": k / n_,
                      "95% CI": f"[{lo:.1%}, {hi:.1%}]",
-                     "": {"ask": "← cohort: 5+ contacts, rep asked first",
+                     "": {"ask": "← cohort: 5+ contacts, rep asked first", "idle": "← system's third, not touched this week",
+                          "control": "← the rep's third, worked as usual — the comparison that counts",
                           "skip": "← cohort: web/MQL-only, calling never helped", "observe": "← cohort: untouched trials NOT called — the uplift control"}.get(arm, "")})
     tab = pd.DataFrame(rows).set_index("arm")
     s.say("  SIMULATED 90-day readout by arm (there is NO true difference between arms):")
     s.say("    " + tab.to_string().replace("\n", "\n    "))
     s.artifacts["readout"] = tab.reset_index().to_dict("records")
-    tab = tab[~tab.index.isin(["ask", "skip", "observe"])]   # the spread compares policies; cohorts are not
+    tab = tab[~tab.index.isin(["ask", "skip", "observe", "idle"])]   # the spread compares policies; cohorts are not
 
 
+    # THE policy comparison: the system's third against the control third, every account counted
+    # (intention-to-treat), because the coin flip made them exchangeable.
+    if "half" in assigned:
+        hs, hc = assigned[assigned.half == "system"], assigned[assigned.half == "control"]
+        ks, ns, kc, nc = int(hs.converted.sum()), len(hs), int(hc.converted.sum()), len(hc)
+        if ns and nc:
+            ps, pc = ks / ns, kc / nc
+            se = float(np.sqrt(ps * (1 - ps) / ns + pc * (1 - pc) / nc))
+            s.say(f"  POLICY, causal — system third vs control third, intention-to-treat:")
+            s.say(f"    system  {ks}/{ns} = {ps:.1%}   control  {kc}/{nc} = {pc:.1%}   difference {100 * (ps - pc):+.1f} pts  "
+                  f"95% [{100 * (ps - pc - 1.96 * se):+.1f}, {100 * (ps - pc + 1.96 * se):+.1f}]")
+            s.say(f"    incremental conversions this cycle: {ks - pc * ns:+.1f} — the number the VP repeats, once the interval excludes zero")
+            if getattr(s.args, "demo", False) and (ps - pc - 1.96 * se) > 0:
+                s.say("    ⚠ SIMULATED with NO true difference — and the interval excludes zero anyway. This is what a false")
+                s.say("      positive looks like at one cycle of ~300. It is why the readout dates are fixed in advance and")
+                s.say("      why nothing is read before the pre-registered n. Do not repeat this number.")
+            s.artifacts["policy_readout"] = {"system": {"k": ks, "n": ns}, "control": {"k": kc, "n": nc},
+                                             "diff_pts": round(100 * (ps - pc), 1),
+                                             "ci95": [round(100 * (ps - pc - 1.96 * se), 1), round(100 * (ps - pc + 1.96 * se), 1)],
+                                             "incremental_conversions": round(ks - pc * ns, 2)}
     fc, ob = assigned[assigned.arm == "first-call"], assigned[assigned.arm == "observe"]
     if len(fc) and len(ob):
         rows_u = []
@@ -1425,6 +1464,9 @@ def _write_brief(s: State, md_table) -> None:
         "_The weekly number is filed as a bet with its falsifier; it cannot be read as a result. "
         "Detail, guardrails and the kill switch in `metrics.md`._",
 
+        "## How this becomes a number",
+        _ladder_md(s),
+
         "## This week's allocation — the experiment you are approving",
         _agent_text(s, "experiment_card"),
 
@@ -1501,7 +1543,7 @@ def _learn(s: State, assigned: pd.DataFrame) -> State:
         h = z * np.sqrt(ph * (1 - ph) / n_ + z**2 / (4 * n_**2)) / d
         return max(0.0, c - h), min(1.0, c + h)
 
-    arms_only = {k_: v for k_, v in cum.items() if k_ not in ("ask", "skip", "observe")}
+    arms_only = {k_: v for k_, v in cum.items() if k_ in ("continue", "first-call")}   # control is a third, not a size to move
     s.say(f"\n  ── the loop · cycle {cycle} ──")
     s.say(f"  cumulative, all cycles:  " + " · ".join(
         f"{k_} {v['k']}/{v['n']}" for k_, v in cum.items()))
@@ -1699,3 +1741,24 @@ def _heldout_md(s: State) -> str:
                  "*what happens when nobody calls*, which is the question the arms exist to answer. Reading explore's "
                  "row as its value would be the same confounding error in reverse.")
     return "\n".join(lines)
+
+
+
+def _ladder_md(s: State) -> str:
+    """The ladder of numbers by maturity, and the sentence they fill. What is real this week is
+    arithmetic; what becomes real at day 90 is the randomised comparison; the sentence the VP can
+    repeat is spoken with its interval and without its point until the interval excludes zero."""
+    a = s.accounts; co = s.artifacts.get("cohorts", {}); hv = s.artifacts.get("halves", {})
+    c_ask = int(a[a.arm == "ask"].sales_contacts_90d.sum()); c_skip = int(a[a.arm == "skip"].sales_contacts_90d.sum())
+    n_fc = int((a.arm == "first-call").sum()); n_ob = co.get("observe", 0)
+    n_need = max(s.artifacts["metric_spec"]["north_star"]["n_per_arm_for_50pct_lift"].values())
+    return "\n".join([
+        "| rung | what | unit and formula | real when |",
+        "|---|---|---|---|",
+        f"| **this week** | hours held or not spent | ask {c_ask} + skip {c_skip} contacts × {CONTACT_MINUTES} min = **{(c_ask + c_skip) * CONTACT_MINUTES / 60:.0f} rep-h** — a count on the row, not a result | now |",
+        f"| **day 90 · the first causal number** | first call on an untouched trial: called vs observed, randomised | uplift = k_called/n_called − k_obs/n_obs, in points, with its interval · today {n_fc} called / {n_ob} observed | readable at ~138 per group |",
+        f"| **day 90 · the policy** | the system's third vs the control third, **every account counted** (intention-to-treat) | I = (p_system − p_control) × N_system = incremental conversions, with a two-proportion interval · today {hv.get('system', 0)} vs {hv.get('control', 0)} | interval excludes zero |",
+        f"| **quarter 2** | conversions per 100 rep-hours, system vs control, cumulative | 100 × k / contacts logged after assignment × 5 | ~{n_need:,} per side |",
+        "",
+        "**The sentence, when it reads:** *\"Over N accounts assigned between [date] and [date], the system produced I more conversions than the reps' own picks would have — between lo and hi — for the same rep-hours, and it stopped spending H hours where calling has never converted.\"* Until then it is spoken with the interval and without the point. No dollars: there is no deal size on file, and a dollar figure is read as a point. Readout dates are fixed in advance; nothing is read before the pre-registered n.",
+    ])

@@ -107,15 +107,15 @@ Write the experiment card the SDR manager reads before approving. For each arm s
 hypothesis in one sentence, the result that would confirm it, and the result that would
 kill it. End with the readout date and one sentence on why the control arm exists.""",
     example=(
-        "**This week: 90 accounts — continue 45, first-call 15, control 30 — plus a holdout nobody calls.**\n\n"
+        "**This week: 90 accounts — continue 45 and first-call 15 inside the system's two thirds, the rep's third as control — plus observe and skip, never called.**\n\n"
         "**continue (45)** — Hypothesis: the best information we hold — a prospect who stated "
         "readiness, then 1–4 logged contacts with a trial, then with a vendor record, then by count — beats the model's score. Confirms: converts at "
         "or above control. Kills: converts below control once both arms pass 2,500 accounts.\n\n"
         "**first-call (15)** — Hypothesis: the first call on an untouched trial account is where an hour changes "
         "most (+10 pts on history, an upper bound). Half are called, half observed. Confirms: called "
         "converts above observed. Kills: no difference at 138 per group.\n\n"
-        "**control (30)** — The rep picks. This is what happens without the system, and it is the "
-        "only reason either arm above can be read.\n\n"
+        "**control (a third of the batch, by coin flip)** — The rep works it as usual. This is what happens "
+        "without the system, and it is the only reason anything above can be read.\n\n"
         "**ask** — 5+ contacts, no result, no conversation on file. The rep gets one question, "
         "not a call: what do you know that the data does not? Their answer decides whether the "
         "account rests or returns.\n\n"

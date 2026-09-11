@@ -9,7 +9,7 @@ _No ranked call list, no probability on any account. The audit found this model'
 | model alone — the dashboard the VP asked for | top 90 by score | **6.7%** [3%, 14%] · finds **8%** of buyers · *from memory: 31.1%* | _not yet — READOUT_ | 0 — calls everything it ranks |
 | random — no system | 90 at random | **7.3%** 5–95%: [3%, 11%] · finds **8%** of buyers | _not yet — READOUT_ | 0 — calls everything it ranks |
 | the team today — rep's own picks | accounts the team chose to work | **8.3%** [6%, 11%] | _not yet — READOUT_ | 0 — calls everything it ranks |
-| **THE GRAPH — its worklist** | continue 45 + first-call 15 · ask, observe and skip tracked, not called | **12.2%** [7%, 21%] · finds **14%** of buyers | _not yet — READOUT_ | **51 h / quarter** |
+| **THE GRAPH — its worklist** | continue 45 + first-call 15 · ask, observe and skip tracked, not called | **12.2%** [7%, 21%] · finds **14%** of buyers | _not yet — READOUT_ | **38 h / quarter** |
 | the graph — confident picks only | continue alone | **15.6%** [9%, 24%] · finds **18%** of buyers | _not yet — READOUT_ | — |
 
 _Historical: each policy builds its list from the 1,099 labelled training rows with a closed 90-day window, and we count who converted — observational, the comparison is fair, the levels are not causal. Prospective: the arms READOUT assigns today, read at day 90 against control — causal, and not readable before ~2,500 per arm. The graph must beat the first three rows on both columns, or it is retired._
@@ -20,13 +20,13 @@ Run of 2026-08-01. Every feature is stable against training (max PSI 0.06); snap
 
 ## What changed this week
 
-**88 first-call candidates** — never contacted, trial or vendor record; 15 called this week, 13 held back at random so day 90 can measure what the first call does.
+**88 first-call candidates** — never contacted, trial or vendor record; 15 called this week, 9 held back at random so day 90 can measure what the first call does.
 
 **105 in conversation** — 1–4 contacts, trial > vendor > none; 45 on this week's list, none over-invested.
 
-**23 asked, not called** — 5+ contacts, no result: 133 contacts (**27 rep-hours**) held pending one question to the rep.
+**19 asked, not called** — 5+ contacts, no result: 111 contacts (**22 rep-hours**) held pending one question to the rep.
 
-**74 skipped** — web-only or MQL-only, where calling never helped on any cut: 124 contacts (**25 rep-hours**) not spent again.
+**50 skipped** — web-only or MQL-only, where calling never helped on any cut: 79 contacts (**16 rep-hours**) not spent again.
 
 Every account, by position and rule, in `ranked.csv`. Named cases in `cases.md`.
 
@@ -34,35 +34,35 @@ Every account, by position and rule, in `ranked.csv`. Named cases in `cases.md`.
 
 | the model's top 30 | count |
 |---|---|
-| pool — not drawn this cycle | **9** |
-| ask, don't call — 5+ contacts, no result, no voice | **9** |
-| exploit — called | **9** |
-| explore — never contacted, has signal | **2** |
-| control — rep's pick | **1** |
+| control third — the rep works it as usual | **10** |
+| ask, don't call — 5+ contacts, no result, no voice | **7** |
+| idle — tracked, not called | **6** |
+| continue — called | **5** |
+| first-call — never contacted, trial or vendor | **2** |
 
-**Of the 30 the model says to call, 9 are called as-is.** Every other verdict is a flag or a cohort the row itself shows.
+**Of the 30 the model says to call, 5 are called as-is.** Every other verdict is a flag or a cohort the row itself shows.
 
 | rank | account | score | contacts | age | flags | here |
 |---|---|---|---|---|---|---|
 | #1 | `ACC-01491` | 20.9% | 5 | 290d | stale 180, over invested | ask, don't call — 5+ contacts, no result, no voice |
-| #2 | `ACC-00371` | 20.4% | 2 | 256d | stale 180 | exploit — called |
+| #2 | `ACC-00371` | 20.4% | 2 | 256d | stale 180 | control third — the rep works it as usual |
 | #3 | `ACC-01064` | 18.7% | 5 | 94d | over invested | ask, don't call — 5+ contacts, no result, no voice |
-| #4 | `ACC-01283` | 17.6% | 4 | 122d | — | exploit — called |
-| #5 | `ACC-01111` | 15.3% | 3 | 109d | — | exploit — called |
-| #6 | `ACC-00400` | 15.2% | 4 | 86d | — | exploit — called |
-| #7 | `ACC-00122` | 14.8% | 6 | 38d | no vendor record, over invested | pool — not drawn this cycle |
-| #8 | `ACC-00646` | 14.8% | 6 | 272d | no vendor record, stale 180, over invested | pool — not drawn this cycle |
-| #9 | `ACC-00657` | 14.4% | 0 | 305d | stale 180, never touched | control — rep's pick |
+| #4 | `ACC-01283` | 17.6% | 4 | 122d | — | control third — the rep works it as usual |
+| #5 | `ACC-01111` | 15.3% | 3 | 109d | — | continue — called |
+| #6 | `ACC-00400` | 15.2% | 4 | 86d | — | continue — called |
+| #7 | `ACC-00122` | 14.8% | 6 | 38d | no vendor record, over invested | control third — the rep works it as usual |
+| #8 | `ACC-00646` | 14.8% | 6 | 272d | no vendor record, stale 180, over invested | control third — the rep works it as usual |
+| #9 | `ACC-00657` | 14.4% | 0 | 305d | stale 180, never touched | control third — the rep works it as usual |
 
 ## Where the metric stands
 
 | | |
 |---|---|
 | **North star** · conversions per 100 contacts, by arm | **not readable** · 15/2,515 per arm · 168 weeks at this pace, two quarters at 97/arm |
-| **Weekly headline** · rep-hours redirected | **51 rep-hours** held or not spent this week — observable on the row; whether they convert better elsewhere is the bet |
+| **Weekly headline** · rep-hours redirected | **38 rep-hours** held or not spent this week — observable on the row; whether they convert better elsewhere is the bet |
 | **Bets** | 1 open · 0 settled · first cycle |
 | **Price of a conversion today** | 24.6 contacts · 4.9 rep-hours |
-| **Arms this cycle** | continue 45 · first-call 15 · control 30 · cohorts ask 23 · observe 13 · skip 74 |
+| **Arms this cycle** | continue 45 · first-call 15 · control 93 · cohorts ask 19 · observe 9 · skip 50 · idle 69 |
 
 ## On real outcomes — each policy's list of 90, and how many converted
 
@@ -98,7 +98,7 @@ _Test: the 300 most recent labelled accounts (2026-01-08 → 2026-05-03), 23 con
 | ask cohort, if called anyway (5+ contacts) | 4 | 17.4% | [7%, 37%] | 17% | 133 |
 | random (mean of 200 draws) | 2.3 | 7.8% | 5–95%: [0%, 17%] | 10% | 50 |
 | the team today — every account it chose to work | 20 | 10.9% | [7%, 16%] | 87% | 497 |
-| the graph WITH the conversation agent | — | — | needs call transcripts on accounts with a known outcome — none exist; ROLLOUT phase 3 | — | — |
+| the graph WITH the conversation agent | — | — | needs call transcripts on accounts with a known outcome — none exist; the proposed extension in serving/README.md | — | — |
 
 **K = 60**
 
@@ -113,21 +113,32 @@ _Test: the 300 most recent labelled accounts (2026-01-08 → 2026-05-03), 23 con
 | ask cohort, if called anyway (5+ contacts) | 4 | 17.4% | [7%, 37%] | 17% | 133 |
 | random (mean of 200 draws) | 4.6 | 7.6% | 5–95%: [3%, 13%] | 20% | 99 |
 | the team today — every account it chose to work | 20 | 10.9% | [7%, 16%] | 87% | 497 |
-| the graph WITH the conversation agent | — | — | needs call transcripts on accounts with a known outcome — none exist; ROLLOUT phase 3 | — | — |
+| the graph WITH the conversation agent | — | — | needs call transcripts on accounts with a known outcome — none exist; the proposed extension in serving/README.md | — | — |
 
 **What this test can judge:** the model against the rules — exploit beats the model's honest score about 2×, and adding the model's picks to exploit removes conversions. **What it cannot judge:** explore and the agent. Both pick accounts history never called; their historical rate is *what happens when nobody calls*, which is the question the arms exist to answer. Reading explore's row as its value would be the same confounding error in reverse.
 
 _The weekly number is filed as a bet with its falsifier; it cannot be read as a result. Detail, guardrails and the kill switch in `metrics.md`._
 
+## How this becomes a number
+
+| rung | what | unit and formula | real when |
+|---|---|---|---|
+| **this week** | hours held or not spent | ask 111 + skip 79 contacts × 12 min = **38 rep-h** — a count on the row, not a result | now |
+| **day 90 · the first causal number** | first call on an untouched trial: called vs observed, randomised | uplift = k_called/n_called − k_obs/n_obs, in points, with its interval · today 15 called / 9 observed | readable at ~138 per group |
+| **day 90 · the policy** | the system's third vs the control third, **every account counted** (intention-to-treat) | I = (p_system − p_control) × N_system = incremental conversions, with a two-proportion interval · today 207 vs 93 | interval excludes zero |
+| **quarter 2** | conversions per 100 rep-hours, system vs control, cumulative | 100 × k / contacts logged after assignment × 5 | ~2,515 per side |
+
+**The sentence, when it reads:** *"Over N accounts assigned between [date] and [date], the system produced I more conversions than the reps' own picks would have — between lo and hi — for the same rep-hours, and it stopped spending H hours where calling has never converted."* Until then it is spoken with the interval and without the point. No dollars: there is no deal size on file, and a dollar figure is read as a point. Readout dates are fixed in advance; nothing is read before the pre-registered n.
+
 ## This week's allocation — the experiment you are approving
 
-**This week: 90 accounts — continue 45, first-call 15, control 30 — plus a holdout nobody calls.**
+**This week: 90 accounts — continue 45 and first-call 15 inside the system's two thirds, the rep's third as control — plus observe and skip, never called.**
 
 **continue (45)** — Hypothesis: the best information we hold — a prospect who stated readiness, then 1–4 logged contacts with a trial, then with a vendor record, then by count — beats the model's score. Confirms: converts at or above control. Kills: converts below control once both arms pass 2,500 accounts.
 
 **first-call (15)** — Hypothesis: the first call on an untouched trial account is where an hour changes most (+10 pts on history, an upper bound). Half are called, half observed. Confirms: called converts above observed. Kills: no difference at 138 per group.
 
-**control (30)** — The rep picks. This is what happens without the system, and it is the only reason either arm above can be read.
+**control (a third of the batch, by coin flip)** — The rep works it as usual. This is what happens without the system, and it is the only reason anything above can be read.
 
 **ask** — 5+ contacts, no result, no conversation on file. The rep gets one question, not a call: what do you know that the data does not? Their answer decides whether the account rests or returns.
 
@@ -213,22 +224,22 @@ _Every prompt, verbatim, with the worked example that stands in for a live call.
 │ 
 │ - **continue** (45 accounts): 1–4 logged contacts, trial > vendor record > no signal, most contacts first
 │ - **first-call** (15 accounts): never contacted, trial first (half called, half observed — that is how the +10 gets measured for real), then vendor record
-│ - **control** (30 accounts): the rep picks — what would happen without the system
-│ - **ask** (23, not an arm): 5+ contacts, no result — the rep gets a question
-│ - **observe** (13, not an arm): the other half of the untouched trials, deliberately not called
-│ - **skip** (74, not an arm): web-only or MQL-only — calling never helped on any cut
+│ - **control** (93 accounts, a third of the batch by coin flip): the rep works them as usual — nothing from the system touches them. Day 90 compares the system's third against this one, every account counted
+│ - **ask** (19, not an arm): 5+ contacts, no result — the rep gets a question
+│ - **observe** (9, not an arm): the other half of the untouched trials, deliberately not called
+│ - **skip** (50, not an arm): web-only or MQL-only — calling never helped on any cut
 │ 
 │ Write the experiment card the SDR manager reads before approving. For each arm state the
 │ hypothesis in one sentence, the result that would confirm it, and the result that would
 │ kill it. End with the readout date and one sentence on why the control arm exists.
 ├─ RETURNS (worked example) ───────────────────────────────────────────────
-│ **This week: 90 accounts — continue 45, first-call 15, control 30 — plus a holdout nobody calls.**
+│ **This week: 90 accounts — continue 45 and first-call 15 inside the system's two thirds, the rep's third as control — plus observe and skip, never called.**
 │ 
 │ **continue (45)** — Hypothesis: the best information we hold — a prospect who stated readiness, then 1–4 logged contacts with a trial, then with a vendor record, then by count — beats the model's score. Confirms: converts at or above control. Kills: converts below control once both arms pass 2,500 accounts.
 │ 
 │ **first-call (15)** — Hypothesis: the first call on an untouched trial account is where an hour changes most (+10 pts on history, an upper bound). Half are called, half observed. Confirms: called converts above observed. Kills: no difference at 138 per group.
 │ 
-│ **control (30)** — The rep picks. This is what happens without the system, and it is the only reason either arm above can be read.
+│ **control (a third of the batch, by coin flip)** — The rep works it as usual. This is what happens without the system, and it is the only reason anything above can be read.
 │ 
 │ **ask** — 5+ contacts, no result, no conversation on file. The rep gets one question, not a call: what do you know that the data does not? Their answer decides whether the account rests or returns.
 │ 

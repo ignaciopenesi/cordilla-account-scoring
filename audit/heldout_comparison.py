@@ -102,7 +102,7 @@ for K in (30, 60):
                  "lift": round(worked.converted_within_90d.mean() / base, 2),
                  "contacts_sunk": int(worked.sales_contacts_90d.sum()), "model_rank_median": None})
     rows.append({"policy": "the graph WITH the conversation agent", "n": None, "converted": None, "precision": None,
-                 "ci95": "needs call transcripts on accounts with a known outcome — none exist; ROLLOUT phase 3",
+                 "ci95": "needs call transcripts on accounts with a known outcome — none exist; the proposed extension in serving/README.md",
                  "recall": None, "lift": None, "contacts_sunk": None, "model_rank_median": None})
     out["by_K"][K] = rows
     tab = pd.DataFrame(rows)

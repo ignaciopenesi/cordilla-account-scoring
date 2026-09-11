@@ -7,7 +7,7 @@
 | model alone — the dashboard the VP asked for | top 90 by score | **6.7%** [3%, 14%] · finds **8%** of buyers · *from memory: 31.1%* | _not yet — READOUT_ | 0 — calls everything it ranks |
 | random — no system | 90 at random | **7.3%** 5–95%: [3%, 11%] · finds **8%** of buyers | _not yet — READOUT_ | 0 — calls everything it ranks |
 | the team today — rep's own picks | accounts the team chose to work | **8.3%** [6%, 11%] | _not yet — READOUT_ | 0 — calls everything it ranks |
-| **THE GRAPH — its worklist** | continue 45 + first-call 15 · ask, observe and skip tracked, not called | **12.2%** [7%, 21%] · finds **14%** of buyers | _not yet — READOUT_ | **51 h / quarter** |
+| **THE GRAPH — its worklist** | continue 45 + first-call 15 · ask, observe and skip tracked, not called | **12.2%** [7%, 21%] · finds **14%** of buyers | _not yet — READOUT_ | **38 h / quarter** |
 | the graph — confident picks only | continue alone | **15.6%** [9%, 24%] · finds **18%** of buyers | _not yet — READOUT_ | — |
 
 _Historical: each policy builds its list from the 1,099 labelled training rows with a closed 90-day window, and we count who converted — observational, the comparison is fair, the levels are not causal. Prospective: the arms READOUT assigns today, read at day 90 against control — causal, and not readable before ~2,500 per arm. The graph must beat the first three rows on both columns, or it is retired._
@@ -50,7 +50,7 @@ And the reason none of this can be optimised directly: the same yield curve says
 
 | bet | claim | settles | falsified_if |
 |---|---|---|---|
-| redirected hours convert better than the hours they replaced | conversions per 100 contacts is higher in explore than in control | not before 2,515 accounts per arm (168 weeks at 15/arm, 26 cycles at 97/arm) | the cumulative interval for explore sits below control once the arms are powered — at which point the system is reallocating hours to worse places |
+| redirected hours convert better than the hours they replaced | conversions per 100 rep-hours are higher in the system's third than in the control third, every account counted | not before 2,515 accounts per arm (168 weeks at 15/arm, 26 cycles at 97/arm) | the cumulative interval for the system's third sits below the control third's once the halves are powered — at which point the system is reallocating hours to worse places |
 
 ## Guardrails — what must not get worse while the bets mature
 
@@ -68,4 +68,4 @@ at each 90-day readout, does the weekly headline still track the north star?
 
 ## Kill switch
 
-if the explore arm's cumulative rate sits below control's once both pass 2,515 accounts, the reallocation is wrong and the system stops directing hours.
+if the system third's cumulative rate sits below the control third's once both pass 2,515 accounts, the reallocation is wrong and the system stops directing hours.

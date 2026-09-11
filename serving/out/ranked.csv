@@ -1,200 +1,200 @@
 rank_pos,account_id,action,segment,cell,evidence_pts,arm,sales_contacts_90d,trial_started,age_days,flags
-1,ACC-00076,first-call,trial,trial|0,5.0,observe,0,1,87,never touched
-2,ACC-01394,first-call,trial,trial|0,5.0,observe,0,1,81,"no vendor record, never touched"
-3,ACC-01404,first-call,trial,trial|0,5.0,observe,0,1,105,"no vendor record, never touched"
-4,ACC-00011,first-call,trial,trial|0,5.0,observe,0,1,148,"no vendor record, never touched"
-5,ACC-00200,first-call,trial,trial|0,5.0,observe,0,1,116,never touched
+1,ACC-00076,first-call,trial,trial|0,5.0,first-call,0,1,87,never touched
+2,ACC-01394,first-call,trial,trial|0,5.0,control,0,1,81,"no vendor record, never touched"
+3,ACC-01404,first-call,trial,trial|0,5.0,control,0,1,105,"no vendor record, never touched"
+4,ACC-00011,first-call,trial,trial|0,5.0,control,0,1,148,"no vendor record, never touched"
+5,ACC-00200,first-call,trial,trial|0,5.0,control,0,1,116,never touched
 6,ACC-01157,first-call,trial,trial|0,5.0,first-call,0,1,130,never touched
-7,ACC-00433,first-call,trial,trial|0,5.0,first-call,0,1,515,"stale 180, never touched"
-8,ACC-00802,first-call,trial,trial|0,5.0,first-call,0,1,113,never touched
-9,ACC-00086,first-call,trial,trial|0,5.0,first-call,0,1,109,never touched
-10,ACC-00285,first-call,trial,trial|0,5.0,first-call,0,1,143,never touched
+7,ACC-00433,first-call,trial,trial|0,5.0,observe,0,1,515,"stale 180, never touched"
+8,ACC-00802,first-call,trial,trial|0,5.0,observe,0,1,113,never touched
+9,ACC-00086,first-call,trial,trial|0,5.0,control,0,1,109,never touched
+10,ACC-00285,first-call,trial,trial|0,5.0,observe,0,1,143,never touched
 11,ACC-00398,first-call,trial,trial|0,5.0,observe,0,1,129,"no vendor record, never touched"
-12,ACC-01269,first-call,trial,trial|0,5.0,first-call,0,1,598,"stale 180, never touched"
-13,ACC-00552,first-call,trial,trial|0,5.0,first-call,0,1,82,never touched
+12,ACC-01269,first-call,trial,trial|0,5.0,observe,0,1,598,"stale 180, never touched"
+13,ACC-00552,first-call,trial,trial|0,5.0,control,0,1,82,never touched
 14,ACC-01020,first-call,trial,trial|0,5.0,observe,0,1,86,never touched
 15,ACC-01337,first-call,trial,trial|0,5.0,first-call,0,1,130,never touched
 16,ACC-00498,first-call,trial,trial|0,5.0,first-call,0,1,263,"stale 180, never touched"
 17,ACC-00962,first-call,trial,trial|0,5.0,first-call,0,1,321,"stale 180, never touched"
 18,ACC-01201,first-call,trial,trial|0,5.0,first-call,0,1,110,"no vendor record, never touched"
-19,ACC-00264,first-call,trial,trial|0,5.0,observe,0,1,45,never touched
+19,ACC-00264,first-call,trial,trial|0,5.0,control,0,1,45,never touched
 20,ACC-00483,first-call,trial,trial|0,5.0,first-call,0,1,32,never touched
 21,ACC-00531,first-call,trial,trial|0,5.0,observe,0,1,89,"no vendor record, never touched"
 22,ACC-00564,first-call,trial,trial|0,5.0,observe,0,1,104,"no vendor record, never touched"
 23,ACC-00787,first-call,trial,trial|0,5.0,observe,0,1,119,never touched
-24,ACC-01091,first-call,trial,trial|0,5.0,observe,0,1,457,"stale 180, never touched"
-25,ACC-01151,first-call,trial,trial|0,5.0,observe,0,1,61,never touched
+24,ACC-01091,first-call,trial,trial|0,5.0,first-call,0,1,457,"stale 180, never touched"
+25,ACC-01151,first-call,trial,trial|0,5.0,first-call,0,1,61,never touched
 26,ACC-01496,first-call,vendor,vendor|0,0.7,first-call,0,0,113,never touched
 27,ACC-00728,first-call,vendor,vendor|0,0.7,first-call,0,0,73,never touched
 28,ACC-01043,first-call,vendor,vendor|0,0.7,first-call,0,0,43,never touched
-29,ACC-01100,first-call,vendor,vendor|0,0.7,,0,0,71,never touched
-30,ACC-01386,first-call,vendor,vendor|0,0.7,,0,0,355,"stale 180, never touched"
-31,ACC-01471,first-call,vendor,vendor|0,0.7,,0,0,29,never touched
-32,ACC-00233,first-call,vendor,vendor|0,0.7,control,0,0,161,never touched
-33,ACC-00479,first-call,vendor,vendor|0,0.7,,0,0,100,never touched
+29,ACC-01100,first-call,vendor,vendor|0,0.7,first-call,0,0,71,never touched
+30,ACC-01386,first-call,vendor,vendor|0,0.7,control,0,0,355,"stale 180, never touched"
+31,ACC-01471,first-call,vendor,vendor|0,0.7,first-call,0,0,29,never touched
+32,ACC-00233,first-call,vendor,vendor|0,0.7,first-call,0,0,161,never touched
+33,ACC-00479,first-call,vendor,vendor|0,0.7,idle,0,0,100,never touched
 34,ACC-00657,first-call,vendor,vendor|0,0.7,control,0,0,305,"stale 180, never touched"
-35,ACC-00966,first-call,vendor,vendor|0,0.7,,0,0,207,"stale 180, never touched"
-36,ACC-01440,first-call,vendor,vendor|0,0.7,,0,0,97,never touched
-37,ACC-00533,first-call,vendor,vendor|0,0.7,,0,0,13,never touched
-38,ACC-00808,first-call,vendor,vendor|0,0.7,,0,0,317,"stale 180, never touched"
-39,ACC-01290,first-call,vendor,vendor|0,0.7,,0,0,111,never touched
-40,ACC-00144,first-call,vendor,vendor|0,0.7,,0,0,292,"stale 180, never touched"
-41,ACC-00392,first-call,vendor,vendor|0,0.7,control,0,0,171,never touched
-42,ACC-00800,first-call,vendor,vendor|0,0.7,,0,0,360,"stale 180, never touched"
-43,ACC-00080,first-call,vendor,vendor|0,0.7,control,0,0,79,never touched
-44,ACC-00268,first-call,vendor,vendor|0,0.7,,0,0,33,never touched
-45,ACC-00289,first-call,vendor,vendor|0,0.7,,0,0,407,"stale 180, never touched"
-46,ACC-00366,first-call,vendor,vendor|0,0.7,,0,0,169,never touched
-47,ACC-00748,first-call,vendor,vendor|0,0.7,,0,0,137,never touched
-48,ACC-01129,first-call,vendor,vendor|0,0.7,,0,0,126,never touched
-49,ACC-01229,first-call,vendor,vendor|0,0.7,,0,0,83,never touched
-50,ACC-01495,first-call,vendor,vendor|0,0.7,,0,0,518,"stale 180, never touched"
-51,ACC-00124,first-call,vendor,vendor|0,0.7,,0,0,107,never touched
-52,ACC-00136,first-call,vendor,vendor|0,0.7,,0,0,474,"stale 180, never touched"
-53,ACC-00334,first-call,vendor,vendor|0,0.7,control,0,0,115,never touched
-54,ACC-00001,first-call,vendor,vendor|0,0.7,,0,0,38,never touched
-55,ACC-00288,first-call,vendor,vendor|0,0.7,,0,0,67,never touched
-56,ACC-00633,first-call,vendor,vendor|0,0.7,,0,0,68,never touched
+35,ACC-00966,first-call,vendor,vendor|0,0.7,idle,0,0,207,"stale 180, never touched"
+36,ACC-01440,first-call,vendor,vendor|0,0.7,control,0,0,97,never touched
+37,ACC-00533,first-call,vendor,vendor|0,0.7,idle,0,0,13,never touched
+38,ACC-00808,first-call,vendor,vendor|0,0.7,idle,0,0,317,"stale 180, never touched"
+39,ACC-01290,first-call,vendor,vendor|0,0.7,idle,0,0,111,never touched
+40,ACC-00144,first-call,vendor,vendor|0,0.7,control,0,0,292,"stale 180, never touched"
+41,ACC-00392,first-call,vendor,vendor|0,0.7,idle,0,0,171,never touched
+42,ACC-00800,first-call,vendor,vendor|0,0.7,control,0,0,360,"stale 180, never touched"
+43,ACC-00080,first-call,vendor,vendor|0,0.7,idle,0,0,79,never touched
+44,ACC-00268,first-call,vendor,vendor|0,0.7,idle,0,0,33,never touched
+45,ACC-00289,first-call,vendor,vendor|0,0.7,idle,0,0,407,"stale 180, never touched"
+46,ACC-00366,first-call,vendor,vendor|0,0.7,idle,0,0,169,never touched
+47,ACC-00748,first-call,vendor,vendor|0,0.7,idle,0,0,137,never touched
+48,ACC-01129,first-call,vendor,vendor|0,0.7,idle,0,0,126,never touched
+49,ACC-01229,first-call,vendor,vendor|0,0.7,control,0,0,83,never touched
+50,ACC-01495,first-call,vendor,vendor|0,0.7,idle,0,0,518,"stale 180, never touched"
+51,ACC-00124,first-call,vendor,vendor|0,0.7,idle,0,0,107,never touched
+52,ACC-00136,first-call,vendor,vendor|0,0.7,idle,0,0,474,"stale 180, never touched"
+53,ACC-00334,first-call,vendor,vendor|0,0.7,idle,0,0,115,never touched
+54,ACC-00001,first-call,vendor,vendor|0,0.7,idle,0,0,38,never touched
+55,ACC-00288,first-call,vendor,vendor|0,0.7,idle,0,0,67,never touched
+56,ACC-00633,first-call,vendor,vendor|0,0.7,idle,0,0,68,never touched
 57,ACC-00701,first-call,vendor,vendor|0,0.7,control,0,0,69,never touched
-58,ACC-01192,first-call,vendor,vendor|0,0.7,,0,0,120,never touched
-59,ACC-01193,first-call,vendor,vendor|0,0.7,,0,0,87,never touched
-60,ACC-01339,first-call,vendor,vendor|0,0.7,,0,0,240,"stale 180, never touched"
-61,ACC-00476,first-call,vendor,vendor|0,0.7,,0,0,131,never touched
-62,ACC-00537,first-call,vendor,vendor|0,0.7,,0,0,417,"stale 180, never touched"
-63,ACC-00718,first-call,vendor,vendor|0,0.7,,0,0,224,"stale 180, never touched"
-64,ACC-01349,first-call,vendor,vendor|0,0.7,,0,0,89,never touched
-65,ACC-00295,first-call,vendor,vendor|0,0.7,control,0,0,102,never touched
-66,ACC-00438,first-call,vendor,vendor|0,0.7,,0,0,639,"stale 180, never touched"
-67,ACC-01299,first-call,vendor,vendor|0,0.7,control,0,0,185,"stale 180, never touched"
-68,ACC-01385,first-call,vendor,vendor|0,0.7,,0,0,0,never touched
-69,ACC-00049,first-call,vendor,vendor|0,0.7,control,0,0,101,never touched
-70,ACC-00070,first-call,vendor,vendor|0,0.7,,0,0,124,never touched
-71,ACC-00183,first-call,vendor,vendor|0,0.7,,0,0,447,"stale 180, never touched"
-72,ACC-00273,first-call,vendor,vendor|0,0.7,,0,0,464,"stale 180, never touched"
-73,ACC-00359,first-call,vendor,vendor|0,0.7,,0,0,94,never touched
-74,ACC-00376,first-call,vendor,vendor|0,0.7,,0,0,83,never touched
-75,ACC-00423,first-call,vendor,vendor|0,0.7,,0,0,95,never touched
-76,ACC-00587,first-call,vendor,vendor|0,0.7,control,0,0,132,never touched
-77,ACC-00624,first-call,vendor,vendor|0,0.7,,0,0,460,"stale 180, never touched"
-78,ACC-00776,first-call,vendor,vendor|0,0.7,control,0,0,118,never touched
-79,ACC-00789,first-call,vendor,vendor|0,0.7,,0,0,305,"stale 180, never touched"
-80,ACC-00852,first-call,vendor,vendor|0,0.7,,0,0,344,"stale 180, never touched"
-81,ACC-00960,first-call,vendor,vendor|0,0.7,,0,0,89,never touched
-82,ACC-01045,first-call,vendor,vendor|0,0.7,,0,0,109,never touched
-83,ACC-01164,first-call,vendor,vendor|0,0.7,,0,0,156,never touched
-84,ACC-01179,first-call,vendor,vendor|0,0.7,,0,0,89,never touched
-85,ACC-01257,first-call,vendor,vendor|0,0.7,,0,0,421,"stale 180, never touched"
-86,ACC-01263,first-call,vendor,vendor|0,0.7,,0,0,67,never touched
-87,ACC-01334,first-call,vendor,vendor|0,0.7,,0,0,281,"stale 180, never touched"
-88,ACC-01434,first-call,vendor,vendor|0,0.7,,0,0,198,"stale 180, never touched"
-89,ACC-00492,continue,trial,trial|1-4,11.5,continue,3,1,0,no vendor record
+58,ACC-01192,first-call,vendor,vendor|0,0.7,idle,0,0,120,never touched
+59,ACC-01193,first-call,vendor,vendor|0,0.7,control,0,0,87,never touched
+60,ACC-01339,first-call,vendor,vendor|0,0.7,idle,0,0,240,"stale 180, never touched"
+61,ACC-00476,first-call,vendor,vendor|0,0.7,idle,0,0,131,never touched
+62,ACC-00537,first-call,vendor,vendor|0,0.7,control,0,0,417,"stale 180, never touched"
+63,ACC-00718,first-call,vendor,vendor|0,0.7,idle,0,0,224,"stale 180, never touched"
+64,ACC-01349,first-call,vendor,vendor|0,0.7,idle,0,0,89,never touched
+65,ACC-00295,first-call,vendor,vendor|0,0.7,idle,0,0,102,never touched
+66,ACC-00438,first-call,vendor,vendor|0,0.7,idle,0,0,639,"stale 180, never touched"
+67,ACC-01299,first-call,vendor,vendor|0,0.7,idle,0,0,185,"stale 180, never touched"
+68,ACC-01385,first-call,vendor,vendor|0,0.7,idle,0,0,0,never touched
+69,ACC-00049,first-call,vendor,vendor|0,0.7,idle,0,0,101,never touched
+70,ACC-00070,first-call,vendor,vendor|0,0.7,control,0,0,124,never touched
+71,ACC-00183,first-call,vendor,vendor|0,0.7,control,0,0,447,"stale 180, never touched"
+72,ACC-00273,first-call,vendor,vendor|0,0.7,idle,0,0,464,"stale 180, never touched"
+73,ACC-00359,first-call,vendor,vendor|0,0.7,control,0,0,94,never touched
+74,ACC-00376,first-call,vendor,vendor|0,0.7,control,0,0,83,never touched
+75,ACC-00423,first-call,vendor,vendor|0,0.7,control,0,0,95,never touched
+76,ACC-00587,first-call,vendor,vendor|0,0.7,idle,0,0,132,never touched
+77,ACC-00624,first-call,vendor,vendor|0,0.7,idle,0,0,460,"stale 180, never touched"
+78,ACC-00776,first-call,vendor,vendor|0,0.7,idle,0,0,118,never touched
+79,ACC-00789,first-call,vendor,vendor|0,0.7,idle,0,0,305,"stale 180, never touched"
+80,ACC-00852,first-call,vendor,vendor|0,0.7,control,0,0,344,"stale 180, never touched"
+81,ACC-00960,first-call,vendor,vendor|0,0.7,control,0,0,89,never touched
+82,ACC-01045,first-call,vendor,vendor|0,0.7,idle,0,0,109,never touched
+83,ACC-01164,first-call,vendor,vendor|0,0.7,idle,0,0,156,never touched
+84,ACC-01179,first-call,vendor,vendor|0,0.7,idle,0,0,89,never touched
+85,ACC-01257,first-call,vendor,vendor|0,0.7,idle,0,0,421,"stale 180, never touched"
+86,ACC-01263,first-call,vendor,vendor|0,0.7,idle,0,0,67,never touched
+87,ACC-01334,first-call,vendor,vendor|0,0.7,idle,0,0,281,"stale 180, never touched"
+88,ACC-01434,first-call,vendor,vendor|0,0.7,control,0,0,198,"stale 180, never touched"
+89,ACC-00492,continue,trial,trial|1-4,11.5,control,3,1,0,no vendor record
 90,ACC-01111,continue,trial,trial|1-4,11.5,continue,3,1,109,—
 91,ACC-00041,continue,trial,trial|1-4,11.5,continue,3,1,123,—
-92,ACC-01352,continue,trial,trial|1-4,11.5,continue,3,1,96,no vendor record
-93,ACC-00371,continue,trial,trial|1-4,11.5,continue,2,1,256,stale 180
+92,ACC-01352,continue,trial,trial|1-4,11.5,control,3,1,96,no vendor record
+93,ACC-00371,continue,trial,trial|1-4,11.5,control,2,1,256,stale 180
 94,ACC-01475,continue,trial,trial|1-4,11.5,continue,2,1,49,—
 95,ACC-00558,continue,trial,trial|1-4,11.5,continue,2,1,112,—
 96,ACC-00042,continue,trial,trial|1-4,11.5,continue,2,1,617,stale 180
 97,ACC-00768,continue,trial,trial|1-4,11.5,continue,1,1,213,"no vendor record, stale 180"
 98,ACC-00065,continue,trial,trial|1-4,11.5,continue,1,1,260,stale 180
-99,ACC-00525,continue,trial,trial|1-4,11.5,continue,1,1,89,—
+99,ACC-00525,continue,trial,trial|1-4,11.5,control,1,1,89,—
 100,ACC-00208,continue,trial,trial|1-4,11.5,continue,1,1,384,"no vendor record, stale 180"
 101,ACC-01227,continue,trial,trial|1-4,11.5,continue,1,1,177,—
-102,ACC-00232,continue,trial,trial|1-4,11.5,continue,1,1,59,—
-103,ACC-00284,continue,trial,trial|1-4,11.5,continue,1,1,64,no vendor record
+102,ACC-00232,continue,trial,trial|1-4,11.5,control,1,1,59,—
+103,ACC-00284,continue,trial,trial|1-4,11.5,control,1,1,64,no vendor record
 104,ACC-00418,continue,trial,trial|1-4,11.5,continue,1,1,180,no vendor record
 105,ACC-00908,continue,trial,trial|1-4,11.5,continue,1,1,525,stale 180
 106,ACC-01128,continue,trial,trial|1-4,11.5,continue,1,1,143,no vendor record
 107,ACC-00186,continue,vendor,vendor|1-4,7.3,continue,4,0,590,stale 180
-108,ACC-01416,continue,vendor,vendor|1-4,7.3,continue,4,0,189,stale 180
+108,ACC-01416,continue,vendor,vendor|1-4,7.3,control,4,0,189,stale 180
 109,ACC-01432,continue,vendor,vendor|1-4,7.3,continue,4,0,269,stale 180
 110,ACC-00806,continue,vendor,vendor|1-4,7.3,continue,4,0,130,—
 111,ACC-00870,continue,vendor,vendor|1-4,7.3,continue,4,0,127,—
-112,ACC-01283,continue,vendor,vendor|1-4,7.3,continue,4,0,122,—
+112,ACC-01283,continue,vendor,vendor|1-4,7.3,control,4,0,122,—
 113,ACC-00112,continue,vendor,vendor|1-4,7.3,continue,4,0,81,—
-114,ACC-00682,continue,vendor,vendor|1-4,7.3,continue,4,0,383,stale 180
+114,ACC-00682,continue,vendor,vendor|1-4,7.3,control,4,0,383,stale 180
 115,ACC-01382,continue,vendor,vendor|1-4,7.3,continue,4,0,335,stale 180
 116,ACC-00839,continue,vendor,vendor|1-4,7.3,continue,4,0,112,—
-117,ACC-00082,continue,vendor,vendor|1-4,7.3,continue,4,0,81,—
+117,ACC-00082,continue,vendor,vendor|1-4,7.3,control,4,0,81,—
 118,ACC-00175,continue,vendor,vendor|1-4,7.3,continue,4,0,98,—
 119,ACC-00400,continue,vendor,vendor|1-4,7.3,continue,4,0,86,—
 120,ACC-00421,continue,vendor,vendor|1-4,7.3,continue,4,0,249,stale 180
-121,ACC-01019,continue,vendor,vendor|1-4,7.3,continue,4,0,130,—
+121,ACC-01019,continue,vendor,vendor|1-4,7.3,control,4,0,130,—
 122,ACC-00160,continue,vendor,vendor|1-4,7.3,continue,3,0,117,—
 123,ACC-00272,continue,vendor,vendor|1-4,7.3,continue,3,0,555,stale 180
-124,ACC-00043,continue,vendor,vendor|1-4,7.3,continue,3,0,34,—
+124,ACC-00043,continue,vendor,vendor|1-4,7.3,control,3,0,34,—
 125,ACC-00779,continue,vendor,vendor|1-4,7.3,continue,3,0,96,—
-126,ACC-01225,continue,vendor,vendor|1-4,7.3,,3,0,53,—
-127,ACC-00116,continue,vendor,vendor|1-4,7.3,continue,3,0,647,stale 180
-128,ACC-01145,continue,vendor,vendor|1-4,7.3,,3,0,304,stale 180
-129,ACC-01340,continue,vendor,vendor|1-4,7.3,,3,0,147,—
-130,ACC-00453,continue,vendor,vendor|1-4,7.3,continue,3,0,136,—
-131,ACC-00541,continue,vendor,vendor|1-4,7.3,continue,3,0,101,—
+126,ACC-01225,continue,vendor,vendor|1-4,7.3,continue,3,0,53,—
+127,ACC-00116,continue,vendor,vendor|1-4,7.3,control,3,0,647,stale 180
+128,ACC-01145,continue,vendor,vendor|1-4,7.3,continue,3,0,304,stale 180
+129,ACC-01340,continue,vendor,vendor|1-4,7.3,control,3,0,147,—
+130,ACC-00453,continue,vendor,vendor|1-4,7.3,control,3,0,136,—
+131,ACC-00541,continue,vendor,vendor|1-4,7.3,control,3,0,101,—
 132,ACC-00067,continue,vendor,vendor|1-4,7.3,continue,3,0,183,stale 180
 133,ACC-00362,continue,vendor,vendor|1-4,7.3,continue,3,0,75,—
-134,ACC-00471,continue,vendor,vendor|1-4,7.3,continue,3,0,97,—
+134,ACC-00471,continue,vendor,vendor|1-4,7.3,control,3,0,97,—
 135,ACC-00619,continue,vendor,vendor|1-4,7.3,continue,3,0,311,stale 180
 136,ACC-00887,continue,vendor,vendor|1-4,7.3,continue,3,0,98,—
-137,ACC-01456,continue,vendor,vendor|1-4,7.3,,3,0,96,—
-138,ACC-00934,continue,vendor,vendor|1-4,7.3,control,2,0,296,stale 180
-139,ACC-01442,continue,vendor,vendor|1-4,7.3,control,2,0,36,—
-140,ACC-00501,continue,vendor,vendor|1-4,7.3,,2,0,129,—
+137,ACC-01456,continue,vendor,vendor|1-4,7.3,continue,3,0,96,—
+138,ACC-00934,continue,vendor,vendor|1-4,7.3,continue,2,0,296,stale 180
+139,ACC-01442,continue,vendor,vendor|1-4,7.3,idle,2,0,36,—
+140,ACC-00501,continue,vendor,vendor|1-4,7.3,continue,2,0,129,—
 141,ACC-00906,continue,vendor,vendor|1-4,7.3,control,2,0,147,—
-142,ACC-00561,continue,vendor,vendor|1-4,7.3,,2,0,437,stale 180
-143,ACC-00586,continue,vendor,vendor|1-4,7.3,control,2,0,157,—
-144,ACC-00093,continue,vendor,vendor|1-4,7.3,,2,0,403,stale 180
-145,ACC-00707,continue,vendor,vendor|1-4,7.3,,2,0,71,—
-146,ACC-00803,continue,vendor,vendor|1-4,7.3,,2,0,245,stale 180
-147,ACC-00910,continue,vendor,vendor|1-4,7.3,,2,0,384,stale 180
-148,ACC-01212,continue,vendor,vendor|1-4,7.3,,2,0,86,—
-149,ACC-00150,continue,vendor,vendor|1-4,7.3,,2,0,107,—
-150,ACC-00369,continue,vendor,vendor|1-4,7.3,,2,0,454,stale 180
-151,ACC-00598,continue,vendor,vendor|1-4,7.3,,2,0,588,stale 180
-152,ACC-00722,continue,vendor,vendor|1-4,7.3,control,2,0,469,stale 180
-153,ACC-00778,continue,vendor,vendor|1-4,7.3,,2,0,675,stale 180
-154,ACC-00833,continue,vendor,vendor|1-4,7.3,,2,0,67,—
-155,ACC-00980,continue,vendor,vendor|1-4,7.3,,2,0,138,—
+142,ACC-00561,continue,vendor,vendor|1-4,7.3,continue,2,0,437,stale 180
+143,ACC-00586,continue,vendor,vendor|1-4,7.3,continue,2,0,157,—
+144,ACC-00093,continue,vendor,vendor|1-4,7.3,continue,2,0,403,stale 180
+145,ACC-00707,continue,vendor,vendor|1-4,7.3,continue,2,0,71,—
+146,ACC-00803,continue,vendor,vendor|1-4,7.3,control,2,0,245,stale 180
+147,ACC-00910,continue,vendor,vendor|1-4,7.3,control,2,0,384,stale 180
+148,ACC-01212,continue,vendor,vendor|1-4,7.3,continue,2,0,86,—
+149,ACC-00150,continue,vendor,vendor|1-4,7.3,control,2,0,107,—
+150,ACC-00369,continue,vendor,vendor|1-4,7.3,control,2,0,454,stale 180
+151,ACC-00598,continue,vendor,vendor|1-4,7.3,control,2,0,588,stale 180
+152,ACC-00722,continue,vendor,vendor|1-4,7.3,continue,2,0,469,stale 180
+153,ACC-00778,continue,vendor,vendor|1-4,7.3,control,2,0,675,stale 180
+154,ACC-00833,continue,vendor,vendor|1-4,7.3,control,2,0,67,—
+155,ACC-00980,continue,vendor,vendor|1-4,7.3,continue,2,0,138,—
 156,ACC-01135,continue,vendor,vendor|1-4,7.3,control,2,0,192,stale 180
-157,ACC-01185,continue,vendor,vendor|1-4,7.3,,2,0,69,—
-158,ACC-01271,continue,vendor,vendor|1-4,7.3,,2,0,113,—
-159,ACC-01293,continue,vendor,vendor|1-4,7.3,,2,0,224,stale 180
-160,ACC-01414,continue,vendor,vendor|1-4,7.3,,2,0,115,—
-161,ACC-00100,continue,vendor,vendor|1-4,7.3,,1,0,94,—
-162,ACC-00730,continue,vendor,vendor|1-4,7.3,,1,0,302,stale 180
-163,ACC-01102,continue,vendor,vendor|1-4,7.3,,1,0,96,—
-164,ACC-01493,continue,vendor,vendor|1-4,7.3,,1,0,91,—
-165,ACC-01021,continue,vendor,vendor|1-4,7.3,control,1,0,290,stale 180
-166,ACC-01411,continue,vendor,vendor|1-4,7.3,,1,0,69,—
-167,ACC-01038,continue,vendor,vendor|1-4,7.3,,1,0,273,stale 180
-168,ACC-00205,continue,vendor,vendor|1-4,7.3,,1,0,419,stale 180
-169,ACC-00702,continue,vendor,vendor|1-4,7.3,,1,0,351,stale 180
+157,ACC-01185,continue,vendor,vendor|1-4,7.3,continue,2,0,69,—
+158,ACC-01271,continue,vendor,vendor|1-4,7.3,continue,2,0,113,—
+159,ACC-01293,continue,vendor,vendor|1-4,7.3,continue,2,0,224,stale 180
+160,ACC-01414,continue,vendor,vendor|1-4,7.3,continue,2,0,115,—
+161,ACC-00100,continue,vendor,vendor|1-4,7.3,idle,1,0,94,—
+162,ACC-00730,continue,vendor,vendor|1-4,7.3,control,1,0,302,stale 180
+163,ACC-01102,continue,vendor,vendor|1-4,7.3,idle,1,0,96,—
+164,ACC-01493,continue,vendor,vendor|1-4,7.3,idle,1,0,91,—
+165,ACC-01021,continue,vendor,vendor|1-4,7.3,idle,1,0,290,stale 180
+166,ACC-01411,continue,vendor,vendor|1-4,7.3,control,1,0,69,—
+167,ACC-01038,continue,vendor,vendor|1-4,7.3,control,1,0,273,stale 180
+168,ACC-00205,continue,vendor,vendor|1-4,7.3,control,1,0,419,stale 180
+169,ACC-00702,continue,vendor,vendor|1-4,7.3,idle,1,0,351,stale 180
 170,ACC-01266,continue,vendor,vendor|1-4,7.3,control,1,0,48,—
 171,ACC-00752,continue,vendor,vendor|1-4,7.3,control,1,0,133,—
-172,ACC-01464,continue,vendor,vendor|1-4,7.3,,1,0,66,—
-173,ACC-01208,continue,vendor,vendor|1-4,7.3,control,1,0,117,—
-174,ACC-00550,continue,vendor,vendor|1-4,7.3,,1,0,94,—
-175,ACC-00617,continue,vendor,vendor|1-4,7.3,,1,0,377,stale 180
-176,ACC-00191,continue,vendor,vendor|1-4,7.3,,1,0,40,—
-177,ACC-00889,continue,vendor,vendor|1-4,7.3,,1,0,44,—
-178,ACC-00109,continue,vendor,vendor|1-4,7.3,,1,0,618,stale 180
-179,ACC-00275,continue,vendor,vendor|1-4,7.3,,1,0,118,—
-180,ACC-00317,continue,vendor,vendor|1-4,7.3,,1,0,74,—
-181,ACC-00416,continue,vendor,vendor|1-4,7.3,control,1,0,70,—
-182,ACC-00429,continue,vendor,vendor|1-4,7.3,control,1,0,99,—
+172,ACC-01464,continue,vendor,vendor|1-4,7.3,idle,1,0,66,—
+173,ACC-01208,continue,vendor,vendor|1-4,7.3,idle,1,0,117,—
+174,ACC-00550,continue,vendor,vendor|1-4,7.3,idle,1,0,94,—
+175,ACC-00617,continue,vendor,vendor|1-4,7.3,idle,1,0,377,stale 180
+176,ACC-00191,continue,vendor,vendor|1-4,7.3,idle,1,0,40,—
+177,ACC-00889,continue,vendor,vendor|1-4,7.3,idle,1,0,44,—
+178,ACC-00109,continue,vendor,vendor|1-4,7.3,control,1,0,618,stale 180
+179,ACC-00275,continue,vendor,vendor|1-4,7.3,idle,1,0,118,—
+180,ACC-00317,continue,vendor,vendor|1-4,7.3,control,1,0,74,—
+181,ACC-00416,continue,vendor,vendor|1-4,7.3,idle,1,0,70,—
+182,ACC-00429,continue,vendor,vendor|1-4,7.3,idle,1,0,99,—
 183,ACC-01033,continue,vendor,vendor|1-4,7.3,control,1,0,109,—
-184,ACC-00130,continue,none,none|1-4,7.7,,3,0,149,no vendor record
-185,ACC-00095,continue,none,none|1-4,7.7,,3,0,32,no vendor record
-186,ACC-01144,continue,none,none|1-4,7.7,,2,0,35,no vendor record
-187,ACC-00824,continue,none,none|1-4,7.7,,2,0,217,"no vendor record, stale 180"
-188,ACC-00900,continue,none,none|1-4,7.7,control,2,0,93,no vendor record
+184,ACC-00130,continue,none,none|1-4,7.7,idle,3,0,149,no vendor record
+185,ACC-00095,continue,none,none|1-4,7.7,control,3,0,32,no vendor record
+186,ACC-01144,continue,none,none|1-4,7.7,idle,2,0,35,no vendor record
+187,ACC-00824,continue,none,none|1-4,7.7,idle,2,0,217,"no vendor record, stale 180"
+188,ACC-00900,continue,none,none|1-4,7.7,idle,2,0,93,no vendor record
 189,ACC-00467,continue,none,none|1-4,7.7,control,1,0,135,no vendor record
-190,ACC-00717,continue,none,none|1-4,7.7,,1,0,143,no vendor record
-191,ACC-01383,continue,none,none|1-4,7.7,control,1,0,125,no vendor record
-192,ACC-00669,continue,none,none|1-4,7.7,control,1,0,200,"no vendor record, stale 180"
-193,ACC-01311,continue,none,none|1-4,7.7,,1,0,66,no vendor record
+190,ACC-00717,continue,none,none|1-4,7.7,idle,1,0,143,no vendor record
+191,ACC-01383,continue,none,none|1-4,7.7,idle,1,0,125,no vendor record
+192,ACC-00669,continue,none,none|1-4,7.7,idle,1,0,200,"no vendor record, stale 180"
+193,ACC-01311,continue,none,none|1-4,7.7,idle,1,0,66,no vendor record
 194,ACC-01415,ask,trial,trial|5+,,ask,9,1,437,"no vendor record, stale 180, over invested"
 195,ACC-00686,ask,trial,trial|5+,,ask,6,1,143,"no vendor record, over invested"
-196,ACC-00146,ask,trial,trial|5+,,ask,5,1,192,"stale 180, over invested"
+196,ACC-00146,ask,trial,trial|5+,,control,5,1,192,"stale 180, over invested"
 197,ACC-01429,ask,trial,trial|5+,,ask,5,1,38,"no vendor record, over invested"
 198,ACC-00265,ask,trial,trial|5+,,ask,5,1,93,"no vendor record, over invested"
 199,ACC-01064,ask,trial,trial|5+,,ask,5,1,94,over invested
@@ -204,46 +204,46 @@ rank_pos,account_id,action,segment,cell,evidence_pts,arm,sales_contacts_90d,tria
 203,ACC-01155,ask,vendor,vendor|5+,,ask,7,0,30,over invested
 204,ACC-00506,ask,vendor,vendor|5+,,ask,7,0,20,over invested
 205,ACC-00260,ask,vendor,vendor|5+,,ask,6,0,427,"stale 180, over invested"
-206,ACC-00915,ask,vendor,vendor|5+,,ask,6,0,104,over invested
-207,ACC-00101,ask,vendor,vendor|5+,,ask,6,0,140,over invested
+206,ACC-00915,ask,vendor,vendor|5+,,control,6,0,104,over invested
+207,ACC-00101,ask,vendor,vendor|5+,,control,6,0,140,over invested
 208,ACC-00270,ask,vendor,vendor|5+,,ask,5,0,95,over invested
 209,ACC-01177,ask,vendor,vendor|5+,,ask,5,0,239,"stale 180, over invested"
-210,ACC-00527,ask,vendor,vendor|5+,,ask,5,0,343,"stale 180, over invested"
+210,ACC-00527,ask,vendor,vendor|5+,,control,5,0,343,"stale 180, over invested"
 211,ACC-00828,ask,vendor,vendor|5+,,ask,5,0,60,over invested
 212,ACC-00832,ask,vendor,vendor|5+,,ask,5,0,52,over invested
 213,ACC-00935,ask,none,none|5+,,ask,5,0,234,"no vendor record, stale 180, over invested"
 214,ACC-01214,ask,none,none|5+,,ask,5,0,132,"no vendor record, over invested"
 215,ACC-00570,ask,none,none|5+,,ask,5,0,105,"no vendor record, over invested"
 216,ACC-00958,ask,none,none|5+,,ask,5,0,409,"no vendor record, stale 180, over invested"
-217,ACC-00697,neutral,none,none|0,2.3,,0,0,539,"no vendor record, stale 180, never touched"
-218,ACC-01168,neutral,none,none|0,2.3,,0,0,260,"no vendor record, stale 180, never touched"
-219,ACC-01377,neutral,none,none|0,2.3,,0,0,115,"no vendor record, never touched"
-220,ACC-00237,neutral,none,none|0,2.3,control,0,0,83,"no vendor record, never touched"
-221,ACC-00504,neutral,none,none|0,2.3,,0,0,591,"no vendor record, stale 180, never touched"
-222,ACC-01428,neutral,none,none|0,2.3,,0,0,137,"no vendor record, never touched"
-223,ACC-00267,neutral,none,none|0,2.3,,0,0,115,"no vendor record, never touched"
-224,ACC-00287,neutral,none,none|0,2.3,,0,0,298,"no vendor record, stale 180, never touched"
-225,ACC-00470,neutral,none,none|0,2.3,,0,0,88,"no vendor record, never touched"
-226,ACC-00940,neutral,none,none|0,2.3,control,0,0,86,"no vendor record, never touched"
-227,ACC-00646,skip,mql,mql|5+,,skip,6,0,272,"no vendor record, stale 180, over invested"
+217,ACC-00697,neutral,none,none|0,2.3,idle,0,0,539,"no vendor record, stale 180, never touched"
+218,ACC-01168,neutral,none,none|0,2.3,control,0,0,260,"no vendor record, stale 180, never touched"
+219,ACC-01377,neutral,none,none|0,2.3,control,0,0,115,"no vendor record, never touched"
+220,ACC-00237,neutral,none,none|0,2.3,idle,0,0,83,"no vendor record, never touched"
+221,ACC-00504,neutral,none,none|0,2.3,idle,0,0,591,"no vendor record, stale 180, never touched"
+222,ACC-01428,neutral,none,none|0,2.3,idle,0,0,137,"no vendor record, never touched"
+223,ACC-00267,neutral,none,none|0,2.3,idle,0,0,115,"no vendor record, never touched"
+224,ACC-00287,neutral,none,none|0,2.3,control,0,0,298,"no vendor record, stale 180, never touched"
+225,ACC-00470,neutral,none,none|0,2.3,control,0,0,88,"no vendor record, never touched"
+226,ACC-00940,neutral,none,none|0,2.3,idle,0,0,86,"no vendor record, never touched"
+227,ACC-00646,skip,mql,mql|5+,,control,6,0,272,"no vendor record, stale 180, over invested"
 228,ACC-00735,skip,mql,mql|5+,,skip,6,0,350,"no vendor record, stale 180, over invested"
-229,ACC-00414,skip,mql,mql|1-4,0.0,skip,4,0,105,no vendor record
+229,ACC-00414,skip,mql,mql|1-4,0.0,control,4,0,105,no vendor record
 230,ACC-00690,skip,mql,mql|1-4,0.0,skip,4,0,75,no vendor record
 231,ACC-01289,skip,mql,mql|1-4,0.0,skip,4,0,46,no vendor record
 232,ACC-01333,skip,mql,mql|1-4,0.0,skip,4,0,100,no vendor record
 233,ACC-00732,skip,mql,mql|1-4,0.0,skip,3,0,474,"no vendor record, stale 180"
 234,ACC-01287,skip,mql,mql|1-4,0.0,skip,3,0,37,no vendor record
 235,ACC-00876,skip,mql,mql|1-4,0.0,skip,3,0,94,no vendor record
-236,ACC-01282,skip,mql,mql|1-4,0.0,skip,3,0,103,no vendor record
+236,ACC-01282,skip,mql,mql|1-4,0.0,control,3,0,103,no vendor record
 237,ACC-00481,skip,mql,mql|1-4,0.0,skip,3,0,103,no vendor record
 238,ACC-00602,skip,mql,mql|1-4,0.0,skip,2,0,152,no vendor record
-239,ACC-01165,skip,mql,mql|1-4,0.0,skip,2,0,120,no vendor record
-240,ACC-00386,skip,mql,mql|1-4,0.0,skip,2,0,202,"no vendor record, stale 180"
+239,ACC-01165,skip,mql,mql|1-4,0.0,control,2,0,120,no vendor record
+240,ACC-00386,skip,mql,mql|1-4,0.0,control,2,0,202,"no vendor record, stale 180"
 241,ACC-00901,skip,mql,mql|1-4,0.0,skip,2,0,117,no vendor record
-242,ACC-00228,skip,mql,mql|1-4,0.0,skip,2,0,72,no vendor record
+242,ACC-00228,skip,mql,mql|1-4,0.0,control,2,0,72,no vendor record
 243,ACC-00358,skip,mql,mql|1-4,0.0,skip,2,0,135,no vendor record
 244,ACC-00539,skip,mql,mql|1-4,0.0,skip,2,0,73,no vendor record
-245,ACC-00151,skip,mql,mql|1-4,0.0,skip,1,0,408,"no vendor record, stale 180"
+245,ACC-00151,skip,mql,mql|1-4,0.0,control,1,0,408,"no vendor record, stale 180"
 246,ACC-00941,skip,mql,mql|1-4,0.0,skip,1,0,84,no vendor record
 247,ACC-00449,skip,mql,mql|0,0.0,skip,0,0,378,"no vendor record, stale 180, never touched"
 248,ACC-01027,skip,mql,mql|0,0.0,skip,0,0,347,"no vendor record, stale 180, never touched"
@@ -256,28 +256,28 @@ rank_pos,account_id,action,segment,cell,evidence_pts,arm,sales_contacts_90d,tria
 255,ACC-00299,skip,mql,mql|0,0.0,skip,0,0,329,"no vendor record, stale 180, never touched"
 256,ACC-00402,skip,mql,mql|0,0.0,skip,0,0,145,"no vendor record, never touched"
 257,ACC-00625,skip,mql,mql|0,0.0,skip,0,0,62,"no vendor record, never touched"
-258,ACC-00805,skip,mql,mql|0,0.0,skip,0,0,285,"no vendor record, stale 180, never touched"
+258,ACC-00805,skip,mql,mql|0,0.0,control,0,0,285,"no vendor record, stale 180, never touched"
 259,ACC-00864,skip,mql,mql|0,0.0,skip,0,0,3,"no vendor record, never touched"
 260,ACC-00898,skip,mql,mql|0,0.0,skip,0,0,214,"no vendor record, stale 180, never touched"
-261,ACC-01025,skip,mql,mql|0,0.0,skip,0,0,95,"no vendor record, never touched"
-262,ACC-01092,skip,mql,mql|0,0.0,skip,0,0,183,"no vendor record, stale 180, never touched"
+261,ACC-01025,skip,mql,mql|0,0.0,control,0,0,95,"no vendor record, never touched"
+262,ACC-01092,skip,mql,mql|0,0.0,control,0,0,183,"no vendor record, stale 180, never touched"
 263,ACC-01354,skip,mql,mql|0,0.0,skip,0,0,113,"no vendor record, never touched"
-264,ACC-01373,skip,mql,mql|0,0.0,skip,0,0,184,"no vendor record, stale 180, never touched"
+264,ACC-01373,skip,mql,mql|0,0.0,control,0,0,184,"no vendor record, stale 180, never touched"
 265,ACC-00431,skip,web,web|5+,,skip,6,0,73,"no vendor record, over invested"
-266,ACC-00883,skip,web,web|5+,,skip,6,0,7,"no vendor record, over invested"
-267,ACC-00122,skip,web,web|5+,,skip,6,0,38,"no vendor record, over invested"
-268,ACC-00581,skip,web,web|5+,,skip,5,0,137,"no vendor record, over invested"
+266,ACC-00883,skip,web,web|5+,,control,6,0,7,"no vendor record, over invested"
+267,ACC-00122,skip,web,web|5+,,control,6,0,38,"no vendor record, over invested"
+268,ACC-00581,skip,web,web|5+,,control,5,0,137,"no vendor record, over invested"
 269,ACC-00323,skip,web,web|1-4,0.0,skip,4,0,264,"no vendor record, stale 180"
 270,ACC-01026,skip,web,web|1-4,0.0,skip,4,0,65,no vendor record
 271,ACC-00015,skip,web,web|1-4,0.0,skip,4,0,83,no vendor record
-272,ACC-00315,skip,web,web|1-4,0.0,skip,4,0,75,no vendor record
+272,ACC-00315,skip,web,web|1-4,0.0,control,4,0,75,no vendor record
 273,ACC-00345,skip,web,web|1-4,0.0,skip,3,0,92,no vendor record
 274,ACC-00033,skip,web,web|1-4,0.0,skip,3,0,300,"no vendor record, stale 180"
 275,ACC-01235,skip,web,web|1-4,0.0,skip,3,0,147,no vendor record
 276,ACC-00391,skip,web,web|1-4,0.0,skip,2,0,150,no vendor record
 277,ACC-00873,skip,web,web|1-4,0.0,skip,2,0,211,"no vendor record, stale 180"
-278,ACC-00077,skip,web,web|1-4,0.0,skip,2,0,457,"no vendor record, stale 180"
-279,ACC-00967,skip,web,web|1-4,0.0,skip,2,0,96,no vendor record
+278,ACC-00077,skip,web,web|1-4,0.0,control,2,0,457,"no vendor record, stale 180"
+279,ACC-00967,skip,web,web|1-4,0.0,control,2,0,96,no vendor record
 280,ACC-01300,skip,web,web|1-4,0.0,skip,2,0,253,"no vendor record, stale 180"
 281,ACC-00313,skip,web,web|1-4,0.0,skip,2,0,91,no vendor record
 282,ACC-00536,skip,web,web|1-4,0.0,skip,1,0,106,no vendor record
@@ -286,16 +286,16 @@ rank_pos,account_id,action,segment,cell,evidence_pts,arm,sales_contacts_90d,tria
 285,ACC-00161,skip,web,web|1-4,0.0,skip,1,0,71,no vendor record
 286,ACC-00972,skip,web,web|1-4,0.0,skip,1,0,62,no vendor record
 287,ACC-00461,skip,web,web|0,-9.1,skip,0,0,247,"no vendor record, stale 180, never touched"
-288,ACC-01008,skip,web,web|0,-9.1,skip,0,0,79,"no vendor record, never touched"
-289,ACC-00629,skip,web,web|0,-9.1,skip,0,0,31,"no vendor record, never touched"
+288,ACC-01008,skip,web,web|0,-9.1,control,0,0,79,"no vendor record, never touched"
+289,ACC-00629,skip,web,web|0,-9.1,control,0,0,31,"no vendor record, never touched"
 290,ACC-00758,skip,web,web|0,-9.1,skip,0,0,62,"no vendor record, never touched"
-291,ACC-00989,skip,web,web|0,-9.1,skip,0,0,92,"no vendor record, never touched"
+291,ACC-00989,skip,web,web|0,-9.1,control,0,0,92,"no vendor record, never touched"
 292,ACC-00631,skip,web,web|0,-9.1,skip,0,0,211,"no vendor record, stale 180, never touched"
-293,ACC-00687,skip,web,web|0,-9.1,skip,0,0,138,"no vendor record, never touched"
+293,ACC-00687,skip,web,web|0,-9.1,control,0,0,138,"no vendor record, never touched"
 294,ACC-00700,skip,web,web|0,-9.1,skip,0,0,133,"no vendor record, never touched"
-295,ACC-00420,skip,web,web|0,-9.1,skip,0,0,141,"no vendor record, never touched"
-296,ACC-00614,skip,web,web|0,-9.1,skip,0,0,83,"no vendor record, never touched"
+295,ACC-00420,skip,web,web|0,-9.1,control,0,0,141,"no vendor record, never touched"
+296,ACC-00614,skip,web,web|0,-9.1,control,0,0,83,"no vendor record, never touched"
 297,ACC-01319,skip,web,web|0,-9.1,skip,0,0,351,"no vendor record, stale 180, never touched"
 298,ACC-00236,skip,web,web|0,-9.1,skip,0,0,122,"no vendor record, never touched"
 299,ACC-00763,skip,web,web|0,-9.1,skip,0,0,224,"no vendor record, stale 180, never touched"
-300,ACC-01178,skip,web,web|0,-9.1,skip,0,0,96,"no vendor record, never touched"
+300,ACC-01178,skip,web,web|0,-9.1,control,0,0,96,"no vendor record, never touched"

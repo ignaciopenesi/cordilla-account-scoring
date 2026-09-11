@@ -118,8 +118,8 @@
       "node": "READOUT",
       "reason": "90-day outcomes for the accounts assigned today do not exist yet",
       "unblocked_by": "one cycle of the arms above, with outcomes written back per account",
-      "would_produce": "conversions per logged contact by arm with confidence intervals; the same broken out by conversation intent level (testing whether intent from calls predicts better than any CRM column); and the epsilon-greedy update -- the winning arm grows, exploration never goes to zero",
-      "still_computed": "the arms are assigned and recorded: {'continue': 45, 'first-call': 15, 'control': 30}"
+      "would_produce": "conversions per logged contact by arm with confidence intervals; the system third against the control third, every account counted; first-call against observe by segment; and the allocation update -- arms move only when intervals separate, never below the floor",
+      "still_computed": "the arms are assigned and recorded: {'continue': 45, 'first-call': 15, 'control': 93}"
     }
   ],
   "artifacts": {
@@ -810,7 +810,7 @@
             "n": null,
             "converted": null,
             "precision": null,
-            "ci95": "needs call transcripts on accounts with a known outcome \u2014 none exist; ROLLOUT phase 3",
+            "ci95": "needs call transcripts on accounts with a known outcome \u2014 none exist; the proposed extension in serving/README.md",
             "recall": null,
             "lift": null,
             "contacts_sunk": null,
@@ -922,7 +922,7 @@
             "n": null,
             "converted": null,
             "precision": null,
-            "ci95": "needs call transcripts on accounts with a known outcome \u2014 none exist; ROLLOUT phase 3",
+            "ci95": "needs call transcripts on accounts with a known outcome \u2014 none exist; the proposed extension in serving/README.md",
             "recall": null,
             "lift": null,
             "contacts_sunk": null,
@@ -1245,9 +1245,9 @@
     "bets": [
       {
         "bet": "redirected hours convert better than the hours they replaced",
-        "claim": "conversions per 100 contacts is higher in explore than in control",
+        "claim": "conversions per 100 rep-hours are higher in the system's third than in the control third, every account counted",
         "settles": "not before 2,515 accounts per arm (168 weeks at 15/arm, 26 cycles at 97/arm)",
-        "falsified_if": "the cumulative interval for explore sits below control once the arms are powered \u2014 at which point the system is reallocating hours to worse places",
+        "falsified_if": "the cumulative interval for the system's third sits below the control third's once the halves are powered \u2014 at which point the system is reallocating hours to worse places",
         "note": "THIS is the one that proves the system works. Nothing before it does."
       }
     ],
@@ -1317,39 +1317,45 @@
           "why": "exploration going to zero is how the system stops producing unbiased data"
         }
       ],
-      "kill_switch": "if the explore arm's cumulative rate sits below control's once both pass 2,515 accounts, the reallocation is wrong and the system stops directing hours."
+      "kill_switch": "if the system third's cumulative rate sits below the control third's once both pass 2,515 accounts, the reallocation is wrong and the system stops directing hours."
     },
     "arms": {
       "continue": 45,
       "first-call": 15,
-      "control": 30
+      "control": 93
     },
     "cohorts": {
-      "ask": 23,
-      "observe": 13,
-      "skip": 74
+      "ask": 19,
+      "observe": 9,
+      "skip": 50,
+      "idle": 69
     },
-    "ask": 23,
+    "halves": {
+      "system": 207,
+      "control": 93,
+      "system_share": 0.6666666666666666
+    },
+    "ask": 19,
     "arm_sizes_requested": {
       "continue": 45,
       "first-call": 15,
       "control": 30
     },
-    "continue_tiers": {
-      "1-4 contacts \u00b7 trial": 18,
-      "1-4 contacts \u00b7 vendor": 27,
+    "continue_by_segment": {
+      "1-4 contacts \u00b7 trial": 12,
+      "1-4 contacts \u00b7 vendor": 33,
       "1-4 contacts \u00b7 none": 0
     },
     "model_vs_us": {
       "top30_fates": {
-        "pool \u2014 not drawn this cycle": 9,
-        "ask, don't call \u2014 5+ contacts, no result, no voice": 9,
-        "exploit \u2014 called": 9,
-        "explore \u2014 never contacted, has signal": 2,
-        "control \u2014 rep's pick": 1
+        "control third \u2014 the rep works it as usual": 10,
+        "ask, don't call \u2014 5+ contacts, no result, no voice": 7,
+        "idle \u2014 tracked, not called": 6,
+        "continue \u2014 called": 5,
+        "first-call \u2014 never contacted, trial or vendor": 2
       },
-      "called_as_is": 9,
-      "called_but_stale": 4,
+      "called_as_is": 5,
+      "called_but_stale": 3,
       "top9": [
         {
           "rank": 1,
@@ -1367,7 +1373,7 @@
           "contacts": 2,
           "age_days": 256,
           "flags": "stale 180",
-          "fate": "exploit \u2014 called"
+          "fate": "control third \u2014 the rep works it as usual"
         },
         {
           "rank": 3,
@@ -1385,7 +1391,7 @@
           "contacts": 4,
           "age_days": 122,
           "flags": "\u2014",
-          "fate": "exploit \u2014 called"
+          "fate": "control third \u2014 the rep works it as usual"
         },
         {
           "rank": 5,
@@ -1394,7 +1400,7 @@
           "contacts": 3,
           "age_days": 109,
           "flags": "\u2014",
-          "fate": "exploit \u2014 called"
+          "fate": "continue \u2014 called"
         },
         {
           "rank": 6,
@@ -1403,7 +1409,7 @@
           "contacts": 4,
           "age_days": 86,
           "flags": "\u2014",
-          "fate": "exploit \u2014 called"
+          "fate": "continue \u2014 called"
         },
         {
           "rank": 7,
@@ -1412,7 +1418,7 @@
           "contacts": 6,
           "age_days": 38,
           "flags": "no vendor record, over invested",
-          "fate": "pool \u2014 not drawn this cycle"
+          "fate": "control third \u2014 the rep works it as usual"
         },
         {
           "rank": 8,
@@ -1421,7 +1427,7 @@
           "contacts": 6,
           "age_days": 272,
           "flags": "no vendor record, stale 180, over invested",
-          "fate": "pool \u2014 not drawn this cycle"
+          "fate": "control third \u2014 the rep works it as usual"
         },
         {
           "rank": 9,
@@ -1430,11 +1436,11 @@
           "contacts": 0,
           "age_days": 305,
           "flags": "stale 180, never touched",
-          "fate": "control \u2014 rep's pick"
+          "fate": "control third \u2014 the rep works it as usual"
         }
       ]
     },
-    "experiment_card": "\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 AGENT \u00b7 experiment_card   [template]\n\u2502 purpose     : Write the week's allocation as an experiment the manager can approve or refuse\n\u2502 sensitivity : aggregate\n\u2502 routed to   : cloud\n\u2502 reads       : arms (name, size, selection rule), matching variables, base rate, readout date\n\u2502 returns     : markdown, ~150 words\n\u251c\u2500 SYSTEM \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 You write experiment cards for an SDR manager who is not technical and\n\u2502 is sceptical of being experimented on. Be concrete about what each arm\n\u2502 is testing and what result would make us stop. Never oversell, and never\n\u2502 promise a lift number we do not have.\n\u251c\u2500 PROMPT \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 This week's allocation splits 90 accounts into 3 matched arms\n\u2502 (intent segment and contact band). Base rate is 6.5% in training, 1-3% per the business.\n\u2502 \n\u2502 - **continue** (45 accounts): 1\u20134 logged contacts, trial > vendor record > no signal, most contacts first\n\u2502 - **first-call** (15 accounts): never contacted, trial first (half called, half observed \u2014 that is how the +10 gets measured for real), then vendor record\n\u2502 - **control** (30 accounts): the rep picks \u2014 what would happen without the system\n\u2502 - **ask** (23, not an arm): 5+ contacts, no result \u2014 the rep gets a question\n\u2502 - **observe** (13, not an arm): the other half of the untouched trials, deliberately not called\n\u2502 - **skip** (74, not an arm): web-only or MQL-only \u2014 calling never helped on any cut\n\u2502 \n\u2502 Write the experiment card the SDR manager reads before approving. For each arm state the\n\u2502 hypothesis in one sentence, the result that would confirm it, and the result that would\n\u2502 kill it. End with the readout date and one sentence on why the control arm exists.\n\u251c\u2500 RETURNS (worked example) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 **This week: 90 accounts \u2014 continue 45, first-call 15, control 30 \u2014 plus a holdout nobody calls.**\n\u2502 \n\u2502 **continue (45)** \u2014 Hypothesis: the best information we hold \u2014 a prospect who stated readiness, then 1\u20134 logged contacts with a trial, then with a vendor record, then by count \u2014 beats the model's score. Confirms: converts at or above control. Kills: converts below control once both arms pass 2,500 accounts.\n\u2502 \n\u2502 **first-call (15)** \u2014 Hypothesis: the first call on an untouched trial account is where an hour changes most (+10 pts on history, an upper bound). Half are called, half observed. Confirms: called converts above observed. Kills: no difference at 138 per group.\n\u2502 \n\u2502 **control (30)** \u2014 The rep picks. This is what happens without the system, and it is the only reason either arm above can be read.\n\u2502 \n\u2502 **ask** \u2014 5+ contacts, no result, no conversation on file. The rep gets one question, not a call: what do you know that the data does not? Their answer decides whether the account rests or returns.\n\u2502 \n\u2502 **holdout** \u2014 Prospects who said no after 4+ contacts and agreed to no next step. Nobody calls them. If they convert anyway, the extractor misread them.\n\u2502 \n\u2502 First readout 2026-10-30. It will be noisy \u2014 30 per arm cannot resolve a realistic difference \u2014 and it accumulates. The control arm exists because Cordilla has never had one, which is why nobody could write up how the last scoring effort died.\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
+    "experiment_card": "\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 AGENT \u00b7 experiment_card   [template]\n\u2502 purpose     : Write the week's allocation as an experiment the manager can approve or refuse\n\u2502 sensitivity : aggregate\n\u2502 routed to   : cloud\n\u2502 reads       : arms (name, size, selection rule), matching variables, base rate, readout date\n\u2502 returns     : markdown, ~150 words\n\u251c\u2500 SYSTEM \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 You write experiment cards for an SDR manager who is not technical and\n\u2502 is sceptical of being experimented on. Be concrete about what each arm\n\u2502 is testing and what result would make us stop. Never oversell, and never\n\u2502 promise a lift number we do not have.\n\u251c\u2500 PROMPT \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 This week's allocation splits 90 accounts into 3 matched arms\n\u2502 (intent segment and contact band). Base rate is 6.5% in training, 1-3% per the business.\n\u2502 \n\u2502 - **continue** (45 accounts): 1\u20134 logged contacts, trial > vendor record > no signal, most contacts first\n\u2502 - **first-call** (15 accounts): never contacted, trial first (half called, half observed \u2014 that is how the +10 gets measured for real), then vendor record\n\u2502 - **control** (93 accounts, a third of the batch by coin flip): the rep works them as usual \u2014 nothing from the system touches them. Day 90 compares the system's third against this one, every account counted\n\u2502 - **ask** (19, not an arm): 5+ contacts, no result \u2014 the rep gets a question\n\u2502 - **observe** (9, not an arm): the other half of the untouched trials, deliberately not called\n\u2502 - **skip** (50, not an arm): web-only or MQL-only \u2014 calling never helped on any cut\n\u2502 \n\u2502 Write the experiment card the SDR manager reads before approving. For each arm state the\n\u2502 hypothesis in one sentence, the result that would confirm it, and the result that would\n\u2502 kill it. End with the readout date and one sentence on why the control arm exists.\n\u251c\u2500 RETURNS (worked example) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 **This week: 90 accounts \u2014 continue 45 and first-call 15 inside the system's two thirds, the rep's third as control \u2014 plus observe and skip, never called.**\n\u2502 \n\u2502 **continue (45)** \u2014 Hypothesis: the best information we hold \u2014 a prospect who stated readiness, then 1\u20134 logged contacts with a trial, then with a vendor record, then by count \u2014 beats the model's score. Confirms: converts at or above control. Kills: converts below control once both arms pass 2,500 accounts.\n\u2502 \n\u2502 **first-call (15)** \u2014 Hypothesis: the first call on an untouched trial account is where an hour changes most (+10 pts on history, an upper bound). Half are called, half observed. Confirms: called converts above observed. Kills: no difference at 138 per group.\n\u2502 \n\u2502 **control (a third of the batch, by coin flip)** \u2014 The rep works it as usual. This is what happens without the system, and it is the only reason anything above can be read.\n\u2502 \n\u2502 **ask** \u2014 5+ contacts, no result, no conversation on file. The rep gets one question, not a call: what do you know that the data does not? Their answer decides whether the account rests or returns.\n\u2502 \n\u2502 **holdout** \u2014 Prospects who said no after 4+ contacts and agreed to no next step. Nobody calls them. If they convert anyway, the extractor misread them.\n\u2502 \n\u2502 First readout 2026-10-30. It will be noisy \u2014 30 per arm cannot resolve a realistic difference \u2014 and it accumulates. The control arm exists because Cordilla has never had one, which is why nobody could write up how the last scoring effort died.\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
     "hygiene_suspects": "\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 AGENT \u00b7 hygiene_batch   [template]\n\u2502 purpose     : Turn a detected CRM defect into an approval note with evidence and a preventive rule\n\u2502 sensitivity : account_ids\n\u2502 routed to   : local\n\u2502 reads       : defect, detection rule, affected count, examples, proposed correction\n\u2502 returns     : markdown, ~100 words\n\u251c\u2500 SYSTEM \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 You write CRM correction proposals for approval in bulk. State the\n\u2502 evidence before the fix. Always include the rule that prevents the\n\u2502 defect from coming back \u2014 a one-off cleanup is worth much less than the\n\u2502 rule.\n\u251c\u2500 PROMPT \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 Defect: account_type is stale\n\u2502 Detected by: Suspect with an MQL, a trial, or a logged sales contact\n\u2502 Affected records: 86 in the scoring batch, 341 in training history\n\u2502 Examples: ACC-00160, ACC-00275, ACC-00989\n\u2502 Proposed correction: reclassify to Prospect\n\u2502 \n\u2502 Write the approval note. Lead with the evidence, then the correction, then the preventive\n\u2502 rule. Say plainly what happens if this is not fixed.\n\u251c\u2500 RETURNS (worked example) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 **account_type is stale \u2014 86 records.** A 'Suspect' is defined as an account that fits the profile but has shown no engagement. These 86 have an MQL, a trial or a logged sales contact (e.g. ACC-00095, ACC-00228, ACC-00284), and in training this group converts at the same rate as Prospects (chi2 p = 0.84). Proposed: reclassify to Prospect in bulk. Preventive rule: a validation rule so an account with activity cannot be saved as Suspect. Left alone, the field keeps disagreeing with itself and nobody can explain why a 'Suspect' is near the top of a list.\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
     "psi": {
       "employee_count": 0.04224818016323447,
@@ -1619,7 +1625,7 @@
             null,
             ""
           ],
-          "refuses_h": 51.4,
+          "refuses_h": 38.0,
           "role": "system"
         },
         {
@@ -1638,8 +1644,8 @@
           "role": "system \u00b7 no exploration"
         }
       ],
-      "ask_contacts": 133,
-      "skip_contacts": 124,
+      "ask_contacts": 111,
+      "skip_contacts": 79,
       "prospective_available": false,
       "prospective_simulated": false
     }
@@ -1649,7 +1655,7 @@
     "arms": {
       "continue": 45,
       "first-call": 15,
-      "control": 30
+      "control": 93
     },
     "actions": 11,
     "hygiene_batches": 2
