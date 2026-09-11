@@ -80,3 +80,167 @@ larger than the 300-row scoring file it seemed to be describing.
 **TODO(ignacio): result of that check goes in Entry 2.**
 
 ---
+
+## Entry 2 — 2026-09-10 ~22:10 · The verification came back and the case inverted
+
+**Headline: 136 of 153 claims from Entry 0 reproduce exactly. The one that doesn't is the
+one the whole narrative rested on.**
+
+### What broke
+
+Entry 0's thesis was *"the model orders acceptably and quantifies badly."* The first half
+is false, and I can now show it two ways.
+
+**1. The permutation null.** I fit the same architecture to *randomly permuted labels*, 200
+times, and scored it in-sample exactly the way the original evaluation must have:
+
+| | in-sample AUC |
+|---|---|
+| the shipped model | 0.7590 |
+| same architecture, **random labels**, 200 fits | mean 0.7619, median 0.7619, sd 0.020, max 0.824 |
+
+Empirical p = 0.575. **The headline AUC sits below the median of what this architecture
+manufactures out of coin flips.** Top-30 lift on shuffled labels averages 10.6 positives;
+the real model gets 12 (p = 0.345).
+
+**2. Honest out-of-fold.** 10×5-fold on a clone of the identical architecture:
+AUC **0.573 ± 0.024**, Brier **0.0613 — worse than printing 6.5% on every row**, top-30
+lift **0.51×** (one positive), top-60 0.77×, top-120 0.90×. All below random.
+
+And the comparison that settles it: `ORDER BY sales_contacts_90d DESC` — zero parameters,
+one line of SQL — captures 4 / 10 / 15 positives at K = 30 / 60 / 120 against the model's
+out-of-fold 1 / 3 / 7.
+
+### The move that licenses this, because the packet says "don't retrain it"
+
+`clone(model).fit(X, y)` over the 1200 rows **in file order** reproduces the pickle
+**bit-for-bit** (max |Δp| = 0.0 across all 1200; shuffling row order moves predictions by
+up to 0.075, because `subsample=0.7` is order-dependent).
+
+That single check does two jobs. It proves the model was fit on exactly this file with no
+holdout — no longer an inference. And it establishes that **cloning the architecture for
+diagnostics is not retraining the shipped model**: the pickle is never modified, never
+replaced, and is still the thing being audited. Calibrating an instrument against a
+reference is not swapping the instrument. I expect this to be the panel's first objection
+and I want the answer in the proposal, not improvised in the room.
+
+### Why this is the exercise and not a technicality
+
+The brief says an earlier effort *"looked promising in testing"* and *"quietly lost
+credibility once the scores stopped matching what reps were seeing."* That is this,
+mechanically: "promising in testing" is an in-sample number; "stopped matching the field"
+is 0.573. The folklore isn't background colour, it's the finding, and it was sitting inside
+the pickle the whole time.
+
+Entry 0 found censoring, median imputation and circularity — all three are real, all three
+verified — and framed them as the cause. They are not. **Dropping all 101 censored rows
+moves out-of-fold AUC from 0.575 to 0.559 — it gets worse.** The 0.759 → 0.573 gap is
+overfitting, full stop.
+
+### ⚠️ The override the packet asks for — this is mine
+
+> *"tell us about one place where you corrected or overrode it, somewhere it gave you
+> something wrong or generic, and what you changed."*
+
+**Two, and they're different kinds.**
+
+**(a) The frame.** The chat session in Entry 0 handed me a confident, well-evidenced,
+internally consistent narrative — "it orders well, it quantifies badly, here are three
+contaminations" — and I built my whole plan on it. It never questioned whether 0.759 was
+measured on data the model had already seen. Neither did I, for about an hour. What I
+changed: I stopped extending the analysis and ran a null-model check instead. The narrative
+didn't survive it. Note the failure mode — the output wasn't sloppy, it was *plausible*.
+Being coherent is not the same as being measured, and this one was coherent enough that
+I nearly shipped a proposal arguing that a coin flip ranks accounts acceptably.
+
+**(b) A verification agent, in the other direction.** In decomposing `intent_score`, one
+verification pass reported that *destroying the observed intent values improves the model*
+(0.5785 shuffled vs 0.5705 real). I didn't take it — a claim that strong should not rest on
+an unpaired comparison. I rewrote it as a paired design, same folds, 25 repeats
+(`audit/` script). The values contribute **−0.0011 ± 0.0044, t = −0.25** — indistinguishable
+from zero, but **not** an improvement. The agent's substantive point held; its specific
+claim was noise it had over-read. Corrected to "the values carry nothing," which is what the
+data supports, rather than "removing them helps," which it doesn't.
+
+### The finding that changes what I build
+
+`intent_score` — the model's nominally most important feature (GBM importance 0.271) —
+contributes **only through its missingness pattern**. Paired, 25 repeats, identical folds:
+
+| | OOF AUC | Δ | t |
+|---|---|---|---|
+| real intent (values + NaN pattern) | 0.5686 | | |
+| **values shuffled**, NaN pattern intact | 0.5697 | values contribute **−0.0011 ± 0.0044** | **−0.25** |
+| values intact, **NaN pattern reshuffled** | 0.5600 | | |
+| column removed | 0.5413 | missingness contributes **+0.0284 ± 0.0043** | **+6.56** |
+
+Replacing the whole column with a bare `intent_known` boolean scores 0.5740 — as good or
+better than the real thing. In the 718 rows where intent *is* observed, conversion by
+quintile is 8.3 / 7.0 / 9.7 / 7.0 / 9.1 %, Spearman p = 0.424. Flat. But `intent_known`:
+8.22% vs 3.94%, Fisher p = 0.0028.
+
+Mechanism: only 2 real rows carry intent = 25.3, and 482 imputed rows land exactly there.
+The model places 31 splits on intent, **5 of them inside (24.0, 26.6]** — the bracket that
+isolates the imputation spike. Median imputation accidentally built a missingness indicator,
+and that indicator is the only thing the model learned from the column.
+
+**Consequence I have to accept:** this kills the serving idea I liked most. A
+value-of-information loop that asks reps to go find intent for the 116 accounts missing it
+is measuring the model's sensitivity to an input that carries no information. ACC-00492's
+13.4-point swing is 13 points of fitted noise. Entry 0 also recommended *adding a
+missingness indicator* as the cheap fix — it's already in there. The correct fix is the
+inverse: drop the values, keep the flag.
+
+### The bigger structural finding
+
+The only two variables with real signal are `sales_contacts_90d` (p = 0.0013) and
+`intent_known` (p = 0.0028) — and **both measure what Cordilla already did to the account,
+not what the account is.** The vendor covers accounts that already left a footprint; reps
+called the ones that already smelled right. Remove both: **OOF AUC 0.434, below chance.**
+
+So the conclusion isn't "this model is contaminated by one circular feature." It's that
+**these nine columns contain no account-intrinsic signal at all.** Which makes the
+recommendation much larger than "freeze `sales_contacts`."
+
+### The one question that decides whether any of it is real
+
+`sales_contacts_90d` is a 90-day count; the label is "converted **within** 90 days."
+Nothing in the files says whether the contact window *precedes* the snapshot or *overlaps*
+the outcome window. If it overlaps, the only significant feature in the dataset is outright
+leakage rather than circularity. The empirical shape fits either reading
+(P(contacts ≥ 4 | y=1) = 0.282 vs 0.150). One question to the data owner settles it, and
+I'd rather have that question in the proposal than another chart.
+
+### Corrections to Entry 0, for the record
+
+Five claims refuted, the load-bearing ones being:
+- "5 contacts → ~6% conversion" is actually **13.56% (8/59)**. 5.56% is the value at **six**
+  contacts (n=18) — an off-by-one. This matters: the labels are **not** flat at 5, so
+  "the model invented a step the data doesn't show" is wrong. The step is in the data, and
+  it survives every observable adjustment (adjusted OR 2.63, p = 0.0049). What remains true
+  is only that cause and effect are unidentifiable without an experiment.
+- "all 9 rep-insists/model-low accounts have missing intent" → **8 of 9** (ACC-00453 has 29.1).
+- "341 Suspects with activity" is a **training-set** figure (341/402); the scoring set has **86/101**.
+- "three features carry the model" → two plus a weaker third (`web_touchpoints` costs 0.030 AUC, not 0.057).
+- "the censored rows don't differ" → they have **33% more MQLs** (p = 0.004, survives
+  Bonferroni). Which strengthens the censoring argument rather than weakening it.
+
+Plus the fragile survivors I'll state as directional, not established: "web 0 beats web 1-3"
+is Fisher p = 0.158; "trial 10.8% vs 6.3%" doesn't survive Bonferroni across the section's
+6 tests; PSI of age is ~0.9 not 0.893 (binning-dependent, 0.664–1.058 across schemes);
+the 180-day "stale" threshold is my own invention and 90 days — the actual feature window —
+gives 23 of the top 30, not 12.
+
+**And the one-line version of all of it: there are 78 positives in the entire dataset.**
+
+### What I'm not going to claim
+
+The 0.9 PSI on snapshot age is **not drift**. `account_id` runs 1…1500 with no gaps and no
+overlap between the two files, and P(row landed in the scoring file | age) is 44.3% / 34.5%
+/ 11.0% / 9.7% across age bands. The scoring batch was deliberately drawn recency-biased.
+Calling that "the population has shifted" is a claim the panel can disprove by opening the
+CSVs.
+
+**Next: decide what actually ships, given that the model doesn't.**
+
+---
