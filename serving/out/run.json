@@ -43,13 +43,13 @@
       "source": "CONVERSATION_INTENT"
     },
     {
-      "what": "The intent vendor's score has never been validated against anything",
-      "evidence": "103 scoring accounts have both a vendor record and a logged call, so the vendor's claim is contrastable today. In training, vendor coverage predicts conversion (p=0.003) while the score itself does not (Spearman p=0.42)",
+      "what": "The intent vendor overstates on accounts we can check",
+      "evidence": "of 12 accounts with both a vendor score and a call, 1 are scored high by the vendor and read low from the conversation (overall agreement 50%). \u26a0 synthetic demo data \u2014 the METHOD is the deliverable, not this number",
       "severity": "medium",
       "owner": "vendor",
-      "action": "Pay for coverage, not for the score: keep a boolean `intent_known`, stop using the numeric value in any model or view. Once calls are recorded, measure agreement on these accounts and take it into the renewal.",
-      "cost": "0 now (a field change); the measurement comes free with recording",
-      "expect": "the renewal is negotiated on evidence instead of on the vendor's own claim",
+      "action": "Run this table monthly on real calls and take it into the renewal. Pay for coverage, which predicts (p=0.003); stop paying for the score, which does not (p=0.42).",
+      "cost": "free once calls are recorded",
+      "expect": "the renewal is negotiated on evidence instead of the vendor's claim",
       "source": "CALIBRATE_VENDOR"
     },
     {
@@ -101,39 +101,284 @@
       "cost": "the notebook, ~4 minutes",
       "expect": "the next model cannot die quietly the way this one did",
       "source": "VERDICT"
+    },
+    {
+      "what": "One cycle of 30 accounts per arm cannot resolve a realistic difference",
+      "evidence": "simulated at the brief's 1-3% field rate with NO true difference between arms, the observed spread is 3.3% and every confidence interval overlaps every other. Detecting a 50% relative lift at this base rate needs roughly 1,500 accounts per arm",
+      "severity": "high",
+      "owner": "process",
+      "action": "Run the arms continuously and read cumulatively, not once. Commit to the cycle for at least two quarters before drawing a conclusion, and say so up front so nobody reads cycle 1 as an answer.",
+      "cost": "patience, and saying this to the VP before the first readout rather than after",
+      "expect": "nobody kills or ships the approach on a number that cannot support either",
+      "source": "READOUT"
     }
   ],
   "bypassed": [
     {
-      "node": "CONVERSATION_INTENT",
-      "reason": "the two CSVs carry no call transcripts",
-      "unblocked_by": "call recording with disclosure (two-party-consent states and GDPR make this a precondition) + Dialpad Ai Call Purpose / Custom Moments, or any ASR feeding the `conversation_intent` agent in llm.py",
-      "would_produce": "per account: intent_level A-F grounded in a verbatim prospect quote, objections[], next_step_agreed, speaker_role, call_purpose, confidence",
-      "still_computed": "the four coverage quadrants: {'calibrate_vendor (vendor record + a call happened)': 103, 'fill_the_gap (no vendor record + a call happened)': 67, 'unverified (vendor record, no call)': 81, 'blind (no vendor record, no call)': 49}"
-    },
-    {
-      "node": "CALIBRATE_VENDOR",
-      "reason": "needs CONVERSATION_INTENT, which has no transcripts to work from",
-      "unblocked_by": "the same recording capability; then no new data is required",
-      "would_produce": "on the 103 accounts where both exist: agreement between vendor intent and conversation intent, by segment; where the vendor systematically over- or under-states; a renewal memo with that evidence",
-      "still_computed": "the contrastable set: 103 accounts"
-    },
-    {
-      "node": "RECONCILE (third voice)",
-      "reason": "conversation intent is unavailable, so only model-vs-effort can be compared",
-      "unblocked_by": "CONVERSATION_INTENT",
-      "would_produce": "the two cells that need no human at all: 'model low + rep insists + conversation says A/B' (the model is wrong, and we can prove it) and 'model high + 5+ contacts + conversation says E/F' (sunk cost, stop)",
-      "still_computed": "model-vs-effort disagreements: {'model_high_nobody_looked': 24, 'high_effort_no_result': 22, 'rep_insists_model_low': 9}"
-    },
-    {
-      "node": "READOUT",
-      "reason": "90-day outcomes for the accounts assigned today do not exist yet",
-      "unblocked_by": "one cycle of the arms above, with outcomes written back per account",
-      "would_produce": "conversions per logged contact by arm with confidence intervals; the same broken out by conversation intent level (testing whether intent from calls predicts better than any CRM column); and the epsilon-greedy update -- the winning arm grows, exploration never goes to zero",
-      "still_computed": "the arms are assigned and recorded: {'exploit': 30, 'explore': 30, 'control': 30}"
+      "node": "CONVERSATION_INTENT (coverage)",
+      "reason": "only 20 of 170 accounts with a logged call have a transcript, and those transcripts are synthetic",
+      "unblocked_by": "recording every call; then coverage equals the fill_gap + calibrate quadrants above",
+      "would_produce": "intent for all 170 accounts with a logged call, not 20",
+      "still_computed": "intent extracted for 20 accounts"
     }
   ],
   "artifacts": {
+    "intents": {
+      "ACC-00109": {
+        "ready_to_act": true,
+        "ready_because": "budget_approved",
+        "evidence_quote": "Board approved the spend. We want to be in production by Q4",
+        "next_step_agreed": true,
+        "objections": [
+          "We've been told yes before and it didn't hold up"
+        ],
+        "intent_level": "A",
+        "confidence": 0.95,
+        "next_step": "Schedule a meeting in the next couple of weeks"
+      },
+      "ACC-00160": {
+        "ready_to_act": true,
+        "ready_because": "budget_approved",
+        "evidence_quote": "We've got budget approved for this fiscal year, it came through in June.",
+        "next_step_agreed": true,
+        "objections": [
+          "Proof, mostly. We've been told yes before and it didn't hold up."
+        ],
+        "intent_level": "B",
+        "confidence": 0.9,
+        "next_step": "Schedule a working session with the ops lead in the next couple of weeks"
+      },
+      "ACC-00270": {
+        "ready_to_act": false,
+        "ready_because": "neither",
+        "evidence_quote": "We're building the business case. Nothing's approved yet but my director asked me to get numbers together for the planning cycle.",
+        "next_step_agreed": true,
+        "objections": [
+          "Need proof to ensure approval holds up"
+        ],
+        "intent_level": "C",
+        "confidence": 1,
+        "next_step": "Schedule a working session with the ops lead in the next couple of weeks"
+      },
+      "ACC-00272": {
+        "ready_to_act": false,
+        "ready_because": "neither",
+        "evidence_quote": "It's on the roadmap for sometime next year maybe. Not this quarter.",
+        "next_step_agreed": false,
+        "objections": [
+          "Proof, mostly. We've been told yes before and it didn't hold up.",
+          "I wouldn't expect much movement."
+        ],
+        "intent_level": "C",
+        "confidence": 1
+      },
+      "ACC-00275": {
+        "ready_to_act": true,
+        "ready_because": "budget_approved",
+        "evidence_quote": "We've got budget approved for this fiscal year, it came through in June.",
+        "next_step_agreed": true,
+        "objections": [
+          "Proof, mostly. We've been told yes before and it didn't hold up.",
+          "We're just deciding between you and two others."
+        ],
+        "intent_level": "B",
+        "confidence": 1,
+        "next_step": "Scheduling a meeting in the next couple of weeks"
+      },
+      "ACC-00313": {
+        "ready_to_act": false,
+        "ready_because": "neither",
+        "evidence_quote": "It's on the roadmap for sometime next year maybe. Not this quarter.",
+        "next_step_agreed": false,
+        "objections": [
+          "Need proof to proceed; previous commitments didn't hold up"
+        ],
+        "intent_level": "D",
+        "confidence": 1
+      },
+      "ACC-00369": {
+        "ready_to_act": false,
+        "ready_because": "neither",
+        "evidence_quote": "I'd need to justify this internally. If you can help me with an ROI story I can take it to my VP next month.",
+        "next_step_agreed": false,
+        "objections": [
+          "Proof, mostly. We've been told yes before and it didn't hold up.",
+          "I'd need to justify this internally. If you can help me with an ROI story I can take it to my VP next month."
+        ],
+        "intent_level": "C",
+        "confidence": 0.9
+      },
+      "ACC-00414": {
+        "ready_to_act": false,
+        "ready_because": "neither",
+        "evidence_quote": "We're not interested.",
+        "next_step_agreed": false,
+        "objections": [
+          "Need proof to commit",
+          "Previous assurances didn't hold up"
+        ],
+        "intent_level": "F",
+        "confidence": 1
+      },
+      "ACC-00481": {
+        "ready_to_act": false,
+        "ready_because": "neither",
+        "evidence_quote": "",
+        "next_step_agreed": false,
+        "objections": [
+          "Proof, mostly. We've been told yes before and it didn't hold up.",
+          "I'm not the right person for this, you'd want to talk to whoever owns ops.",
+          "You can, but I wouldn't expect much movement."
+        ],
+        "intent_level": "E",
+        "confidence": 0.9
+      },
+      "ACC-00561": {
+        "ready_to_act": true,
+        "ready_because": "budget_approved",
+        "evidence_quote": "There's money allocated.",
+        "next_step_agreed": true,
+        "objections": [
+          "Comparing three vendors and needs to see the multi-region piece work before committing"
+        ],
+        "intent_level": "B",
+        "confidence": 1,
+        "next_step": "Schedule a meeting in the next couple of weeks"
+      },
+      "ACC-00602": {
+        "ready_to_act": true,
+        "ready_because": "budget_approved",
+        "evidence_quote": "Board approved the spend. We want to be in production by Q4",
+        "next_step_agreed": true,
+        "objections": [
+          "Proof, mostly. We've been told yes before and it didn't hold up"
+        ],
+        "intent_level": "A",
+        "confidence": 1,
+        "next_step": "find time in the next couple of weeks"
+      },
+      "ACC-00730": {
+        "ready_to_act": false,
+        "ready_because": "neither",
+        "evidence_quote": "Let's find time in the next couple of weeks.",
+        "next_step_agreed": true,
+        "objections": [
+          "We're building the business case. Nothing's approved yet",
+          "Proof, mostly. We've been told yes before and it didn't hold up"
+        ],
+        "intent_level": "C",
+        "confidence": 1,
+        "next_step": "find time in the next couple of weeks"
+      },
+      "ACC-00806": {
+        "ready_to_act": false,
+        "ready_because": "neither",
+        "evidence_quote": "We just renewed with our current vendor for three years. Please take us off your list.",
+        "next_step_agreed": false,
+        "objections": [
+          "Proof, mostly. We've been told yes before and it didn't hold up.",
+          "I wouldn't expect much movement."
+        ],
+        "intent_level": "F",
+        "confidence": 1
+      },
+      "ACC-00915": {
+        "ready_to_act": false,
+        "ready_because": "neither",
+        "evidence_quote": "You can, but I wouldn't expect much movement.",
+        "next_step_agreed": false,
+        "objections": [
+          "Proof, mostly. We've been told yes before and it didn't hold up.",
+          "I wouldn't expect much movement."
+        ],
+        "intent_level": "D",
+        "confidence": 1
+      },
+      "ACC-00935": {
+        "ready_to_act": false,
+        "ready_because": "neither",
+        "evidence_quote": "Nothing's driving this right now, I'm keeping an eye on the space.",
+        "next_step_agreed": false,
+        "objections": [
+          "Need proof to move forward",
+          "Previous commitments didn't hold up",
+          "No immediate movement expected"
+        ],
+        "intent_level": "D",
+        "confidence": 0.85
+      },
+      "ACC-00972": {
+        "ready_to_act": false,
+        "ready_because": "neither",
+        "evidence_quote": "We looked at this category two years ago and decided to build internally. That's still where we are.",
+        "next_step_agreed": false,
+        "objections": [
+          "Proof, mostly. We've been told yes before and it didn't hold up",
+          "I wouldn't expect much movement"
+        ],
+        "intent_level": "D",
+        "confidence": 1
+      },
+      "ACC-01128": {
+        "ready_to_act": true,
+        "ready_because": "budget_approved",
+        "evidence_quote": "We signed off on the budget last week and we need this live before the fiscal year closes in November.",
+        "next_step_agreed": true,
+        "objections": [
+          "Proof, mostly. We've been told yes before and it didn't hold up."
+        ],
+        "intent_level": "A",
+        "confidence": 1,
+        "next_step": "Schedule a working session with the ops lead in the next couple of weeks."
+      },
+      "ACC-01145": {
+        "ready_to_act": true,
+        "ready_because": "budget_approved",
+        "evidence_quote": "There's money allocated.",
+        "next_step_agreed": true,
+        "objections": [
+          "I'm comparing three vendors and I need to see the multi-region piece work before I commit."
+        ],
+        "intent_level": "B",
+        "confidence": 1,
+        "next_step": "Let's find time in the next couple of weeks."
+      },
+      "ACC-01282": {
+        "ready_to_act": true,
+        "ready_because": "budget_approved",
+        "evidence_quote": "We signed off on the budget last week and we need this live before the fiscal year closes in November.",
+        "next_step_agreed": true,
+        "objections": [
+          "We've been told yes before and it didn't hold up"
+        ],
+        "intent_level": "A",
+        "confidence": 1,
+        "next_step": "Schedule a working session with the ops lead in the next couple of weeks"
+      },
+      "ACC-01414": {
+        "ready_to_act": false,
+        "ready_because": "neither",
+        "evidence_quote": "You can, but I wouldn't expect much movement.",
+        "next_step_agreed": false,
+        "objections": [
+          "Proof, mostly. We've been told yes before and it didn't hold up."
+        ],
+        "intent_level": "D",
+        "confidence": 1
+      }
+    },
+    "intent_extractor": "qwen3:14b",
+    "intent_metrics": {
+      "n_extracted": 20,
+      "ready_to_act_exact": 1.0,
+      "ready_to_act_false_cold": 0,
+      "ready_to_act_false_hot": 0,
+      "next_step_exact": 1.0,
+      "intent_level_exact": 0.8,
+      "intent_level_within_one": 1.0,
+      "hot_vs_cold_correct": 0.95,
+      "mean_confidence": 0.975
+    },
     "sum_p": 19.66090293475255,
     "mean_p": 0.06553634311584183,
     "top30_overlap_model_vs_rule": 11,
@@ -144,8 +389,20 @@
       "unverified (vendor record, no call)": 81,
       "blind (no vendor record, no call)": 49
     },
-    "conversation_intent_demo": "\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 AGENT \u00b7 conversation_intent   [template]\n\u2502 purpose     : Extract buying intent from a call transcript \u2014 the one account-intrinsic signal available\n\u2502 sensitivity : pii   \u2192 must run on a local backend\n\u2502 routed to   : local\n\u2502 reads       : speaker-labelled transcript, account_id, call date\n\u2502 returns     : validated JSON (see INTENT_SCHEMA)\n\u251c\u2500 SYSTEM \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 You extract buying intent from a sales call transcript. You report only\n\u2502 what was said. If the transcript does not support a level, return the\n\u2502 lower one and lower the confidence. Always quote the sentence you used.\n\u2502 Never infer intent from the rep's enthusiasm \u2014 only from the prospect's\n\u2502 words. A = budget approved and a timeline named. F = explicitly not\n\u2502 interested.\n\u251c\u2500 PROMPT \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 Transcript of a sales call with account ACC-00453 on 2026-07-22.\n\u2502 \n\u2502 <transcript>\n\u2502 [Call \u00b7 ACC-00453 \u00b7 2026-07-22 \u00b7 14 min \u00b7 recorded with disclosure]\n\u2502 \n\u2502 REP (Cordilla): Thanks for making time. Last we spoke in April you'd said the ops team was\n\u2502 drowning in handoffs between the ticketing system and the approvals spreadsheet.\n\u2502 \n\u2502 PROSPECT (VP Operations): Yeah, that hasn't gotten better. It got worse, honestly. We added\n\u2502 two regions and the spreadsheet is now four spreadsheets.\n\u2502 \n\u2502 REP: Is that still being handled manually?\n\u2502 \n\u2502 PROSPECT: Manually and badly. Look, I'll be straight with you \u2014 we've got budget approved\n\u2502 for a workflow tool this fiscal year, it came through in June. We're just deciding between\n\u2502 you and two others. One of them is the incumbent, we already pay them for the ticketing\n\u2502 piece so there's a bundling conversation happening internally.\n\u2502 \n\u2502 REP: That's helpful to know. What's driving the decision between the three?\n\u2502 \n\u2502 PROSPECT: Honestly? Whether it actually handles multi-region approval chains without\n\u2502 custom work. The incumbent says yes but they said yes last time too. And price matters \u2014\n\u2502 we're not going to triple our spend for this.\n\u2502 \n\u2502 REP: Would it help to get our ops lead on a call to walk through the multi-region setup\n\u2502 specifically? Not a demo, an actual walkthrough of the config.\n\u2502 \n\u2502 PROSPECT: That would help. Let me pull in Marcus, he runs the EMEA side and he's the one\n\u2502 who'll veto it if it doesn't work for him. Week after next? I'm out until the 8th.\n\u2502 \n\u2502 REP: Week of the 11th works. I'll send options.\n\u2502 \n\u2502 PROSPECT: Good. And send me something on pricing tiers beforehand so I'm not surprised.\n\u2502 \n\u2502 </transcript>\n\u2502 \n\u2502 Return the JSON object described in the schema. Ground `intent_level` in a verbatim quote\n\u2502 from the prospect \u2014 not the rep. If the prospect said nothing that indicates a buying\n\u2502 stage, return level E or F with low confidence rather than guessing upward.\n\u251c\u2500 RETURNS (worked example) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 {\n\u2502   \"intent_level\": \"B\",\n\u2502   \"evidence_quote\": \"We've got budget approved for a workflow tool this quarter, we're just deciding between you and two others.\",\n\u2502   \"objections\": [\n\u2502     \"incumbent tool\",\n\u2502     \"price\"\n\u2502   ],\n\u2502   \"next_step_agreed\": true,\n\u2502   \"next_step\": \"Technical review with their ops lead, week of 2026-08-11\",\n\u2502   \"speaker_role\": \"decision_maker\",\n\u2502   \"call_purpose\": \"discovery\",\n\u2502   \"confidence\": 0.86\n\u2502 }\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
-    "example_question": "\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 AGENT \u00b7 disagreement_question   [template]\n\u2502 purpose     : Ask a rep what they know that the data cannot show\n\u2502 sensitivity : account_ids\n\u2502 routed to   : cloud\n\u2502 reads       : account_id, disagreement type, score, contacts logged, flags\n\u2502 returns     : one question, under 40 words\n\u251c\u2500 SYSTEM \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 You write short questions to a sales rep. The rep is busy and has been\n\u2502 burned by a scoring tool before. Ask about what they know that the data\n\u2502 cannot show. Never tell them who to call. Never imply they were wrong.\n\u251c\u2500 PROMPT \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 Account ACC-01282. The model scores it 4.0% (5th percentile).\n\u2502 The team has logged 3 contacts in 90 days. Flags: <Flags(allows_duplicate_labels=True)>.\n\u2502 Disagreement type: rep insists, model low.\n\u2502 \n\u2502 Write one question to the rep, under 40 words, that they can answer in two minutes, about\n\u2502 what they know that the data does not show. It must not read as a performance check.\n\u251c\u2500 RETURNS (worked example) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 ACC-00453 \u2014 the model ranks this in the bottom quartile, but the team has logged 4 contacts in 90 days. What are you seeing there that the data isn't showing?\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
+    "vendor_calibration": {
+      "n": 12,
+      "agreement": 0.5,
+      "table": {
+        "high": {
+          "high": 4,
+          "low": 5
+        },
+        "low": {
+          "high": 1,
+          "low": 2
+        }
+      }
+    },
     "arms": {
       "exploit": 30,
       "explore": 30,
@@ -246,13 +503,13 @@
         "source": "HYGIENE"
       },
       {
-        "what": "The intent vendor's score has never been validated against anything",
-        "evidence": "103 scoring accounts have both a vendor record and a logged call, so the vendor's claim is contrastable today. In training, vendor coverage predicts conversion (p=0.003) while the score itself does not (Spearman p=0.42)",
+        "what": "The intent vendor overstates on accounts we can check",
+        "evidence": "of 12 accounts with both a vendor score and a call, 1 are scored high by the vendor and read low from the conversation (overall agreement 50%). \u26a0 synthetic demo data \u2014 the METHOD is the deliverable, not this number",
         "severity": "medium",
         "owner": "vendor",
-        "action": "Pay for coverage, not for the score: keep a boolean `intent_known`, stop using the numeric value in any model or view. Once calls are recorded, measure agreement on these accounts and take it into the renewal.",
-        "cost": "0 now (a field change); the measurement comes free with recording",
-        "expect": "the renewal is negotiated on evidence instead of on the vendor's own claim",
+        "action": "Run this table monthly on real calls and take it into the renewal. Pay for coverage, which predicts (p=0.003); stop paying for the score, which does not (p=0.42).",
+        "cost": "free once calls are recorded",
+        "expect": "the renewal is negotiated on evidence instead of the vendor's claim",
         "source": "CALIBRATE_VENDOR"
       },
       {
@@ -265,10 +522,34 @@
         "expect": "a 40%-coverage problem stops being invisible because it looks like data",
         "source": "HYGIENE"
       }
+    ],
+    "readout": [
+      {
+        "arm": "control",
+        "accounts": 30,
+        "conversions": 1,
+        "rate": 0.03333333333333333,
+        "95% CI": "[0.6%, 16.7%]"
+      },
+      {
+        "arm": "exploit",
+        "accounts": 30,
+        "conversions": 2,
+        "rate": 0.06666666666666667,
+        "95% CI": "[1.8%, 21.3%]"
+      },
+      {
+        "arm": "explore",
+        "accounts": 30,
+        "conversions": 1,
+        "rate": 0.03333333333333333,
+        "95% CI": "[0.6%, 16.7%]"
+      }
     ]
   },
   "approvals": {
-    "status": "PENDING",
+    "approved_at_reference_date": "2026-08-01",
+    "approved_by": "SDR manager (simulated)",
     "arms": {
       "exploit": 30,
       "explore": 30,

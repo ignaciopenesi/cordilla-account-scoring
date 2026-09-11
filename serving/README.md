@@ -153,25 +153,48 @@ to, and falls back to template with a warning.
 Running `--demo` exercises the three nodes that cannot otherwise run. What came back is
 more useful than a green checkmark:
 
-**The extraction agent, measured against known ground truth** (20 transcripts generated
-*from* a known intent level, `qwen3:14b`, 497s for all 20 at 3 workers):
+**The extraction agent, measured against known ground truth**, and then improved three
+times on the strength of that measurement. 20 transcripts generated *from* a known intent
+level, `qwen3:14b` on Ollama, ~6 minutes per full re-extraction at 3 workers:
 
-| | |
-|---|---|
-| `next_step_exact` | **1.00** |
-| `intent_level_within_one` | 0.80 |
-| `hot_vs_cold_correct` | 0.80 |
-| `intent_level_exact` | **0.50** |
-| `speaker_role_exact` | **0.05** |
-| mean self-reported confidence | 0.62 |
+| | v1 | v2 | v2.1 | **v2.2** |
+|---|---|---|---|---|
+| **`ready_to_act`** (what the pipeline routes on) | — | 1.00 | 0.90 | **1.00** |
+| ↳ missed / false alarms | — | 0/0 | 0/2 | **0/0** |
+| `next_step_agreed` | 1.00 | 0.55 | 1.00 | **1.00** |
+| `intent_level` exact (secondary) | 0.50 | 0.60 | 0.45 | **0.80** |
+| ↳ within one level | 0.80 | 0.90 | 0.80 | **1.00** |
+| hot vs cold | 0.80 | 0.75 | 0.75 | **0.95** |
+| `speaker_role` | 0.05 | *removed* | — | — |
 
-The pattern is consistent and it is the design input: **what is extracted is reliable,
-what is inferred is not.** Quote, objections and agreed next step come back clean; the
-intent level is a coin flip at the exact grade and the speaker role is worse than random.
-So the pipeline raises it as a finding — *"use what is extracted; treat the level as a
-hypothesis until READOUT has measured it"* — in the same table as every other defect.
-Model size is one line in the routing table, and which size suffices is now a question
-that can be answered by re-running `extract_intents.py`, not by preference.
+**v1 → v2: ask the question the model can answer.** v1 demanded a six-level grade and got
+50% exact — but collapsing the *same* answers to a binary scored 95%. The decision a rep
+makes is binary, so `ready_to_act` became the primary field and the grade was demoted to
+context. `speaker_role` was deleted outright: 5% is worse than guessing, and a transcript
+rarely states a title — that field belongs to the CRM, which already has it.
+
+**v2 → v2.1: a prompt change broke a field it never mentioned.** `ready_to_act` hit 1.00,
+and `next_step_agreed` collapsed from 1.00 to 0.55 — all nine errors false negatives. The
+cause was that v2's prompt listed five numbered work steps and `next_step_agreed` was in
+none of them, so the model stopped looking for it. Restoring it to the list fixed it
+completely. Two accounts also returned `ready_because: budget_stated` alongside
+`ready_to_act: false` — a reply contradicting itself, which a typed schema cannot catch.
+Agents now declare **invariants**: cross-field rules checked after schema validation, with
+a retry on violation.
+
+**v2.1 → v2.2: the enum was under-specified, not the model.** Forcing the invariant turned
+those two contradictions into two false alarms, both `timeline_stated` — one on *"sometime
+next year maybe, not this quarter"* and one on *"I can take it to my VP next month"*. The
+model was treating any mention of time as a timeline. So the definitions were tightened in
+the system prompt (budget must already be allocated; a date must be for buying or going
+live, not for an internal errand, and not hedged) and the enum renamed to
+`budget_approved` / `purchase_timeline`. Everything went up — including `intent_level`,
+from 0.45 to 0.80, which nobody touched.
+
+> **The lesson is about the contract, not the model.** The same 14B model on the same 20
+> transcripts went from 50% to 100% on the field that matters, because the questions got
+> sharper. Three cycles, about twenty minutes of compute, and every step was decided by a
+> measurement rather than by taste.
 
 **`CALIBRATE_VENDOR` produced the table nobody at Cordilla can produce today**: on the 12
 accounts where both a vendor score and a call exist, vendor and conversation agree 58% of
@@ -202,23 +225,23 @@ that does:
 |---|---|
 | **`max_tokens` must be generous** | Reasoning models spend tokens thinking before answering. At 1024 the scratchpad consumed the whole budget and the reply came back as an **empty string** — not an error, which is the worst kind of failure. |
 | **The strict schema is doing real work** | With `response_format: json_schema`, the 14B model returned every required field. With `json_object` or nothing, it invented its own — `quote` instead of `evidence_quote`, required fields missing. Constrained decoding is what makes a small local model honour a contract. |
-| **A 14B model gets the structure right and the judgement wrong** | Full live run, 75s, schema-valid. It pulled the exact quote — *"we've got budget approved for a workflow tool this fiscal year"* — and both objections, correctly. Then labelled the account **E, near-no-intent**, and the VP of Operations as a *user* rather than a decision maker. Structure perfect, both judgement calls wrong. |
+| **A 14B model gets the structure right and the judgement wrong** | v1's first full run: exact quote and both objections correct, then labelled a budget-approved account **E, near-no-intent**. That gap between extraction and judgement is what the three contract revisions above were aimed at, and closing it needed no bigger model. |
 
-That last one matters more than the other two, and it does not get hidden: **the same
-standard this audit applied to the inherited model applies to our own agent.** An intent
-level from an unvalidated extractor is an unvalidated instrument, whoever built it.
+That last one matters more than the other two: **the same standard this audit applied to
+the inherited model applies to our own agent.** An intent level from an unvalidated
+extractor is an unvalidated instrument, whoever built it. Three things follow, and they are
+in the design rather than in a caveat:
 
-Three things follow, and they are in the design rather than in a caveat:
-
-- The **fields that are extracted** (quote, objections, next step) are reliable at 14B;
-  the **level that is inferred** is not. So the quote is what a human reads, and the level
-  is what `READOUT` measures against real outcomes before anyone acts on it alone.
-- `confidence` is in the contract for this reason, and the 0.75 it returned here was
-  *over*-confident — which is itself a calibration target.
-- Model size is a tunable, not a constant. 14B is what was on the machine; the routing
-  table changes one line to point at a 27B/35B, and the sensible operating point is chosen
-  by measuring against outcomes, not by preference. The pipeline is built so that question
-  is answerable.
+- **Route on what is measured.** `ready_to_act` scores 1.00 and `next_step_agreed` 1.00, so
+  the pipeline routes on those. `intent_level` scores 0.80 and is carried as context.
+- **Gate the uncertain band.** In v1 the 0.4–0.8 confidence band scored 25% on hot-vs-cold
+  — worse than chance — while both tails scored 86–100%. `RECONCILE` routes anything in
+  that band to a human instead of acting on it. With v2.2 the band is nearly empty (mean
+  confidence 0.97), but the gate stays: it costs nothing and it is the thing that would
+  catch the next regression.
+- **Model size is a tunable, not a constant.** 14B is what was on the machine. Three
+  contract revisions bought more than a bigger model would have, and the routing table is
+  one line if that stops being true.
 
 A 14B model on CPU takes 1–3 minutes per transcript. Fine for a nightly batch, useless for
 anything interactive — another reason the design is a weekly cycle rather than a live

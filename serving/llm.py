@@ -74,6 +74,7 @@ class Agent:
     system: str
     template: str
     schema: dict | None = None         # if set, output is JSON and is validated
+    invariants: list = None            # cross-field rules a schema cannot express
     sensitivity: str = "aggregate"     # aggregate | account_ids | pii  → drives routing
     example: object = None             # a worked example of the return
 
@@ -181,53 +182,104 @@ Write the manager's paragraph. End with one concrete recommendation for this wee
 ))
 
 # ── the extracting agent: PII in, validated JSON out ─────────────────────────
+# v2 — rebuilt after measuring v1 against 20 transcripts with known levels.
+# What changed and why (numbers in serving/README.md):
+#   · `ready_to_act` is now the PRIMARY field. v1 asked for a six-level grade and got 50%
+#     exact; collapsing the same answers to act/wait scored 95%. The decision a rep makes
+#     is binary, so the contract now asks the binary question directly.
+#   · `intent_level` survives as secondary and informational. It is not what the pipeline
+#     routes on.
+#   · `speaker_role` is GONE. v1 scored 5% on it — worse than guessing — because a
+#     transcript rarely states a title. That field belongs to the CRM, which already has it.
+#   · `next_step_agreed` scored 20/20 in v1 and as a standalone proxy for "hot" reached
+#     100% precision / 91% recall. It stays, and RECONCILE leans on it.
 INTENT_SCHEMA = {
     "type": "object",
     "properties": {
-        "intent_level": {"type": "string", "enum": ["A", "B", "C", "D", "E", "F"]},
+        "ready_to_act": {"type": "boolean"},
+        "ready_because": {"type": "string",
+                          "enum": ["budget_approved", "purchase_timeline", "both", "neither"]},
         "evidence_quote": {"type": "string"},
-        "objections": {"type": "array", "items": {"type": "string"}},
         "next_step_agreed": {"type": "boolean"},
         "next_step": {"type": ["string", "null"]},
-        "speaker_role": {"type": "string",
-                         "enum": ["decision_maker", "user", "gatekeeper", "unknown"]},
+        "objections": {"type": "array", "items": {"type": "string"}},
+        "intent_level": {"type": "string", "enum": ["A", "B", "C", "D", "E", "F"]},
         "call_purpose": {"type": "string",
                          "enum": ["discovery", "follow_up", "negotiation", "support", "other"]},
         "confidence": {"type": "number"},
     },
-    "required": ["intent_level", "evidence_quote", "objections", "next_step_agreed",
-                 "speaker_role", "call_purpose", "confidence"],
+    "required": ["ready_to_act", "ready_because", "evidence_quote", "next_step_agreed",
+                 "objections", "intent_level", "confidence"],
 }
 
 agent(Agent(
     name="conversation_intent",
-    purpose="Extract buying intent from a call transcript — the one account-intrinsic signal available",
+    purpose="Extract buying signals from a call — the one account-intrinsic signal available",
     reads=["speaker-labelled transcript", "account_id", "call date"],
-    returns="validated JSON (see INTENT_SCHEMA)",
+    returns="validated JSON — ready_to_act is the field the pipeline uses (see INTENT_SCHEMA)",
     schema=INTENT_SCHEMA,
     sensitivity="pii",
-    system="You extract buying intent from a sales call transcript. You report only what "
-           "was said. If the transcript does not support a level, return the lower one and "
-           "lower the confidence. Always quote the sentence you used. Never infer intent "
-           "from the rep's enthusiasm — only from the prospect's words. "
-           "A = budget approved and a timeline named. F = explicitly not interested.",
+    system="You extract buying signals from a sales call transcript. Report only what the "
+           "PROSPECT said — never the rep's enthusiasm — and always quote the sentence you "
+           "used.\n\n"
+           "`ready_to_act` is the field that matters, and it has exactly two triggers.\n\n"
+           "BUDGET counts only if money is already allocated: \"budget approved\", "
+           "\"signed off\", \"the spend is authorised\". It does NOT count when they are "
+           "still trying to get it: \"I need to justify this\", \"building the business "
+           "case\", \"if I can get budget\".\n\n"
+           "TIMELINE counts only if it is a date or window for BUYING OR GOING LIVE, and it "
+           "is definite: \"live before November\", \"in production by Q4\", \"we need this "
+           "by end of quarter\". It does NOT count when the date belongs to an internal step "
+           "(\"I\'ll take it to my VP next month\" is their errand, not a purchase date), and "
+           "it does NOT count when it is hedged or pushed away — \"sometime next year "
+           "maybe\", \"not this quarter\", \"it\'s on the roadmap\" are all `neither`.\n\n"
+           "Two traps, in order of how often they happen.\n"
+           "1. A vague or deferred date is not a timeline. If the sentence contains "
+           "\"maybe\", \"sometime\", \"not this quarter\", or names no period at all, "
+           "`ready_because` is `neither`.\n"
+           "2. A stated CONDITION is not a lack of interest. \"I need to see X work before "
+           "I commit\" or \"we\'re comparing three vendors\" describe a live buying process "
+           "— record the obstacle in `objections`, and let budget or timeline decide "
+           "`ready_to_act` on their own.\n\n"
+           "`intent_level` is secondary context: A = budget and timeline, B = budget or "
+           "timeline, C = building a case, D = passive interest, E = wrong person or "
+           "wrong time, F = explicit no. Grade it, but `ready_to_act` is what gets acted on.",
     template="""Transcript of a sales call with account {account_id} on {date}.
 
 <transcript>
 {transcript}
 </transcript>
 
-Return the JSON object described in the schema. Ground `intent_level` in a verbatim quote
-from the prospect — not the rep. If the prospect said nothing that indicates a buying
-stage, return level E or F with low confidence rather than guessing upward.""",
+Return the JSON object in the schema.
+
+Work in this order:
+1. Did the prospect say money is ALREADY allocated, or name a definite date for
+   buying or going live? Set `ready_because` — and if the date is hedged, deferred, or
+   belongs to an internal errand, the answer is `neither`.
+2. `ready_to_act` follows directly: true if `ready_because` is anything but "neither".
+   These two must agree — a stated budget with `ready_to_act: false` is a contradiction.
+3. Quote the exact sentence you used, from the prospect, in `evidence_quote`.
+4. Did they agree to a specific follow-up — a meeting, a call, a document by a date?
+   Set `next_step_agreed` and describe it in `next_step`. "Let\'s find time in the next
+   couple of weeks" counts; "you can send something over" does not.
+5. List obstacles they named in `objections`. A condition to buy is an objection, not a
+   reason to mark them cold.
+6. Grade `intent_level` last, as context.""",
+    invariants=[
+        ("ready_to_act agrees with ready_because",
+         lambda o: o.get("ready_to_act") == (o.get("ready_because") != "neither")),
+        ("next_step is described when one was agreed",
+         lambda o: (not o.get("next_step_agreed")) or bool(o.get("next_step"))),
+    ],
     example={
-        "intent_level": "B",
+        "ready_to_act": True,
+        "ready_because": "budget_approved",
         "evidence_quote": "We've got budget approved for a workflow tool this quarter, "
                           "we're just deciding between you and two others.",
-        "objections": ["incumbent tool", "price"],
         "next_step_agreed": True,
         "next_step": "Technical review with their ops lead, week of 2026-08-11",
-        "speaker_role": "decision_maker",
+        "objections": ["incumbent tool", "price"],
+        "intent_level": "B",
         "call_purpose": "discovery",
         "confidence": 0.86,
     },
@@ -401,6 +453,13 @@ def draft(kind: str, mode: str = "template", **payload) -> str:
                 parsed, err = _validate(out, a.schema)
                 if err:
                     last = f"schema violation: {err}"
+                    continue
+                broken = [name for name, rule in (a.invariants or []) if not rule(parsed)]
+                if broken:
+                    # A typed schema catches a wrong TYPE. It cannot catch a reply that
+                    # contradicts itself -- "budget_stated" alongside ready_to_act=false --
+                    # which is exactly what a small model does under pressure. Retry.
+                    last = f"invariant violated: {'; '.join(broken)}"
                     continue
                 return json.dumps(parsed, indent=2)
             return out

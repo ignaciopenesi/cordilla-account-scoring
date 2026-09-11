@@ -67,13 +67,11 @@ _Nothing here is a ranked call list, and no account carries a probability. The a
 | high | pipeline | Training labels are assigned before the 90-day window closes | Label = NULL, not 0, when snapshot_date + 90d > today. Re-label the 101 affected rows and add the rule to the labeling job. |
 | high | process | Conversations that would fill the vendor's coverage gap already happen, and are not captured | Record sales calls with per-call disclosure and transcript-only storage, and extract intent per the contract in llm.py. Start with the fill_gap quadrant -- it needs no new outreach, only capture of calls that already happen. |
 | medium | pipeline | Trials with zero active users are ambiguous | Ask product whether these are provisioned-but-never-used or missing seat telemetry. If telemetry, instrument it — the field is currently unreadable. |
-| medium | vendor | The intent vendor's score has never been validated against anything | Pay for coverage, not for the score: keep a boolean `intent_known`, stop using the numeric value in any model or view. Once calls are recorded, measure agreement on these accounts and take it into the renewal. |
+| medium | vendor | The intent vendor overstates on accounts we can check | Run this table monthly on real calls and take it into the renewal. Pay for coverage, which predicts (p=0.003); stop paying for the score, which does not (p=0.42). |
 | medium | vendor | web_touchpoints_90d cannot distinguish 'no visits' from 'not measured' | Data contract with the attribution vendor: return NULL when no measurement was taken. Until then, treat 0 as unknown rather than as a measured zero. |
 
 ## Not running today
 
 | node | reason | unblocked_by |
 |---|---|---|
-| CONVERSATION_INTENT | the two CSVs carry no call transcripts | call recording with disclosure (two-party-consent states and GDPR make this a precondition) + Dialpad Ai Call Purpose / Custom Moments, or any ASR feeding the `conversation_intent` agent in llm.py |
-| CALIBRATE_VENDOR | needs CONVERSATION_INTENT, which has no transcripts to work from | the same recording capability; then no new data is required |
-| RECONCILE (third voice) | conversation intent is unavailable, so only model-vs-effort can be compared | CONVERSATION_INTENT |
+| CONVERSATION_INTENT (coverage) | only 20 of 170 accounts with a logged call have a transcript, and those transcripts are synthetic | recording every call; then coverage equals the fill_gap + calibrate quadrants above |

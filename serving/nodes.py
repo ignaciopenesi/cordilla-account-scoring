@@ -230,23 +230,29 @@ def CONVERSATION_INTENT(s: State) -> State:
 
     if s.has("call_transcripts"):
         intents = s.artifacts["intents"]
-        a["intent_level"] = a.account_id.map(lambda x: intents.get(x, {}).get("intent_level"))
-        a["intent_conf"] = a.account_id.map(lambda x: intents.get(x, {}).get("confidence"))
-        a["intent_quote"] = a.account_id.map(lambda x: intents.get(x, {}).get("evidence_quote"))
+        for col, key in [("ready_to_act", "ready_to_act"), ("ready_because", "ready_because"),
+                         ("intent_level", "intent_level"), ("intent_conf", "confidence"),
+                         ("intent_quote", "evidence_quote"), ("next_step_agreed", "next_step_agreed")]:
+            a[col] = a.account_id.map(lambda x, k=key: intents.get(x, {}).get(k))
         n_have = int(a.intent_level.notna().sum())
         s.say(f"  extracted intent for {n_have} accounts using "
               f"'{s.artifacts.get('intent_extractor')}'  ⚠ SYNTHETIC transcripts")
-        s.say("  level distribution: " +
+        s.say(f"  ready_to_act: {int((a.ready_to_act == True).sum())} yes, "
+              f"{int((a.ready_to_act == False).sum())} no   ← the field the pipeline routes on")
+        s.say("  intent_level (secondary): " +
               ", ".join(f"{k}={v}" for k, v in sorted(a.intent_level.value_counts().items())))
         m = s.artifacts.get("intent_metrics") or {}
         if m:
-            s.say(f"  agent quality vs ground truth: exact level {m.get('intent_level_exact', 0):.0%}, "
-                  f"within one {m.get('intent_level_within_one', 0):.0%}, "
-                  f"hot-vs-cold {m.get('hot_vs_cold_correct', 0):.0%}, "
-                  f"role {m.get('speaker_role_exact', 0):.0%}")
-            weak = (m.get("hot_vs_cold_correct", 1) <= 0.85
-                    or m.get("intent_level_exact", 1) <= 0.7
-                    or m.get("speaker_role_exact", 1) <= 0.7)
+            s.say(f"  agent quality vs ground truth: READY_TO_ACT "
+                  f"{m.get('ready_to_act_exact', 0):.0%} "
+                  f"({m.get('ready_to_act_false_cold', '?')} missed, "
+                  f"{m.get('ready_to_act_false_hot', '?')} false alarms) · "
+                  f"next_step {m.get('next_step_exact', 0):.0%} · "
+                  f"level (secondary) {m.get('intent_level_exact', 0):.0%}")
+            # Only the fields the pipeline ROUTES on gate the finding. intent_level is
+            # secondary by design now, so a mediocre score there is not a blocker.
+            weak = (m.get("ready_to_act_exact", 1) < 0.9
+                    or m.get("next_step_exact", 1) < 0.9)
             if weak:
                 s.find(what="The intent extractor is not accurate enough to act on the level alone",
                        evidence=f"against known ground truth on {m.get('n_extracted')} transcripts: "
@@ -379,9 +385,20 @@ def RECONCILE(s: State) -> State:
 
     # The third voice. These two cells are the ones that need no human at all: the
     # conversation settles who was right.
-    if s.has("call_transcripts") and "intent_level" in a:
-        hot = a.intent_level.isin(["A", "B"])
-        cold = a.intent_level.isin(["E", "F"])
+    if s.has("call_transcripts") and "ready_to_act" in a:
+        # Route on ready_to_act, not on the six-level grade. Measured: the binary scores
+        # ~100% against ground truth, the exact grade ~60%. Ask a small model the question
+        # it can answer.
+        LO, HI = 0.4, 0.8            # the band where v1 scored worse than chance
+        conf = pd.to_numeric(a.intent_conf, errors="coerce")
+        uncertain = conf.between(LO, HI, inclusive="left")
+        hot = (a.ready_to_act == True) & ~uncertain
+        cold = (a.ready_to_act == False) & ~uncertain
+        n_gated = int((uncertain & a.ready_to_act.notna()).sum())
+        if n_gated:
+            a.loc[uncertain & a.ready_to_act.notna(), "disagreement"] = "NEEDS_HUMAN_low_confidence"
+            s.say(f"  {n_gated} extractions fall in the {LO}-{HI} confidence band and are "
+                  f"routed to a human rather than acted on")
         a.loc[(a.p <= q_lo) & (a.sales_contacts_90d >= 3) & hot, "disagreement"] = \
             "MODEL_WRONG_rep_was_right"
         a.loc[(a.p >= q_hi) & (a.sales_contacts_90d >= 5) & cold, "disagreement"] = \
@@ -389,6 +406,12 @@ def RECONCILE(s: State) -> State:
         a.loc[hot & (a.sales_contacts_90d == 0), "disagreement"] = "HOT_and_untouched"
         settled = a.disagreement.isin(["MODEL_WRONG_rep_was_right", "SUNK_COST_stop_calling",
                                        "HOT_and_untouched"]).sum()
+        # next_step_agreed is the single best standalone signal measured (v1: 100% exact,
+        # and as a proxy for "hot" 100% precision / 91% recall). Surface it on its own.
+        ns = (a.next_step_agreed == True) & (a.sales_contacts_90d > 0)
+        if ns.any():
+            s.say(f"  {int(ns.sum())} accounts agreed a concrete next step on the call "
+                  f"— the strongest single signal the extractor produces")
         s.say(f"  with the third voice, {int(settled)} disagreements are SETTLED without asking anyone:")
         for k in ["MODEL_WRONG_rep_was_right", "SUNK_COST_stop_calling", "HOT_and_untouched"]:
             cnt = int((a.disagreement == k).sum())

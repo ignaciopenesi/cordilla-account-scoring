@@ -57,14 +57,22 @@ def score_against_truth(results: dict) -> dict:
     order = "ABCDEF"
     return {
         "n_extracted": len(got),
+        # v2 primary: the binary the pipeline actually routes on
+        "ready_to_act_exact": rate(lambda t, v: t["ready_to_act"] == v.get("ready_to_act")),
+        "ready_to_act_false_cold": sum(
+            t["ready_to_act"] and not v.get("ready_to_act") for k, v in got.items()
+            for t in [truth[k]] if k in truth),
+        "ready_to_act_false_hot": sum(
+            (not t["ready_to_act"]) and v.get("ready_to_act") for k, v in got.items()
+            for t in [truth[k]] if k in truth),
+        "next_step_exact": rate(lambda t, v: t["next_step_agreed"] == v.get("next_step_agreed")),
+        # v2 secondary: kept for context, not routed on
         "intent_level_exact": rate(lambda t, v: t["intent_level"] == v.get("intent_level")),
         "intent_level_within_one": rate(
             lambda t, v: v.get("intent_level") in order
             and abs(order.index(t["intent_level"]) - order.index(v["intent_level"])) <= 1),
         "hot_vs_cold_correct": rate(
             lambda t, v: (t["intent_level"] in "ABC") == (v.get("intent_level", "F") in "ABC")),
-        "speaker_role_exact": rate(lambda t, v: t["speaker_role"] == v.get("speaker_role")),
-        "next_step_exact": rate(lambda t, v: t["next_step_agreed"] == v.get("next_step_agreed")),
         "mean_confidence": sum(v.get("confidence", 0) for v in got.values()) / len(got),
     }
 
@@ -95,7 +103,8 @@ def main() -> None:
             for acc, obj, err in pool.map(lambda f: extract_one(f, args.mode), todo):
                 if obj:
                     cache[acc] = obj
-                    print(f"  ✓ {acc}  level {obj.get('intent_level')}  "
+                    print(f"  ✓ {acc}  act={str(obj.get('ready_to_act')):<5} "
+                          f"({obj.get('ready_because')})  level {obj.get('intent_level')}  "
                           f"conf {obj.get('confidence')}  ({len(cache)}/{len(files)})")
                 else:
                     failures[acc] = err

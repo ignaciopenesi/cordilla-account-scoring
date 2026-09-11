@@ -3,6 +3,7 @@
     "account_id": "ACC-00160",
     "intent_level": "B",
     "speaker_role": "decision_maker",
+    "ready_to_act": true,
     "call_purpose": "follow_up",
     "next_step_agreed": true,
     "objections": [
@@ -15,6 +16,7 @@
     "account_id": "ACC-00275",
     "intent_level": "B",
     "speaker_role": "decision_maker",
+    "ready_to_act": true,
     "call_purpose": "follow_up",
     "next_step_agreed": true,
     "objections": [
@@ -27,6 +29,7 @@
     "account_id": "ACC-00270",
     "intent_level": "C",
     "speaker_role": "gatekeeper",
+    "ready_to_act": false,
     "call_purpose": "follow_up",
     "next_step_agreed": true,
     "objections": [
@@ -38,6 +41,7 @@
     "account_id": "ACC-00272",
     "intent_level": "D",
     "speaker_role": "decision_maker",
+    "ready_to_act": false,
     "call_purpose": "negotiation",
     "next_step_agreed": false,
     "objections": [
@@ -49,6 +53,7 @@
     "account_id": "ACC-00915",
     "intent_level": "E",
     "speaker_role": "decision_maker",
+    "ready_to_act": false,
     "call_purpose": "negotiation",
     "next_step_agreed": false,
     "objections": [
@@ -60,6 +65,7 @@
     "account_id": "ACC-00369",
     "intent_level": "C",
     "speaker_role": "gatekeeper",
+    "ready_to_act": false,
     "call_purpose": "discovery",
     "next_step_agreed": false,
     "objections": [
@@ -71,6 +77,7 @@
     "account_id": "ACC-00109",
     "intent_level": "A",
     "speaker_role": "decision_maker",
+    "ready_to_act": true,
     "call_purpose": "negotiation",
     "next_step_agreed": true,
     "objections": [
@@ -82,6 +89,7 @@
     "account_id": "ACC-00806",
     "intent_level": "F",
     "speaker_role": "gatekeeper",
+    "ready_to_act": false,
     "call_purpose": "negotiation",
     "next_step_agreed": false,
     "objections": [
@@ -93,6 +101,7 @@
     "account_id": "ACC-01414",
     "intent_level": "E",
     "speaker_role": "decision_maker",
+    "ready_to_act": false,
     "call_purpose": "negotiation",
     "next_step_agreed": false,
     "objections": [
@@ -104,6 +113,7 @@
     "account_id": "ACC-01145",
     "intent_level": "B",
     "speaker_role": "decision_maker",
+    "ready_to_act": true,
     "call_purpose": "follow_up",
     "next_step_agreed": true,
     "objections": [
@@ -115,6 +125,7 @@
     "account_id": "ACC-00561",
     "intent_level": "B",
     "speaker_role": "decision_maker",
+    "ready_to_act": true,
     "call_purpose": "follow_up",
     "next_step_agreed": true,
     "objections": [
@@ -126,6 +137,7 @@
     "account_id": "ACC-00730",
     "intent_level": "C",
     "speaker_role": "user",
+    "ready_to_act": false,
     "call_purpose": "follow_up",
     "next_step_agreed": true,
     "objections": [
@@ -137,6 +149,7 @@
     "account_id": "ACC-00602",
     "intent_level": "A",
     "speaker_role": "decision_maker",
+    "ready_to_act": true,
     "call_purpose": "negotiation",
     "next_step_agreed": true,
     "objections": [
@@ -148,6 +161,7 @@
     "account_id": "ACC-00935",
     "intent_level": "D",
     "speaker_role": "user",
+    "ready_to_act": false,
     "call_purpose": "discovery",
     "next_step_agreed": false,
     "objections": [
@@ -159,6 +173,7 @@
     "account_id": "ACC-00481",
     "intent_level": "E",
     "speaker_role": "gatekeeper",
+    "ready_to_act": false,
     "call_purpose": "discovery",
     "next_step_agreed": false,
     "objections": [
@@ -170,6 +185,7 @@
     "account_id": "ACC-00313",
     "intent_level": "D",
     "speaker_role": "decision_maker",
+    "ready_to_act": false,
     "call_purpose": "discovery",
     "next_step_agreed": false,
     "objections": [
@@ -181,6 +197,7 @@
     "account_id": "ACC-00414",
     "intent_level": "F",
     "speaker_role": "decision_maker",
+    "ready_to_act": false,
     "call_purpose": "negotiation",
     "next_step_agreed": false,
     "objections": [
@@ -192,6 +209,7 @@
     "account_id": "ACC-01282",
     "intent_level": "A",
     "speaker_role": "decision_maker",
+    "ready_to_act": true,
     "call_purpose": "discovery",
     "next_step_agreed": true,
     "objections": [
@@ -203,6 +221,7 @@
     "account_id": "ACC-01128",
     "intent_level": "A",
     "speaker_role": "decision_maker",
+    "ready_to_act": true,
     "call_purpose": "discovery",
     "next_step_agreed": true,
     "objections": [
@@ -214,6 +233,7 @@
     "account_id": "ACC-00972",
     "intent_level": "E",
     "speaker_role": "decision_maker",
+    "ready_to_act": false,
     "call_purpose": "negotiation",
     "next_step_agreed": false,
     "objections": [

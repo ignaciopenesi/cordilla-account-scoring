@@ -90,6 +90,9 @@ def build(account_id: str, level: str, seed: int) -> tuple[str, dict]:
                   f"PROSPECT ({role_title}): You can, but I wouldn't expect much movement.", ""]
 
     truth = {"account_id": account_id, "intent_level": level, "speaker_role": role_key,
+             # ready_to_act is the v2 primary field: the prospect stated an allocated
+             # budget or a concrete timeline. In these scripts that is exactly A and B.
+             "ready_to_act": level in ("A", "B"),
              "call_purpose": purpose, "next_step_agreed": next_step,
              "objections": objections, "quote": quote}
     return "\n".join(lines), truth
