@@ -1,0 +1,91 @@
+account_id,arm,account_type,industry,employee_count,sales_contacts_90d,age_days,flags
+ACC-00001,control,Suspect,Software,38,0,38,never touched
+ACC-00095,control,Suspect,Retail,16,3,32,no vendor record
+ACC-00228,control,Prospect,Healthcare,8,2,72,no vendor record
+ACC-00268,control,Former Customer,Retail,97,0,33,never touched
+ACC-00284,control,Suspect,Manufacturing,39,1,64,no vendor record
+ACC-00285,control,Suspect,Professional Services,140,0,143,never touched
+ACC-00295,control,Prospect,Manufacturing,95,0,102,never touched
+ACC-00317,control,Prospect,Healthcare,87,1,74,—
+ACC-00398,control,Suspect,Manufacturing,96,0,129,"no vendor record, never touched"
+ACC-00416,control,Prospect,Manufacturing,117,1,70,—
+ACC-00418,control,Suspect,Financial Services,147,1,180,no vendor record
+ACC-00429,control,Suspect,Financial Services,132,1,99,—
+ACC-00476,control,Suspect,Financial Services,163,0,131,never touched
+ACC-00577,control,Suspect,Professional Services,111,1,80,no vendor record
+ACC-00587,control,Former Customer,Healthcare,81,0,132,never touched
+ACC-00659,control,Suspect,Financial Services,27,0,130,"no vendor record, never touched"
+ACC-00717,control,Prospect,Healthcare,69,1,143,no vendor record
+ACC-00779,control,Suspect,Software,103,3,96,—
+ACC-00889,control,Prospect,Software,16,1,44,—
+ACC-00900,control,Suspect,Retail,154,2,93,no vendor record
+ACC-01020,control,Suspect,Manufacturing,138,0,86,never touched
+ACC-01111,control,Suspect,Manufacturing,44,3,109,—
+ACC-01179,control,Suspect,Manufacturing,672,0,89,never touched
+ACC-01225,control,Prospect,Financial Services,37,3,53,—
+ACC-01227,control,Suspect,Retail,163,1,177,—
+ACC-01311,control,Prospect,Retail,71,1,66,no vendor record
+ACC-01337,control,Prospect,Software,28,0,130,never touched
+ACC-01377,control,Prospect,Software,800,0,115,"no vendor record, never touched"
+ACC-01411,control,Prospect,Retail,52,1,69,—
+ACC-01464,control,Suspect,Professional Services,145,1,66,—
+ACC-00015,exploit,Prospect,Software,91,4,83,no vendor record
+ACC-00082,exploit,Prospect,Professional Services,50,4,81,—
+ACC-00101,exploit,Former Customer,Manufacturing,30,6,140,over invested
+ACC-00122,exploit,Prospect,Manufacturing,698,6,38,"no vendor record, over invested"
+ACC-00175,exploit,Former Customer,Professional Services,317,4,98,—
+ACC-00265,exploit,Suspect,Professional Services,133,5,93,"no vendor record, over invested"
+ACC-00270,exploit,Suspect,Financial Services,45,5,95,over invested
+ACC-00315,exploit,Suspect,Retail,6,4,75,no vendor record
+ACC-00400,exploit,Suspect,Software,109,4,86,—
+ACC-00431,exploit,Prospect,Manufacturing,25,6,73,"no vendor record, over invested"
+ACC-00506,exploit,Suspect,Software,16,7,20,over invested
+ACC-00570,exploit,Prospect,Manufacturing,28,5,105,"no vendor record, over invested"
+ACC-00581,exploit,Suspect,Software,25,5,137,"no vendor record, over invested"
+ACC-00686,exploit,Prospect,Professional Services,46,6,143,"no vendor record, over invested"
+ACC-00690,exploit,Prospect,Retail,30,4,75,no vendor record
+ACC-00828,exploit,Prospect,Healthcare,23,5,60,over invested
+ACC-00832,exploit,Prospect,Manufacturing,52,5,52,over invested
+ACC-00870,exploit,Suspect,Software,61,4,127,—
+ACC-00883,exploit,Prospect,Financial Services,56,6,7,"no vendor record, over invested"
+ACC-00915,exploit,Prospect,Retail,93,6,104,over invested
+ACC-01019,exploit,Prospect,Manufacturing,29,4,130,—
+ACC-01026,exploit,Prospect,Professional Services,6,4,65,no vendor record
+ACC-01064,exploit,Prospect,Retail,57,5,94,over invested
+ACC-01155,exploit,Prospect,Retail,85,7,30,over invested
+ACC-01214,exploit,Former Customer,Software,57,5,132,"no vendor record, over invested"
+ACC-01283,exploit,Suspect,Retail,50,4,122,—
+ACC-01289,exploit,Prospect,Financial Services,51,4,46,no vendor record
+ACC-01333,exploit,Suspect,Manufacturing,26,4,100,no vendor record
+ACC-01429,exploit,Suspect,Software,80,5,38,"no vendor record, over invested"
+ACC-01459,exploit,Suspect,Software,128,7,93,over invested
+ACC-00011,explore,Suspect,Manufacturing,17,0,148,"no vendor record, never touched"
+ACC-00076,explore,Suspect,Financial Services,149,0,87,never touched
+ACC-00080,explore,Former Customer,Manufacturing,68,0,79,never touched
+ACC-00200,explore,Prospect,Retail,47,0,116,never touched
+ACC-00233,explore,Prospect,Manufacturing,102,0,161,never touched
+ACC-00366,explore,Suspect,Professional Services,31,0,169,never touched
+ACC-00392,explore,Prospect,Retail,35,0,171,never touched
+ACC-00420,explore,Prospect,Software,77,0,141,"no vendor record, never touched"
+ACC-00479,explore,Prospect,Manufacturing,126,0,100,never touched
+ACC-00533,explore,Prospect,Manufacturing,65,0,13,never touched
+ACC-00614,explore,Prospect,Professional Services,92,0,83,"no vendor record, never touched"
+ACC-00629,explore,Prospect,Retail,66,0,31,"no vendor record, never touched"
+ACC-00687,explore,Prospect,Manufacturing,54,0,138,"no vendor record, never touched"
+ACC-00700,explore,Suspect,Professional Services,5,0,133,"no vendor record, never touched"
+ACC-00728,explore,Prospect,Software,32,0,73,never touched
+ACC-00758,explore,Suspect,Professional Services,9,0,62,"no vendor record, never touched"
+ACC-00802,explore,Prospect,Software,150,0,113,never touched
+ACC-00989,explore,Suspect,Professional Services,9,0,92,"no vendor record, never touched"
+ACC-01008,explore,Prospect,Professional Services,30,0,79,"no vendor record, never touched"
+ACC-01043,explore,Former Customer,Software,56,0,43,never touched
+ACC-01100,explore,Prospect,Software,357,0,71,never touched
+ACC-01129,explore,Prospect,Manufacturing,76,0,126,never touched
+ACC-01157,explore,Suspect,Financial Services,125,0,130,never touched
+ACC-01229,explore,Prospect,Software,114,0,83,never touched
+ACC-01290,explore,Suspect,Professional Services,467,0,111,never touched
+ACC-01394,explore,Suspect,Healthcare,61,0,81,"no vendor record, never touched"
+ACC-01404,explore,Suspect,Software,175,0,105,"no vendor record, never touched"
+ACC-01440,explore,Prospect,Manufacturing,175,0,97,never touched
+ACC-01471,explore,Former Customer,Professional Services,83,0,29,never touched
+ACC-01496,explore,Former Customer,Retail,277,0,113,never touched

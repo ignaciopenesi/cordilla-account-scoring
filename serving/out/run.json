@@ -1,0 +1,280 @@
+{
+  "generated_at_reference_date": "2026-08-01",
+  "accounts_scored": 300,
+  "findings": [
+    {
+      "what": "Training labels are assigned before the 90-day window closes",
+      "evidence": "101 of 1200 rows (8.4%) are labeled 0 with fewer than 90 days observed; those rows carry 33% more MQLs than the rest (p_BH = 0.027)",
+      "severity": "high",
+      "owner": "pipeline",
+      "action": "Label = NULL, not 0, when snapshot_date + 90d > today. Re-label the 101 affected rows and add the rule to the labeling job.",
+      "cost": "one rule in the labeling job",
+      "expect": "the next model is not taught that marketing-engaged accounts fail",
+      "source": "VALIDATE"
+    },
+    {
+      "what": "Accounts are being scored on information older than the feature window",
+      "evidence": "102 of 300 scoring accounts have a snapshot over 180 days old; 218 are over 90 days, and every feature is a 90-day window",
+      "severity": "high",
+      "owner": "crm",
+      "action": "Refresh before assigning. No account over 180 days enters an arm without a refreshed snapshot.",
+      "cost": "enrichment refresh on ~1/3 of the batch",
+      "expect": "reps stop calling a description of a company from two quarters ago",
+      "source": "VALIDATE"
+    },
+    {
+      "what": "The model's own arithmetic promises more conversions than the business sees",
+      "evidence": "predicted probabilities sum to 19.7 conversions across 300 accounts (6.55%), against a field rate the brief puts at 1-3% (i.e. 3-9 conversions)",
+      "severity": "high",
+      "owner": "model",
+      "action": "Do not publish probabilities to any user or Salesforce field. Use the score only for the disagreement analysis in RECONCILE.",
+      "cost": "0 \u2014 a policy",
+      "expect": "nobody forecasts off a number that is 2-6x the observed rate",
+      "source": "SCORE"
+    },
+    {
+      "what": "Conversations that would fill the vendor's coverage gap already happen, and are not captured",
+      "evidence": "197 of 481 contacts (41%) are with accounts that have no vendor record; 67 such accounts have had at least one call. Vendor COVERAGE predicts conversion (8.22% vs 3.94%, p=0.003) but its SCORE does not (quintiles flat, p=0.42)",
+      "severity": "high",
+      "owner": "process",
+      "action": "Record sales calls with per-call disclosure and transcript-only storage, and extract intent per the contract in llm.py. Start with the fill_gap quadrant -- it needs no new outreach, only capture of calls that already happen.",
+      "cost": "recording + transcription on existing calls; no new rep time",
+      "expect": "the 40% of the base the vendor cannot see gets a first-hand intent signal",
+      "source": "CONVERSATION_INTENT"
+    },
+    {
+      "what": "The intent vendor's score has never been validated against anything",
+      "evidence": "103 scoring accounts have both a vendor record and a logged call, so the vendor's claim is contrastable today. In training, vendor coverage predicts conversion (p=0.003) while the score itself does not (Spearman p=0.42)",
+      "severity": "medium",
+      "owner": "vendor",
+      "action": "Pay for coverage, not for the score: keep a boolean `intent_known`, stop using the numeric value in any model or view. Once calls are recorded, measure agreement on these accounts and take it into the renewal.",
+      "cost": "0 now (a field change); the measurement comes free with recording",
+      "expect": "the renewal is negotiated on evidence instead of on the vendor's own claim",
+      "source": "CALIBRATE_VENDOR"
+    },
+    {
+      "what": "account_type does not mean what it says",
+      "evidence": "341 of 402 training 'Suspects' and 86 of 101 scoring ones have an MQL, trial or contact; conversion is identical across the three types (chi2 p = 0.84)",
+      "severity": "high",
+      "owner": "crm",
+      "action": "Bulk-reclassify the 86 scoring accounts, and add a validation rule so an account with activity cannot be saved as Suspect.",
+      "cost": "one bulk update + one validation rule",
+      "expect": "the VP stops seeing 'Suspects' near the top of a list and losing trust in it",
+      "source": "HYGIENE"
+    },
+    {
+      "what": "Trials with zero active users are ambiguous",
+      "evidence": "19 scoring accounts started a trial and show 0 active users; in training these convert at 11.0% (8 of 73), better than trials with 1-2 users",
+      "severity": "medium",
+      "owner": "pipeline",
+      "action": "Ask product whether these are provisioned-but-never-used or missing seat telemetry. If telemetry, instrument it \u2014 the field is currently unreadable.",
+      "cost": "one question to product; instrumentation if it is the second",
+      "expect": "a real signal becomes readable instead of being two different things in one field",
+      "source": "HYGIENE"
+    },
+    {
+      "what": "web_touchpoints_90d cannot distinguish 'no visits' from 'not measured'",
+      "evidence": "103 scoring accounts show 0; in training, 0 converts at 7.4% vs 4.5% for 1-3 (Fisher p = 0.119 \u2014 directional, not established)",
+      "severity": "medium",
+      "owner": "vendor",
+      "action": "Data contract with the attribution vendor: return NULL when no measurement was taken. Until then, treat 0 as unknown rather than as a measured zero.",
+      "cost": "a contract change, no engineering",
+      "expect": "a 40%-coverage problem stops being invisible because it looks like data",
+      "source": "HYGIENE"
+    },
+    {
+      "what": "It is unknown whether sales_contacts_90d precedes the outcome window or overlaps it",
+      "evidence": "sales_contacts_90d is a 90-day count and the label is 'converted within 90 days'. Nothing in the files states the relationship. This is the only feature with credible signal (OR 2.2 at >=4, robust to every adjustment)",
+      "severity": "blocking",
+      "owner": "pipeline",
+      "action": "One question to the data owner: does the contact window PRECEDE the snapshot, or is it the same 90 days in which conversion is measured? If it overlaps, the one signal in this dataset is leakage and nothing built on it is real.",
+      "cost": "one email",
+      "expect": "either the exploit arm is justified, or the whole dataset is known to be unusable",
+      "source": "HYGIENE"
+    },
+    {
+      "what": "The model's ranking has never been validated out of sample in production",
+      "evidence": "audit \u00a72: in-sample AUC 0.759 sits at the median of what the same architecture scores on random labels (p = 0.575); out-of-fold 0.573; forward in time 0.474, below chance",
+      "severity": "high",
+      "owner": "model",
+      "action": "Re-run the permutation null and the forward-chaining split (audit \u00a72.2, \u00a72.6a) whenever the model or the data pipeline changes. No metric gets reported without a temporal split \u2014 that is how the last one shipped.",
+      "cost": "the notebook, ~4 minutes",
+      "expect": "the next model cannot die quietly the way this one did",
+      "source": "VERDICT"
+    }
+  ],
+  "bypassed": [
+    {
+      "node": "CONVERSATION_INTENT",
+      "reason": "the two CSVs carry no call transcripts",
+      "unblocked_by": "call recording with disclosure (two-party-consent states and GDPR make this a precondition) + Dialpad Ai Call Purpose / Custom Moments, or any ASR feeding the `conversation_intent` prompt in llm.py",
+      "would_produce": "per account: intent_level A-F grounded in a verbatim prospect quote, objections[], next_step_agreed, speaker_role, call_purpose, confidence",
+      "still_computed": "the four coverage quadrants: {'calibrate_vendor (vendor record + a call happened)': 103, 'fill_the_gap (no vendor record + a call happened)': 67, 'unverified (vendor record, no call)': 81, 'blind (no vendor record, no call)': 49}"
+    },
+    {
+      "node": "CALIBRATE_VENDOR",
+      "reason": "needs CONVERSATION_INTENT, which has no transcripts to work from",
+      "unblocked_by": "the same recording capability; then no new data is required",
+      "would_produce": "on the 103 accounts where both exist: agreement rate between vendor intent decile and conversation intent level, by segment; the segments where the vendor systematically over- or under-states; a renewal memo with that evidence",
+      "still_computed": "the contrastable set: 103 accounts"
+    },
+    {
+      "node": "RECONCILE (third voice)",
+      "reason": "conversation intent is unavailable, so only model-vs-effort can be compared",
+      "unblocked_by": "CONVERSATION_INTENT",
+      "would_produce": "the two cells that need no human at all: 'model low + rep insists + conversation says A/B' (the model is wrong, and we can prove it) and 'model high + 5+ contacts + conversation says E/F' (sunk cost, stop)",
+      "still_computed": "model-vs-effort disagreements: {'model_high_nobody_looked': 24, 'high_effort_no_result': 22, 'rep_insists_model_low': 9}"
+    },
+    {
+      "node": "READOUT",
+      "reason": "90-day outcomes for the accounts assigned today do not exist yet",
+      "unblocked_by": "one cycle of the arms above, with outcomes written back per account",
+      "would_produce": "conversions per logged contact by arm with confidence intervals; the same broken out by conversation intent level (testing whether intent from calls predicts better than any CRM column); and the epsilon-greedy update \u2014 the winning arm grows, exploration never goes to zero",
+      "still_computed": "the arms are assigned and recorded: {'exploit': 30, 'explore': 30, 'control': 30}"
+    }
+  ],
+  "artifacts": {
+    "sum_p": 19.66090293475255,
+    "mean_p": 0.06553634311584183,
+    "top30_overlap_model_vs_rule": 11,
+    "clean_in_top30": 7,
+    "intent_quadrants": {
+      "calibrate_vendor (vendor record + a call happened)": 103,
+      "fill_the_gap (no vendor record + a call happened)": 67,
+      "unverified (vendor record, no call)": 81,
+      "blind (no vendor record, no call)": 49
+    },
+    "example_question": "\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 LLM CALL \u00b7 disagreement_question   (mode: template \u2014 the documented plug point)\n\u2502 model   : claude-sonnet-5\n\u2502 inputs  : account_id, disagreement type, model score, contacts logged, flags, what the model cannot see\n\u2502 returns : one question, under 40 words, answerable in two minutes\n\u251c\u2500 SYSTEM \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 You write short questions to a sales rep. The rep is busy and has been\n\u2502 burned by a scoring tool before. Ask about what they know that the data\n\u2502 cannot show. Never tell them who to call. Never imply they were wrong.\n\u251c\u2500 PROMPT \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 Account ACC-01282. The model scores it 4.0% (5th percentile).\n\u2502 The team has logged 3 contacts in 90 days. Flags: <Flags(allows_duplicate_labels=True)>.\n\u2502 Disagreement type: rep insists, model low.\n\u2502 \n\u2502 Write one question to the rep, under 40 words, that they can answer in two minutes, about\n\u2502 what they know that the data does not show. It must not read as a performance check.\n\u251c\u2500 RETURNS (worked example) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 ACC-00453 \u2014 the model ranks this in the bottom quartile, but the team has logged 4 contacts in 90 days. What are you seeing there that the data isn't showing?\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
+    "arms": {
+      "exploit": 30,
+      "explore": 30,
+      "control": 30
+    },
+    "experiment_card": "\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 LLM CALL \u00b7 experiment_card   (mode: template \u2014 the documented plug point)\n\u2502 model   : claude-sonnet-5\n\u2502 inputs  : arms: name, size, selection rule, hypothesis, matching variables, base rate, expected readout date\n\u2502 returns : markdown, ~150 words: one hypothesis per arm, what would confirm it, what would refute it, and the readout date\n\u251c\u2500 SYSTEM \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 You write experiment cards for an SDR manager who is not technical and\n\u2502 is sceptical of being experimented on. Be concrete about what each arm\n\u2502 is testing and what result would make us stop. Never oversell.\n\u251c\u2500 PROMPT \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 This week's allocation splits 90 accounts into 3 matched arms\n\u2502 (industry and company size). Base rate is 6.5% in training, 1-3% per the business.\n\u2502 \n\u2502 - **exploit** (30 accounts): highest logged contact count \u2014 the rule that beats the model out-of-sample\n\u2502 - **explore** (30 accounts): never contacted but carrying a signal (trial, MQL or web activity)\n\u2502 - **control** (30 accounts): the rep picks \u2014 this is what would happen without the system\n\u2502 \n\u2502 Write the experiment card the SDR manager reads before approving. For each arm state the\n\u2502 hypothesis in one sentence, the result that would confirm it, and the result that would\n\u2502 kill it. End with the readout date and one sentence on why the control arm exists.\n\u2502 Do not promise a lift number -- we do not have one.\n\u251c\u2500 RETURNS (worked example) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 (no worked example for this one)\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
+    "hygiene_suspects": "\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 LLM CALL \u00b7 hygiene_batch   (mode: template \u2014 the documented plug point)\n\u2502 model   : claude-sonnet-5\n\u2502 inputs  : defect name, rule that detected it, affected count, three worked examples, proposed correction, owner\n\u2502 returns : markdown, ~100 words: what is wrong, the evidence, the proposed fix, and the rule that stops it recurring\n\u251c\u2500 SYSTEM \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 You write CRM correction proposals for approval in bulk. State the\n\u2502 evidence before the fix. Always include the rule that prevents the\n\u2502 defect from coming back -- a one-off cleanup is worth much less.\n\u251c\u2500 PROMPT \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 Defect: account_type is stale\n\u2502 Detected by: Suspect with an MQL, a trial, or a logged sales contact\n\u2502 Affected records: 86 in the scoring batch, 341 in training history\n\u2502 Examples: ACC-00160, ACC-00275, ACC-00989\n\u2502 Proposed correction: reclassify to Prospect\n\u2502 \n\u2502 Write the approval note. Lead with the evidence, then the correction, then the preventive\n\u2502 rule. Say plainly what happens if this is not fixed.\n\u251c\u2500 RETURNS (worked example) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 (no worked example for this one)\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
+    "psi": {
+      "employee_count": 0.04224818016323447,
+      "intent_score": 0.057513990693726,
+      "mql_count_90d": 0.02279599092091341,
+      "trial_started": 0.0,
+      "trial_active_users": 0.004654303897996556,
+      "web_touchpoints_90d": 0.03130926436888256,
+      "sales_contacts_90d": 0.012673176452088387
+    },
+    "top30_overlap_prev_run": 30,
+    "run_verdict": "\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 LLM CALL \u00b7 run_verdict   (mode: template \u2014 the documented plug point)\n\u2502 model   : claude-sonnet-5\n\u2502 inputs  : feature PSI table, overlap with the previous run, score concentration, flag counts in the top K, sum of probabilities vs the field's reported rate\n\u2502 returns : one paragraph, under 120 words, for the SDR manager\n\u251c\u2500 SYSTEM \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 You write a weekly one-paragraph verdict on whether a scoring run is\n\u2502 worth trusting. You are allowed -- expected -- to say it is not. End\n\u2502 with a recommendation for THIS week, not a general observation.\n\u251c\u2500 PROMPT \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 Run of 2026-08-01. every feature is stable against training (max PSI 0.06, intent_score). Overlap of the top 30 with the previous run:\n\u2502 30/30. the model's top-30 shares only 11/30 accounts with a plain sort by contact count. Of the top 30, 7 carry no flags. The model's predicted\n\u2502 probabilities sum to 19.7 expected conversions across 300 accounts (6.6%), against a\n\u2502 field rate the business reports at 1-3%.\n\u2502 \n\u2502 Write the manager's paragraph. End with one concrete recommendation for this week.\n\u251c\u2500 RETURNS (worked example) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 Run of 2026-08-01. Every feature is stable against training (max PSI 0.06); snapshot age is not \u2014 but that is how the batch was drawn, not drift. The top 30 shares 21 of 30 accounts with last week's list even though no underlying data changed, which is the model's own seed, not the market. Only 11 of the top 30 carry no flags at all. The model expects 19.7 conversions across 300 accounts (6.6%) against a field rate the business reports at 1\u20133%. Recommendation this week: run the exploit arm off sales_contacts, not off the score, and do not publish the probabilities.\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
+    "actions": [
+      {
+        "what": "It is unknown whether sales_contacts_90d precedes the outcome window or overlaps it",
+        "evidence": "sales_contacts_90d is a 90-day count and the label is 'converted within 90 days'. Nothing in the files states the relationship. This is the only feature with credible signal (OR 2.2 at >=4, robust to every adjustment)",
+        "severity": "blocking",
+        "owner": "pipeline",
+        "action": "One question to the data owner: does the contact window PRECEDE the snapshot, or is it the same 90 days in which conversion is measured? If it overlaps, the one signal in this dataset is leakage and nothing built on it is real.",
+        "cost": "one email",
+        "expect": "either the exploit arm is justified, or the whole dataset is known to be unusable",
+        "source": "HYGIENE"
+      },
+      {
+        "what": "Accounts are being scored on information older than the feature window",
+        "evidence": "102 of 300 scoring accounts have a snapshot over 180 days old; 218 are over 90 days, and every feature is a 90-day window",
+        "severity": "high",
+        "owner": "crm",
+        "action": "Refresh before assigning. No account over 180 days enters an arm without a refreshed snapshot.",
+        "cost": "enrichment refresh on ~1/3 of the batch",
+        "expect": "reps stop calling a description of a company from two quarters ago",
+        "source": "VALIDATE"
+      },
+      {
+        "what": "account_type does not mean what it says",
+        "evidence": "341 of 402 training 'Suspects' and 86 of 101 scoring ones have an MQL, trial or contact; conversion is identical across the three types (chi2 p = 0.84)",
+        "severity": "high",
+        "owner": "crm",
+        "action": "Bulk-reclassify the 86 scoring accounts, and add a validation rule so an account with activity cannot be saved as Suspect.",
+        "cost": "one bulk update + one validation rule",
+        "expect": "the VP stops seeing 'Suspects' near the top of a list and losing trust in it",
+        "source": "HYGIENE"
+      },
+      {
+        "what": "The model's own arithmetic promises more conversions than the business sees",
+        "evidence": "predicted probabilities sum to 19.7 conversions across 300 accounts (6.55%), against a field rate the brief puts at 1-3% (i.e. 3-9 conversions)",
+        "severity": "high",
+        "owner": "model",
+        "action": "Do not publish probabilities to any user or Salesforce field. Use the score only for the disagreement analysis in RECONCILE.",
+        "cost": "0 \u2014 a policy",
+        "expect": "nobody forecasts off a number that is 2-6x the observed rate",
+        "source": "SCORE"
+      },
+      {
+        "what": "The model's ranking has never been validated out of sample in production",
+        "evidence": "audit \u00a72: in-sample AUC 0.759 sits at the median of what the same architecture scores on random labels (p = 0.575); out-of-fold 0.573; forward in time 0.474, below chance",
+        "severity": "high",
+        "owner": "model",
+        "action": "Re-run the permutation null and the forward-chaining split (audit \u00a72.2, \u00a72.6a) whenever the model or the data pipeline changes. No metric gets reported without a temporal split \u2014 that is how the last one shipped.",
+        "cost": "the notebook, ~4 minutes",
+        "expect": "the next model cannot die quietly the way this one did",
+        "source": "VERDICT"
+      },
+      {
+        "what": "Training labels are assigned before the 90-day window closes",
+        "evidence": "101 of 1200 rows (8.4%) are labeled 0 with fewer than 90 days observed; those rows carry 33% more MQLs than the rest (p_BH = 0.027)",
+        "severity": "high",
+        "owner": "pipeline",
+        "action": "Label = NULL, not 0, when snapshot_date + 90d > today. Re-label the 101 affected rows and add the rule to the labeling job.",
+        "cost": "one rule in the labeling job",
+        "expect": "the next model is not taught that marketing-engaged accounts fail",
+        "source": "VALIDATE"
+      },
+      {
+        "what": "Conversations that would fill the vendor's coverage gap already happen, and are not captured",
+        "evidence": "197 of 481 contacts (41%) are with accounts that have no vendor record; 67 such accounts have had at least one call. Vendor COVERAGE predicts conversion (8.22% vs 3.94%, p=0.003) but its SCORE does not (quintiles flat, p=0.42)",
+        "severity": "high",
+        "owner": "process",
+        "action": "Record sales calls with per-call disclosure and transcript-only storage, and extract intent per the contract in llm.py. Start with the fill_gap quadrant -- it needs no new outreach, only capture of calls that already happen.",
+        "cost": "recording + transcription on existing calls; no new rep time",
+        "expect": "the 40% of the base the vendor cannot see gets a first-hand intent signal",
+        "source": "CONVERSATION_INTENT"
+      },
+      {
+        "what": "Trials with zero active users are ambiguous",
+        "evidence": "19 scoring accounts started a trial and show 0 active users; in training these convert at 11.0% (8 of 73), better than trials with 1-2 users",
+        "severity": "medium",
+        "owner": "pipeline",
+        "action": "Ask product whether these are provisioned-but-never-used or missing seat telemetry. If telemetry, instrument it \u2014 the field is currently unreadable.",
+        "cost": "one question to product; instrumentation if it is the second",
+        "expect": "a real signal becomes readable instead of being two different things in one field",
+        "source": "HYGIENE"
+      },
+      {
+        "what": "The intent vendor's score has never been validated against anything",
+        "evidence": "103 scoring accounts have both a vendor record and a logged call, so the vendor's claim is contrastable today. In training, vendor coverage predicts conversion (p=0.003) while the score itself does not (Spearman p=0.42)",
+        "severity": "medium",
+        "owner": "vendor",
+        "action": "Pay for coverage, not for the score: keep a boolean `intent_known`, stop using the numeric value in any model or view. Once calls are recorded, measure agreement on these accounts and take it into the renewal.",
+        "cost": "0 now (a field change); the measurement comes free with recording",
+        "expect": "the renewal is negotiated on evidence instead of on the vendor's own claim",
+        "source": "CALIBRATE_VENDOR"
+      },
+      {
+        "what": "web_touchpoints_90d cannot distinguish 'no visits' from 'not measured'",
+        "evidence": "103 scoring accounts show 0; in training, 0 converts at 7.4% vs 4.5% for 1-3 (Fisher p = 0.119 \u2014 directional, not established)",
+        "severity": "medium",
+        "owner": "vendor",
+        "action": "Data contract with the attribution vendor: return NULL when no measurement was taken. Until then, treat 0 as unknown rather than as a measured zero.",
+        "cost": "a contract change, no engineering",
+        "expect": "a 40%-coverage problem stops being invisible because it looks like data",
+        "source": "HYGIENE"
+      }
+    ]
+  },
+  "approvals": {
+    "approved_at_reference_date": "2026-08-01",
+    "approved_by": "SDR manager (simulated)",
+    "arms": {
+      "exploit": 30,
+      "explore": 30,
+      "control": 30
+    },
+    "actions": 10,
+    "hygiene_batches": 1
+  }
+}

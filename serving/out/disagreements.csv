@@ -1,0 +1,56 @@
+account_id,disagreement,sales_contacts_90d,flags
+ACC-00533,model_high_nobody_looked,0,never touched
+ACC-00989,model_high_nobody_looked,0,"no vendor record, never touched"
+ACC-00270,high_effort_no_result,5,over invested
+ACC-00915,high_effort_no_result,6,over invested
+ACC-00787,model_high_nobody_looked,0,never touched
+ACC-00935,high_effort_no_result,5,"no vendor record, stale 180, over invested"
+ACC-00506,high_effort_no_result,7,over invested
+ACC-01282,rep_insists_model_low,3,no vendor record
+ACC-01491,high_effort_no_result,5,"stale 180, over invested"
+ACC-00130,rep_insists_model_low,3,no vendor record
+ACC-00570,high_effort_no_result,5,"no vendor record, over invested"
+ACC-01339,model_high_nobody_looked,0,"stale 180, never touched"
+ACC-01155,high_effort_no_result,7,over invested
+ACC-00657,model_high_nobody_looked,0,"stale 180, never touched"
+ACC-00527,high_effort_no_result,5,"stale 180, over invested"
+ACC-01334,model_high_nobody_looked,0,"stale 180, never touched"
+ACC-01064,high_effort_no_result,5,over invested
+ACC-01496,model_high_nobody_looked,0,never touched
+ACC-01129,model_high_nobody_looked,0,never touched
+ACC-00183,model_high_nobody_looked,0,"stale 180, never touched"
+ACC-00233,model_high_nobody_looked,0,never touched
+ACC-00966,model_high_nobody_looked,0,"stale 180, never touched"
+ACC-00265,high_effort_no_result,5,"no vendor record, over invested"
+ACC-01429,high_effort_no_result,5,"no vendor record, over invested"
+ACC-00876,rep_insists_model_low,3,no vendor record
+ACC-01235,rep_insists_model_low,3,no vendor record
+ACC-00962,model_high_nobody_looked,0,"stale 180, never touched"
+ACC-00958,high_effort_no_result,5,"no vendor record, stale 180, over invested"
+ACC-01415,high_effort_no_result,9,"no vendor record, stale 180, over invested"
+ACC-01404,model_high_nobody_looked,0,"no vendor record, never touched"
+ACC-01386,model_high_nobody_looked,0,"stale 180, never touched"
+ACC-01008,model_high_nobody_looked,0,"no vendor record, never touched"
+ACC-00728,model_high_nobody_looked,0,never touched
+ACC-00732,rep_insists_model_low,3,"no vendor record, stale 180"
+ACC-01287,rep_insists_model_low,3,no vendor record
+ACC-00260,high_effort_no_result,6,"stale 180, over invested"
+ACC-00101,high_effort_no_result,6,over invested
+ACC-01043,model_high_nobody_looked,0,never touched
+ACC-00802,model_high_nobody_looked,0,never touched
+ACC-00828,high_effort_no_result,5,over invested
+ACC-00686,high_effort_no_result,6,"no vendor record, over invested"
+ACC-00095,rep_insists_model_low,3,no vendor record
+ACC-01326,high_effort_no_result,9,"stale 180, over invested"
+ACC-01471,model_high_nobody_looked,0,never touched
+ACC-01440,model_high_nobody_looked,0,never touched
+ACC-01394,model_high_nobody_looked,0,"no vendor record, never touched"
+ACC-00832,high_effort_no_result,5,over invested
+ACC-00122,high_effort_no_result,6,"no vendor record, over invested"
+ACC-00758,model_high_nobody_looked,0,"no vendor record, never touched"
+ACC-00146,high_effort_no_result,5,"stale 180, over invested"
+ACC-00646,high_effort_no_result,6,"no vendor record, stale 180, over invested"
+ACC-00033,rep_insists_model_low,3,"no vendor record, stale 180"
+ACC-00453,rep_insists_model_low,3,—
+ACC-00076,model_high_nobody_looked,0,never touched
+ACC-00200,model_high_nobody_looked,0,never touched
