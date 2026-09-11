@@ -37,10 +37,14 @@ claims about the model and the data.
   most important feature, and a feature that measures our own team's behaviour.
 - The brief's own framing contradicts the data in at least two places.
 
-**TODO(ignacio): paste the 3-4 actual prompts from this session that shaped a decision.**
-The packet asks for specific prompts, not a summary. Pull them from the chat history —
-particularly the one that set up the six-lens debate, and whichever follow-up made it
-produce the calibration-by-decile table.
+**On prompts.** I did not save the exact wording from that chat session, and I am not
+going to reconstruct quotes I don't have. What I can state honestly about its shape: the
+opening prompt handed over the three files and asked for six named stakeholder positions
+that had to argue with numbers computed from the data, not with opinions; the follow-ups
+that mattered pushed for a calibration table by decile and for how much each uncovered
+account's score moved when its missing intent was set to a low and a high value. Every
+prompt from the Claude Code sessions that followed — where the actual decisions were made
+— is recorded verbatim or near-verbatim in Entries 1–6 below.
 
 **Dead end from this session:** my first instinct was to ask "is the model any good?"
 and I got back a generic model-evaluation checklist — AUC, precision/recall, class
@@ -76,8 +80,6 @@ Everything it reports goes into `audit/` only after I've read the script that pr
 expect to move are (a) the 6.2× lift in the top 30, because it's computed in-sample *with
 the censored rows still in*, and (b) the "341 Suspects with activity" figure, which is
 larger than the 300-row scoring file it seemed to be describing.
-
-**TODO(ignacio): result of that check goes in Entry 2.**
 
 ---
 
@@ -575,5 +577,135 @@ standard the packet applies to the LLM call. And the proposal frames the deliver
 *the first run of the system*, not the system.
 
 **Next: proposal, then `serving/`.**
+
+---
+
+## Entry 7 — 2026-09-11 ~09:20 · The material I would stand behind in the room
+
+This is the entry the packet asks for last: not the presentation, the raw material for it
+— the text, the numbers, the hypotheses and the assumptions I would actually use. It
+consolidates everything above. If `serving/` changes any of it, a later entry says so.
+
+### The story in three sentences
+
+1. The model you inherited looks good for the same reason the last one did: it was
+   measured on the data it memorised. Measured honestly, its ranking is noise — and
+   scored forward in time, it is below chance.
+2. That is not a modelling failure. None of the nine columns describes the account; the
+   only two with any signal describe what Cordilla already did to it. No model on this
+   data can do more than rerank the accounts you already worked.
+3. So the thing to ship is not a better score. It is a system that produces the three
+   things this data has never had — a control group, the rep's knowledge, and the
+   prospect's own words — while it runs, with the model as one voice among three and a
+   human signature before anything reaches Salesforce.
+
+### The numbers I would put on slides
+
+| slide | number | the sentence under it |
+|---|---|---|
+| The pickle was fit on everything | max \|Δp\| = **0.0** across 1,200 rows | "A clone fit on all rows in file order reproduces it bit for bit. There was no holdout." |
+| The headline is noise | in-sample AUC **0.759** · random-label median **0.762** · p = 0.575 | "Fit this architecture to coin flips and it scores the same." |
+| Honest performance | out-of-fold **0.573 ± 0.024** · Brier **worse than a constant** · top-30 lift **0.67×** | "Below random where a call list has to win." |
+| Forward in time | **0.474** pooled (879 rows, 59 positives) · one quarter at **0.398** | "In the only regime production sees, it inverts. That is the folklore, mechanically." |
+| The one-line rival | `ORDER BY sales_contacts` → **0.608** on the same rows | "A sort beats it by 13 points of AUC and is the only one of the two above chance." |
+| Importance is cardinality | Spearman(importance, distinct values) **+0.77**, p = 0.04 · noise column earns **75%** | "The 'most important feature' is important because it has a lot of decimal places." |
+| Intent: only the gap | values **−0.001 ± 0.004** (t = −0.25) · missingness **+0.028 ± 0.004** (t = 6.6) | "Median imputation built a missingness flag by accident — 7 of 31 splits sit on the spike — and learned nothing else." |
+| The structural finding | remove `sales_contacts` and `intent_known` → **0.434** | "Neither describes the account. Remove both and it scores below chance." |
+| The list is the seed | seed alone replaces **9 of 30** · #30 vs #31: 0.10684 vs 0.10629 | "A rep who sees accounts vanish week to week stops believing — and they would be right." |
+| Where the hours go | **130** never contacted (25 with a live trial) · **29** accounts absorb **35%** of contacts · **34%** of effort on data >6 months old | "This is not a prediction. It is where the time went." |
+| What it promises | Σp = **19.7** conversions in 300 (6.55%) vs a field rate of **1–3%** | "Two to six times what the business actually sees, before any performance question." |
+| Data defects, fixable | **101** censored labels · **341/402** training "Suspects" with activity · **86/101** in scoring | "Three Salesforce tickets. None of them needs a model." |
+
+### The hypotheses I am making — stated as hypotheses
+
+- **H1 (central).** Intent extracted from recorded sales calls predicts conversion better
+  than any CRM column. *Evidence today: vendor-published only. Tested by the arms.*
+- **H2.** Never-contacted accounts with a signal (trial, vendor record, MQL) convert at or
+  above the base rate. *Evidence today: none — they have no outcomes. Tested by the
+  explore arm.*
+- **H3.** The step at ≥4 contacts is at least partly causal. *Evidence: OR 2.2, robust to
+  every observable adjustment; direction unidentifiable without randomised assignment.*
+- **H4.** A two-variable model on the surviving columns would modestly beat the GBM.
+  *Not fitted — the brief rules it out. Stated, not shown.*
+- **H5.** The true field rate is nearer the brief's 1–3% than training's 6.5%. *Only a
+  control group settles it.*
+
+### The assumptions I am making — and would say out loud
+
+- **A1.** 2026-08-01 is "today" for every age calculation.
+- **A2.** `sales_contacts_90d` is the available proxy for rep hours. A contact is not an
+  hour, but it is what the data has.
+- **A3 — BLOCKING.** The `sales_contacts_90d` window *precedes* the snapshot rather than
+  overlapping the 90-day outcome window. Nothing in the files says. If it overlaps, the
+  only significant feature is leakage and nothing in the model was ever real. One
+  question to the data owner; I would not build on that column before it is answered.
+- **A4.** 180 days is my "stale" threshold. The window-consistent figure is 90 (218 of 300
+  accounts); I report both and use 180 as the conservative line.
+- **A5.** Thirty accounts per arm is operationally feasible and the first readout will be
+  noisy. It accumulates.
+- **A6.** Call recording with per-call disclosure and transcript-only storage is legally
+  feasible in Cordilla's jurisdictions. Two-party-consent states and GDPR make this a
+  precondition, not a detail.
+- **A7.** The 0.9 PSI on snapshot age is recency-biased sampling by design (ids 1…1500, no
+  gaps, P(in scoring file | age) falls from 44% to 10%), not population drift.
+
+### The hardest questions, and what I would answer
+
+**"You were told not to retrain it."**
+The pickle in the repo is byte-for-byte the one you sent — here is the hash — and
+`serving/` uses only it. What I did was estimate how *that* model behaves on data it has
+not seen, which requires fitting copies of its architecture inside each fold and
+discarding them. That is not retraining the model; it is the only way to measure it
+honestly when it shipped without a holdout. The one place I fit a *different* model, I
+removed, and it is in the log as a decision.
+
+**"We paid for this. What do we do Monday?"**
+Three lists of thirty, matched on segment and size: one sorted by `sales_contacts`, one
+of never-contacted accounts with a signal, one the rep picks. Each account carries one
+line of flags. Nothing waits on a new model. In ninety days you have the first number
+this company has ever had against a control.
+
+**"Half your findings are 'not significant with 78 positives'. So you can't tell us
+anything?"**
+Correct — and that *is* the finding. This dataset cannot establish what it is being
+asked to establish. The system I am proposing is the one that produces the data that can.
+Pretending otherwise is how the last model got shipped.
+
+**"The intent vendor's contract is up. Renew?"**
+Not for the scores. Their values contribute −0.001 AUC; the only thing the column ever
+gave the model is whether a record existed. Keep a boolean for that, drop the score, and
+put the money toward recording the conversation, which is the one account-intrinsic
+signal available.
+
+**"A sort by one column beats your model. Why build anything?"**
+Because the sort is circular — it ranks the accounts you already called — and the data
+cannot say whether calling causes conversion or reps just call the right ones. The arms
+are what separate those. The sort is a fine exploit arm; it is not a strategy.
+
+**"How is this different from what the last person said?"**
+They shipped a score and never measured it. I am shipping a measurement and never a score.
+
+### What I would not claim, because the data does not support it
+
+- That the model *orders* accounts. The 0.759 is at the median of the noise distribution.
+- That censoring or imputation caused the failure. Dropping the 101 censored rows moves
+  out-of-fold AUC by +0.002. The gap is overfitting.
+- That the 0.9 PSI is drift. It is sampling, and a panelist can prove it from the ids.
+- That uncovered accounts show lower engagement on other channels. Every comparison
+  returns p ≥ 0.25; two run the other way. Coverage predicts the outcome through a
+  mechanism nothing in the file explains.
+- That the model "invented" the step at five contacts. The step is in the labels; the
+  5.6% I once quoted was the value at *six*.
+- That conversation intent predicts conversion. It is H1, and the evidence is vendors'.
+- That allocation is biased by `account_type`. Against random lists it sits at the 58th
+  percentile. I withdrew it.
+- That a better model would not help. I don't know; I was told not to find out.
+
+### The one question that decides everything
+
+*Does `sales_contacts_90d` count the ninety days before the snapshot, or the same ninety
+days in which conversion is measured?* If it overlaps, the single significant feature in
+the dataset is leakage, and there was never anything predictive here at all. I would ask
+it before the presentation if I could. I would ask it in the room if I can't.
 
 ---
