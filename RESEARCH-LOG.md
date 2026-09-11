@@ -1048,3 +1048,40 @@ raises on its own.
 ⚠️ Synthetic transcripts. The counts are demo; the mechanism is audit §3.5, which is not.
 
 ---
+
+## Entry 12 — 2026-09-11 ~11:30 · Checkpoint
+
+Everything runs: the notebook (110 cells, 0 errors), the pipeline in both modes, the
+agent healthcheck. 22 commits, all incremental.
+
+**Open, in order of how much it costs to leave undone:**
+
+1. `PROPOSAL.md` still quotes the v1 agent metrics and does not mention the `VALUE` node or
+   the score inversion — which is the strongest single piece of evidence in the repo. The
+   proposal is currently weaker than the work behind it.
+2. The four drafting agents have never run live (routed to `cloud`, no API key). The packet
+   judges template equal to a live call, so this is cosmetic, but a live `manager_brief.md`
+   would read better than a rendered prompt.
+3. The old private repo under the previous account still exists; deleting it needs a scope
+   the token does not have.
+
+**Next session, three things:** re-read the graph node by node asking *what would the team
+do without this node* — the same test `VALUE` applies, turned on the pipeline itself. Then
+consecutive improvements using the method that worked on the extraction contract: change
+one thing, re-measure, keep it only if the number moves. Then the one that matters —
+**define the reliable metric.**
+
+On that last one, the honest position today: there are three measurements and none of them
+is *the* metric. The agent scores 1.00 against a ground truth I wrote myself. The inherited
+model scores 0.474 against real outcomes, but that is a verdict on the old thing, not on
+the new one. `VALUE` reports 35% of decisions changed, which is measurable today and is
+*not* proof that the changes were improvements. And the conceptually correct one —
+conversions per contact against a control — needs 90 days and roughly fifty times the
+sample we can assign in one cycle.
+
+Choosing among those, and being explicit about what each one cannot tell you, is the
+remaining piece of work. It is also the piece the brief actually asked for in section 1:
+*what would tell you the model is helping versus just noise everyone is trusting by
+default.* I have a better answer than I did yesterday and it is still not a single number.
+
+---
