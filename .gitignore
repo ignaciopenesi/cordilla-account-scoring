@@ -5,3 +5,7 @@ __pycache__/
 
 # local working notes, not part of the submission
 _notes/
+
+# simulated cycle memory from --demo runs; check.sh removes it, a manual run may not
+serving/out/cycles.jsonl
+serving/out/next_cycle.json
