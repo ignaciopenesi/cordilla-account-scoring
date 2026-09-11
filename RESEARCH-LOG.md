@@ -422,3 +422,158 @@ yesterday, and two claims I would have defended in the room turned out to be ind
 **Next: the serving step, and the proposal.**
 
 ---
+
+## Entry 5 — 2026-09-11 ~08:20 · Re-reading the rules before building anything else
+
+Stopped to re-read the packet against what the notebook actually does, because one rule
+appears four times and I wanted to be sure I was on the right side of it.
+
+> *"Don't retrain it."* · *"Retrain, tune, or improve the model — you don't need to do
+> this. Auditing it is the ask, not rebuilding it."* · *"Your job is not to build a model."*
+
+**What the notebook does.** `model.pkl` in the repo is byte-identical to the one in the
+zip (SHA-256 `fc2cd6aa…` on both); the only commit that touches `model/` or `data/` is the
+scaffold. So the shipped model was never retrained, tuned, replaced or overwritten.
+
+What the notebook *does* do is call `.fit()` on fourteen **new** objects, none of them the
+pickle. They fall into three tiers, and they are not equally defensible:
+
+| tier | what | verdict |
+|---|---|---|
+| A · diagnostics | clones fit on **permuted labels** (the null), on a **noise column** (the cardinality test), or to **prove provenance** (does a clone reproduce the pickle?) | Not retraining under any reading. The clone is thrown away; the pickle is the object under audit. |
+| B · generalisation | clones fit inside CV folds, forward-in-time by quarter, on bootstrap resamples | The only way to estimate held-out performance for a model shipped without a holdout. Grey, defensible, and I argued it explicitly in §0.4. |
+| C · a different model | a 2-variable `LogisticRegression` as a "contender" (§2.6c) | **This is building a model**, whatever the motive. A strict panelist can say so in one sentence. |
+
+**Decision: remove C.** Two reasons. The rule is unusually explicit and I don't need to
+spend credibility defending a cell that does not change the verdict. And the result it
+produced — that a better-specified model on the two surviving columns beats the GBM — is
+perfectly good **as a stated hypothesis**, which is what it now is in §6. If the panel
+asks "so would a simpler model do better?", the answer is *"probably, and it's exactly what
+you asked me not to do — but I can tell you which two columns I'd build it on, and why
+only those."* That is a better position than defending a cell.
+
+The two-sentence answer for tiers A and B, written down so I don't improvise it:
+
+> *The pickle in the repo is byte-for-byte the one you sent — here is the hash — and
+> `serving/` uses only it. What I did was estimate how **that** model behaves on data it
+> has not seen, which requires fitting copies of its architecture inside each fold and
+> discarding them. That is not retraining the model; it is the only way to measure it
+> honestly when it shipped without a holdout.*
+
+Entry 4 records the logistic result as a finding. I am leaving Entry 4 as written — this
+log is kept as I go, not rewritten — and recording the removal here.
+
+---
+
+## Entry 6 — 2026-09-11 ~08:45–10:00 · Objective first, then the shape of what to build
+
+### The objective, before any solution
+
+The VP's ask — *"a dashboard so reps stop guessing"* — is a symptom. What I am actually
+optimising, written down so the proposal can be held to it:
+
+> **Primary:** more conversions per rep-hour on non-customer accounts, measured against a
+> control group.
+> **Secondary — the one the packet actually evaluates:** the organisation can tell, at any
+> point, whether the tool is helping or is noise everyone trusts by default, *before* reps
+> stop believing it. That is how the last one died.
+> **Guardrails:** no concentration of hours on segments with no evidence of higher
+> conversion; no feedback loop where never-touched accounts stay invisible; nothing enters
+> Salesforce without a flag and a date.
+
+Metric: conversions within 90 days per logged contact, by allocation arm, matched on
+segment and size. Rep-hours are not in the data; `sales_contacts_90d` is the proxy and I
+say so.
+
+### What the audit leaves to build on
+
+The destructive half of the audit is done. The constructive half, from the same numbers:
+`sales_contacts >= 4` doubles conversion and scores 0.608 forward in time — an honest
+one-line rule; `intent_known` is a free, vendor-independent flag; **130 of the 300
+accounts have never been contacted**, 25 of them with a live trial; 29 accounts absorb 35%
+of all contacts; 34% of effort goes to accounts described by data over six months old.
+None of those are predictions. They are facts about where the hours went.
+
+And the structural finding reframes the whole problem: **the data measures Cordilla, not
+the account.** The only account-intrinsic signal there could be — what the prospect
+actually said — is not in any column. It lives in the call.
+
+### What I asked, and what came back
+
+I ran a research pass before committing to a design. The prompts, in order:
+
+- *"agentic lead scoring feedback loop sales rep labels self-improving model"* → mostly
+  vendor content. Useful consensus: without outcome feedback a scoring model drifts inside
+  ~6 months; rep trust is the adoption bottleneck.
+- *"contextual bandit lead prioritization explore exploit"* → the **Stitch Fix** bandits
+  write-up, which is the closest real analogue: a "best tactic" chosen by test, scaled to
+  everyone, then found to be wrong for sub-segments and stale over time. Their fix was
+  **epsilon-greedy 90/10** — 10% randomised — precisely so they'd have unbiased data to
+  retrain on. Lesson I took: you cannot skip the randomisation phase to get to a
+  contextual model.
+- *"LangGraph HITL production case study"* → the interrupt/resume pattern: a node pauses,
+  the human decision enters as state, the graph continues. *"Human judgment as a
+  state-modifying checkpoint."* Also several 2026 LangGraph sales-pipeline guides.
+- *"why lead scoring models fail feedback loop circularity"* → unanimous: they score
+  activity not intent; no closed loop; unexplained individual errors kill adoption within
+  ~2 months. Fixes: co-define with sales, **transparent score breakdown**, rejection reason
+  codes, **sales acceptance rate** as the monthly metric (65–75% healthy).
+- *"Dialpad Ai sales features"* → Call Purpose, Custom Moments, Ai Scorecards, sentiment,
+  Ai CSAT at 87%. The intent-from-conversation layer is a shipping product, and it is
+  theirs.
+- *"agentic AI enterprise failure modes 2026"* → Gartner: >40% of agentic projects
+  cancelled by 2027 (cost, unclear value, weak controls). Microsoft's taxonomy: memory
+  poisoning, flow manipulation, inter-agent trust escalation, HITL bypass. Automation
+  bias — advisory agents anchor human judgment.
+- *"call recording consent B2B GDPR"* → two-party states (CA/FL/IL), GDPR up to 4% of
+  revenue, TCPA $500–1,500 per call. Standard mitigation: disclose on every call, Privacy
+  Mode (transcript without stored audio), consent logged in CRM.
+
+**Where I did not take the research at face value:** the evidence that conversation-derived
+intent predicts conversion is almost entirely vendor-published (Gong Labs, Dialpad). I
+found no independent study comparing conversation features against CRM activity features
+with a measured lift. So in the design it is **the central hypothesis the experiment
+tests**, not an assumption. And the most-cited academic B2B lead-scoring paper reports
+AUC 0.989 under random 70/30 CV with feedback "recently integrated" — the exact error the
+audit found in the pickle, so I am not leaning on it either.
+
+### The design that came out
+
+A stateful graph — a typed dict passed node to node, each node one function, one human
+approval point before anything writes to Salesforce, the LLM writing only what a human
+has to read. Thirteen nodes:
+
+`INGEST → VALIDATE → SCORE → {BASELINES, FLAGS, CONVERSATION INTENT} → RECONCILE →
+{ALLOCATE, HYGIENE, VERDICT} → ⏸ HITL → EMIT → (day 90) READOUT`
+
+The three decisions inside it that I would defend as *taste* rather than engineering:
+
+1. **The model is one voice of three in `RECONCILE`, never the decision.** Score, rep
+   effort, and conversation intent are compared per account; **where they disagree is the
+   new data.** That is the right role for an instrument you have shown to be noise-level.
+2. **`ALLOCATE` is three matched arms — exploit / explore / rep's own choice — not a
+   ranked list.** It is the Stitch Fix randomisation, and it is what produces the control
+   group Cordilla has never had. Not a tier, not routing: a comparison of policies.
+3. **`CONVERSATION INTENT` replaces "ask the rep".** The rep already said what they know —
+   on the call. An agent extracts intent level, objections, next step from the transcript.
+   The manual question survives only as fallback for accounts with no recorded call.
+
+Hygiene lives in two places, deliberately: `VALIDATE` is the gate (nulls, ranges, unseen
+categories, label window, staleness — automatic, touches nothing in the CRM) and
+`HYGIENE` is the corrector (341/86 mislabeled Suspects, 101 censored labels, the
+zero-vs-unmeasured contract, the blocking `sales_contacts` window question — proposals
+only, approved by a human). Every one of the fifteen data-construction defects the audit
+found has a node.
+
+### The risk I am carrying, named
+
+*"Not a bigger build."* A thirteen-node graph with a conversation-intelligence layer is
+a bigger build, and Gartner says 40% of these get cancelled. Two mitigations, both from
+the packet itself: the code implements the ten nodes today's data supports and runs in one
+command; `CONVERSATION INTENT` is a designed node with a documented plug — the same
+standard the packet applies to the LLM call. And the proposal frames the deliverable as
+*the first run of the system*, not the system.
+
+**Next: proposal, then `serving/`.**
+
+---
