@@ -150,14 +150,27 @@ that does:
 |---|---|
 | **`max_tokens` must be generous** | Reasoning models spend tokens thinking before answering. At 1024 the scratchpad consumed the whole budget and the reply came back as an **empty string** — not an error, which is the worst kind of failure. |
 | **The strict schema is doing real work** | With `response_format: json_schema`, the 14B model returned every required field. With `json_object` or nothing, it invented its own — `quote` instead of `evidence_quote`, required fields missing. Constrained decoding is what makes a small local model honour a contract. |
-| **A 14B model gets the structure right and the judgement wrong** | On a transcript where the prospect says *"we've got budget approved… we're just deciding between you and two others"*, it extracted the correct quote and then labelled it **E** (near-no-intent) when it is plainly A or B. |
+| **A 14B model gets the structure right and the judgement wrong** | Full live run, 75s, schema-valid. It pulled the exact quote — *"we've got budget approved for a workflow tool this fiscal year"* — and both objections, correctly. Then labelled the account **E, near-no-intent**, and the VP of Operations as a *user* rather than a decision maker. Structure perfect, both judgement calls wrong. |
 
-That last one matters more than the first two, and it does not get hidden: **the same
+That last one matters more than the other two, and it does not get hidden: **the same
 standard this audit applied to the inherited model applies to our own agent.** An intent
-level from a small local model is an unvalidated instrument. So `confidence` is part of the
-contract, the levels are what `READOUT` measures against real outcomes, and until that
-measurement exists the extraction is treated as a hypothesis — which is exactly what
-`CALIBRATE_VENDOR` is for, in both directions.
+level from an unvalidated extractor is an unvalidated instrument, whoever built it.
+
+Three things follow, and they are in the design rather than in a caveat:
+
+- The **fields that are extracted** (quote, objections, next step) are reliable at 14B;
+  the **level that is inferred** is not. So the quote is what a human reads, and the level
+  is what `READOUT` measures against real outcomes before anyone acts on it alone.
+- `confidence` is in the contract for this reason, and the 0.75 it returned here was
+  *over*-confident — which is itself a calibration target.
+- Model size is a tunable, not a constant. 14B is what was on the machine; the routing
+  table changes one line to point at a 27B/35B, and the sensible operating point is chosen
+  by measuring against outcomes, not by preference. The pipeline is built so that question
+  is answerable.
+
+A 14B model on CPU takes 1–3 minutes per transcript. Fine for a nightly batch, useless for
+anything interactive — another reason the design is a weekly cycle rather than a live
+assistant.
 
 ## Where the AI is, and where it deliberately is not
 

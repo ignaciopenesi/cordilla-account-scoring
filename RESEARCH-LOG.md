@@ -860,14 +860,31 @@ reply) because servers disagree about what they support and some return `""` ins
 400.
 
 **3. The model got the structure right and the judgement wrong — and that is the finding.**
-On a transcript where the prospect says *"we've got budget approved for a workflow tool
-this fiscal year… we're just deciding between you and two others"*, it extracted the
-correct quote and then labelled the account **E** — near-no-intent — when it is plainly A
-or B.
+Full live run, 75 seconds, schema-valid output:
 
-That is not a reason to abandon the approach. It is a reason to apply to my own agent
-exactly the standard this audit applied to the inherited model: **an intent level from an
-unvalidated extractor is an unvalidated instrument.** So `confidence` is part of the
+```json
+{ "intent_level": "E",
+  "evidence_quote": "we've got budget approved for a workflow tool this fiscal year",
+  "objections": ["We're just deciding between you and two others",
+                 "the incumbent, we already pay them for the ticketing piece…"],
+  "next_step_agreed": true, "speaker_role": "user",
+  "call_purpose": "negotiation", "confidence": 0.75 }
+```
+
+The quote is exact. Both objections are right. `next_step_agreed` is right. And then it
+labelled an account that literally says *"we've got budget approved"* as **E — near-no-
+intent** — and demoted the VP of Operations to *user* rather than decision maker. Two
+extraction jobs right, two judgement calls wrong, at 0.75 confidence, which is itself
+over-confident.
+
+That is not a reason to abandon the approach — and the split is informative. **What is
+extracted is reliable; what is inferred is not.** So the quote is what a human reads, and
+the level is what gets measured before anyone acts on it alone. It is also a reason to
+apply to my own agent exactly the standard this audit applied to the inherited model:
+**an intent level from an unvalidated extractor is an unvalidated instrument, whoever
+built it.** Model size is a tunable here, not a constant — 14B is what was on the machine,
+the routing table is one line, and which size is enough is a question the pipeline is
+built to answer by measurement. So `confidence` is part of the
 contract, the levels are what `READOUT` measures against real outcomes, and until that
 measurement exists the extraction is a hypothesis. The irony is not lost on me — I spent a
 day proving a model was trusted without being measured, and the first thing my own
