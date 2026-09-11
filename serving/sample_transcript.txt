@@ -1,0 +1,30 @@
+[Call · ACC-00453 · 2026-07-22 · 14 min · recorded with disclosure]
+
+REP (Cordilla): Thanks for making time. Last we spoke in April you'd said the ops team was
+drowning in handoffs between the ticketing system and the approvals spreadsheet.
+
+PROSPECT (VP Operations): Yeah, that hasn't gotten better. It got worse, honestly. We added
+two regions and the spreadsheet is now four spreadsheets.
+
+REP: Is that still being handled manually?
+
+PROSPECT: Manually and badly. Look, I'll be straight with you — we've got budget approved
+for a workflow tool this fiscal year, it came through in June. We're just deciding between
+you and two others. One of them is the incumbent, we already pay them for the ticketing
+piece so there's a bundling conversation happening internally.
+
+REP: That's helpful to know. What's driving the decision between the three?
+
+PROSPECT: Honestly? Whether it actually handles multi-region approval chains without
+custom work. The incumbent says yes but they said yes last time too. And price matters —
+we're not going to triple our spend for this.
+
+REP: Would it help to get our ops lead on a call to walk through the multi-region setup
+specifically? Not a demo, an actual walkthrough of the config.
+
+PROSPECT: That would help. Let me pull in Marcus, he runs the EMEA side and he's the one
+who'll veto it if it doesn't work for him. Week after next? I'm out until the 8th.
+
+REP: Week of the 11th works. I'll send options.
+
+PROSPECT: Good. And send me something on pricing tiers beforehand so I'm not surprised.

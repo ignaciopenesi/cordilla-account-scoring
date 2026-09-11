@@ -808,3 +808,93 @@ assignments) do run. **If the panel wants to see the system work end to end, tha
 honest answer: it cannot yet, and here is precisely what is missing and what it costs.**
 
 ---
+
+## Entry 9 — 2026-09-11 ~10:30–11:15 · Making the agent layer real, and what a local model taught me
+
+Two paths configured, and I tested one of them properly rather than describing it.
+
+### The design
+
+`llm.py` now holds five **agents** rather than five prompt strings. Each is typed:
+`purpose · reads · returns · sensitivity · system · template · schema`. The extracting one
+is validated against its schema before anything downstream sees it.
+
+Two backends. `anthropic` for hosted, and **one** `openai_compat` adapter that covers
+Ollama, vLLM, LM Studio and LocalAI — they all expose the same `/v1/chat/completions`
+surface, so moving from a laptop to a GPU box is a `base_url` change. Both speak through
+`urllib` from the standard library, so the pipeline still has zero dependencies beyond the
+pinned four.
+
+**The routing split is a compliance argument, not a preference.** `conversation_intent`
+reads call transcripts — personal data under GDPR, covered by two-party-consent statutes
+in CA/FL/IL. Sending them to a hosted API adds a processor to the record, a DPA, and for
+EU accounts an international transfer, for the task with the highest volume (every call,
+forever) and the lowest writing-quality requirement (it emits JSON). So extraction stays
+local and drafting goes to the better writer. `route()` **refuses** to send a `pii` agent
+to a hosted backend even if the config says to, and falls back to template with a warning.
+
+### What testing it against `qwen3:14b` on Ollama actually taught me
+
+I would have shipped three wrong assumptions if I had only written the design.
+
+**1. An empty string is a failure mode, and it is the worst one.** My first live call
+returned `""` — not an error, not a refusal. Cause: `max_tokens = 1024`, and Qwen3 spends
+tokens on a reasoning scratchpad before answering. The budget was consumed before it said
+anything. Raised to 4096, added `disable_thinking`, and — more importantly — made the
+backend **raise** on an empty completion after trying every JSON mode, rather than pass an
+empty string down the pipe.
+
+**2. The strict schema is doing real work, and I nearly made it optional.** Same
+transcript, three request shapes:
+
+| request | result |
+|---|---|
+| `response_format: json_schema` (strict) | 433 chars, **every required field present** |
+| `response_format: json_object` | invented `quote` instead of `evidence_quote`; required fields missing |
+| no `response_format` | identical failure |
+
+Constrained decoding is what makes a 14B local model honour a contract. I had written
+`json_schema = true` as a nice-to-have; it is the thing that makes the local path viable
+at all. It is now a cascade (`auto`: schema → object → plain, falling through on an empty
+reply) because servers disagree about what they support and some return `""` instead of a
+400.
+
+**3. The model got the structure right and the judgement wrong — and that is the finding.**
+On a transcript where the prospect says *"we've got budget approved for a workflow tool
+this fiscal year… we're just deciding between you and two others"*, it extracted the
+correct quote and then labelled the account **E** — near-no-intent — when it is plainly A
+or B.
+
+That is not a reason to abandon the approach. It is a reason to apply to my own agent
+exactly the standard this audit applied to the inherited model: **an intent level from an
+unvalidated extractor is an unvalidated instrument.** So `confidence` is part of the
+contract, the levels are what `READOUT` measures against real outcomes, and until that
+measurement exists the extraction is a hypothesis. The irony is not lost on me — I spent a
+day proving a model was trusted without being measured, and the first thing my own
+pipeline does is produce a number that has not been measured either. The difference is
+that this one says so and has a readout scheduled.
+
+Practical consequence for the proposal: a 14B model on CPU takes 1–3 minutes per
+transcript. That is fine for a nightly batch and useless for anything interactive, which
+is another reason the design is a weekly cycle rather than a live assistant.
+
+### The parser, and why it is deliberately tolerant
+
+Local models wrap JSON in `<think>` blocks, code fences, or a sentence of preamble. None
+of that is the model being wrong, so `_extract_json` strips reasoning tags, pulls out
+fenced blocks, and otherwise walks the string brace-by-brace to find the balanced object.
+Then a minimal contract check — required fields present, enum values legal. Not a full
+JSON-Schema implementation; enough to catch prose, a missing field, or an invented level.
+
+### Failure stays visible
+
+Every agent falls back to template mode **with the reason printed where the output would
+have been**: `[backend 'local' failed after retries — TimeoutError: timed out]`. It does
+not guess and it does not silently skip. That is deliberate: a pipeline that quietly
+produces a plausible answer when its model is down is the exact failure this whole exercise
+is about. I saw it work twice today, on the empty-string bug and on a timeout.
+
+`python serving/pipeline.py --check-llm` probes the configured backends and the agent
+routing without running anything.
+
+---

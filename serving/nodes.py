@@ -220,13 +220,22 @@ def CONVERSATION_INTENT(s: State) -> State:
                  reason="the two CSVs carry no call transcripts",
                  unblocked_by="call recording with disclosure (two-party-consent states and GDPR "
                               "make this a precondition) + Dialpad Ai Call Purpose / Custom Moments, "
-                              "or any ASR feeding the `conversation_intent` prompt in llm.py",
+                              "or any ASR feeding the `conversation_intent` agent in llm.py",
                  would_produce="per account: intent_level A-F grounded in a verbatim prospect quote, "
                                "objections[], next_step_agreed, speaker_role, call_purpose, confidence",
                  still_computed=f"the four coverage quadrants: {quad}")
-        print(llm.draft("conversation_intent", mode=s.args.llm,
-                        account_id="ACC-00453", date="2026-07-22",
-                        transcript="[speaker-labelled transcript would go here]"))
+
+        # The node is bypassed for the 300 because there are no transcripts. The CONTRACT
+        # is not hypothetical though, so it runs against one sample transcript -- on a
+        # local backend, because this is the PII-bearing agent (see config.toml [routing]).
+        sample = Path(__file__).resolve().parent / "sample_transcript.txt"
+        if sample.exists():
+            s.say("  demonstrating the contract on serving/sample_transcript.txt "
+                  f"(agent routed to '{llm.CONFIG.get('routing', {}).get('conversation_intent')}')")
+            out = llm.draft("conversation_intent", mode=s.args.llm, account_id="ACC-00453",
+                            date="2026-07-22", transcript=sample.read_text())
+            s.artifacts["conversation_intent_demo"] = out
+            print(out)
     return s
 
 

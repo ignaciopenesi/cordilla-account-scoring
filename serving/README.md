@@ -92,12 +92,78 @@ typed findings — `what · evidence · severity · owner · action · cost · e
 proposal includes the rule that stops the defect recurring, because a one-off cleanup is
 worth much less. The current run surfaces ten, one of them blocking.
 
+## Configuring the agents
+
+Nothing needs configuring to run this: with no keys and no server it uses `template` mode,
+which renders each agent's exact prompt plus a worked example of the return. The packet
+judges that the same as a live call, and it has the advantage that a reviewer can read the
+prompts.
+
+`config.toml` is what you fill in to go live. Two paths are wired, and **the split between
+them is a compliance decision, not a preference**:
+
+```toml
+[backends.cloud]                          # hosted — best writing quality
+kind = "anthropic"
+model = "claude-sonnet-5"
+api_key_env = "ANTHROPIC_API_KEY"
+
+[backends.local]                          # self-hosted — one adapter covers all of them
+kind = "openai_compat"
+base_url = "http://localhost:11434/v1"    # Ollama · vLLM :8000 · LM Studio :1234 · LocalAI
+model = "qwen3:14b"
+json_mode = "auto"
+disable_thinking = true
+
+[routing]
+conversation_intent   = "local"   # PII — transcripts never leave the network
+hygiene_batch         = "local"   # account ids in bulk
+run_verdict           = "cloud"   # aggregates only
+experiment_card       = "cloud"
+disagreement_question = "cloud"
+```
+
+**Why one adapter covers every local option:** Ollama, vLLM, LM Studio and LocalAI all
+expose the same OpenAI-compatible `/v1/chat/completions` surface. Moving from a laptop to
+a GPU box is a `base_url` change, not a code change. Ollama caps at ~4 concurrent
+requests and is right for development; vLLM scales with concurrency and is what you would
+run in production.
+
+**Why `conversation_intent` is pinned local.** It reads call transcripts. Those are
+personal data under GDPR, and are covered by two-party-consent statutes in CA, FL and IL.
+Sending them to a hosted API adds a processor to the record, a DPA, and for EU accounts an
+international transfer — for the one task that also has the highest volume (every call,
+forever) and the lowest writing-quality requirement, since it emits JSON rather than prose.
+So extraction stays in the building and drafting goes to the better writer. `route()`
+**refuses** to send a `pii`-classified agent to a hosted backend even if the config says
+to, and falls back to template with a warning.
+
+    python serving/pipeline.py --check-llm     # probe backends and agent routing
+
+### What testing this against a real local model showed
+
+Running `conversation_intent` against `qwen3:14b` on Ollama surfaced three things worth
+writing down, because they are the difference between a design that would work and one
+that does:
+
+| | |
+|---|---|
+| **`max_tokens` must be generous** | Reasoning models spend tokens thinking before answering. At 1024 the scratchpad consumed the whole budget and the reply came back as an **empty string** — not an error, which is the worst kind of failure. |
+| **The strict schema is doing real work** | With `response_format: json_schema`, the 14B model returned every required field. With `json_object` or nothing, it invented its own — `quote` instead of `evidence_quote`, required fields missing. Constrained decoding is what makes a small local model honour a contract. |
+| **A 14B model gets the structure right and the judgement wrong** | On a transcript where the prospect says *"we've got budget approved… we're just deciding between you and two others"*, it extracted the correct quote and then labelled it **E** (near-no-intent) when it is plainly A or B. |
+
+That last one matters more than the first two, and it does not get hidden: **the same
+standard this audit applied to the inherited model applies to our own agent.** An intent
+level from a small local model is an unvalidated instrument. So `confidence` is part of the
+contract, the levels are what `READOUT` measures against real outcomes, and until that
+measurement exists the extraction is treated as a hypothesis — which is exactly what
+`CALIBRATE_VENDOR` is for, in both directions.
+
 ## Where the AI is, and where it deliberately is not
 
-`llm.py` holds five prompts, each with a typed contract — named inputs, a stated return
-shape. Default mode renders the prompt plus a worked example (the packet judges that the
-same as a live call, and it has the advantage that you can read the prompt); `--llm live`
-calls the API. `_call()` is the single place a network request would fire.
+`llm.py` holds five agents. Each is a typed object — `purpose · reads · returns ·
+sensitivity · system · template · schema` — not a loose prompt string, and the extracting
+one is validated against its schema before anything downstream sees it.
 
 | call | drafts | for |
 |---|---|---|
@@ -106,6 +172,12 @@ calls the API. `_call()` is the single place a network request would fire.
 | `hygiene_batch` | the evidence, the fix, and the preventive rule | the manager |
 | `run_verdict` | one paragraph on whether this run is trustworthy | the manager |
 | `conversation_intent` | intent level A–F grounded in a verbatim prospect quote, objections, next step | the system |
+
+**Failure is visible, never invented.** If a backend is unreachable, times out, or returns
+something off contract, the agent retries and then falls back to template mode **with the
+reason printed in place of the output**. It does not guess and it does not silently skip —
+a pipeline that quietly produces a plausible answer when its model is down is the failure
+mode this whole exercise is about.
 
 **The LLM never decides.** Allocation is rules, approval is the manager, and the only
 write path goes through `HITL`. That is deliberate: the documented failure mode of agentic

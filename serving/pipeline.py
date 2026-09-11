@@ -20,7 +20,8 @@ the point: what runs today is real, and what doesn't is declared.
 Usage:
     python serving/pipeline.py                  # dry run, writes nothing outside serving/out
     python serving/pipeline.py --approve        # simulate the manager signing off
-    python serving/pipeline.py --llm live       # make the real LLM calls (needs ANTHROPIC_API_KEY)
+    python serving/pipeline.py --llm live       # use the backends configured in config.toml
+    python serving/pipeline.py --check-llm      # probe those backends and the agent routing
     python serving/pipeline.py --map            # print the node map and exit
 """
 from __future__ import annotations
@@ -177,10 +178,16 @@ def main() -> None:
                    help="'template' renders the prompt and a worked example (the packet judges "
                         "this the same as a live call); 'live' calls the API if a key is set")
     p.add_argument("--map", action="store_true", help="print the node map and exit")
+    p.add_argument("--check-llm", action="store_true", dest="check_llm",
+                   help="probe the configured LLM backends and agent routing, then exit")
     args = p.parse_args()
 
     if args.map:
         print_map()
+        return
+    if args.check_llm:
+        import llm
+        llm.healthcheck()
         return
     run(args)
     print_map()

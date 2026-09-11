@@ -1,0 +1,75 @@
+# LLM and agent configuration.
+#
+# Nothing here is required to run the pipeline: with no config and no keys it runs in
+# `template` mode, which renders each prompt plus a worked example. The packet judges that
+# the same as a live call, and it has the advantage that a reviewer can read the prompts.
+#
+# This file is what you would fill in to go live. Two paths are wired, and the split
+# between them is a compliance decision rather than a preference — see [routing].
+
+[defaults]
+mode = "template"        # template | live
+timeout_seconds = 300   # a 14B model on CPU takes minutes on a long transcript
+max_retries = 2
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PATH A — hosted API. Best writing quality; use it for drafting, not for PII.
+# ─────────────────────────────────────────────────────────────────────────────
+[backends.cloud]
+kind = "anthropic"
+model = "claude-sonnet-5"
+api_key_env = "ANTHROPIC_API_KEY"
+max_tokens = 1024
+temperature = 0.3                 # drafting for humans; a little variation reads better
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PATH B — local / self-hosted. One adapter covers all of these, because Ollama,
+# vLLM, LM Studio and LocalAI all expose the same OpenAI-compatible /v1 surface.
+# Swap base_url and model; no code changes.
+#
+#   Ollama    http://localhost:11434/v1     simple, ~4 concurrent requests, good for dev
+#   vLLM      http://localhost:8000/v1      scales with concurrency, what you'd run in prod
+#   LM Studio http://localhost:1234/v1
+#
+# Model note: pointed at qwen3:14b because that is what is loaded on this machine and it
+# lets the extraction agent be demonstrated for real. Qwen 3.6 (27B, or 35B-A3B which
+# fits 16GB with --cpu-moe) is the stronger
+# pick for structured extraction — native JSON-schema support via Ollama's
+# `format`, and a dedicated tool-call parser. Gemma 4 27B is the alternative on 24GB.
+# ─────────────────────────────────────────────────────────────────────────────
+[backends.local]
+kind = "openai_compat"
+base_url = "http://localhost:11434/v1"
+model = "qwen3:14b"
+api_key_env = "LOCAL_LLM_API_KEY"   # Ollama ignores it; vLLM may require one
+max_tokens = 4096                   # reasoning models spend tokens thinking before answering;
+                                    # a 1k budget can be consumed entirely and return empty
+temperature = 0                     # structured extraction: always 0
+json_mode = "auto"                  # auto | schema | object | none
+                                    #   auto  tries json_schema, then json_object, then plain,
+                                    #         falling through on an EMPTY reply -- servers
+                                    #         disagree about which they support and some
+                                    #         return "" instead of an error
+disable_thinking = true             # Qwen3 and friends: skip the scratchpad for extraction
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ROUTING — which agent runs where, and why.
+#
+# The split is not about model quality. `conversation_intent` reads call transcripts,
+# which are personal data under GDPR and are covered by two-party-consent statutes in
+# CA/FL/IL. Sending them to a hosted API adds a processor to the record, a DPA, and for
+# EU accounts an international transfer — for the one task that also has the highest
+# volume (every call, forever) and the lowest writing-quality requirement (it emits JSON).
+#
+# So: extraction stays in the building. Drafting for humans, which only ever sees
+# aggregates and account ids, goes to the better writer.
+# ─────────────────────────────────────────────────────────────────────────────
+[routing]
+conversation_intent   = "local"   # PII — transcripts never leave the network
+hygiene_batch         = "local"   # touches account ids in bulk; keep it inside too
+run_verdict           = "cloud"   # aggregates only; this one is read by a VP
+experiment_card       = "cloud"   # aggregates only
+disagreement_question = "cloud"   # one account id, no transcript content

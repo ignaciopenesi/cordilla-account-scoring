@@ -5,14 +5,16 @@ _Nothing here is a ranked call list, and no account carries a probability. The a
 ## Verdict
 
 ┌──────────────────────────────────────────────────────────────────────────
-│ LLM CALL · run_verdict   (mode: template — the documented plug point)
-│ model   : claude-sonnet-5
-│ inputs  : feature PSI table, overlap with the previous run, score concentration, flag counts in the top K, sum of probabilities vs the field's reported rate
-│ returns : one paragraph, under 120 words, for the SDR manager
+│ AGENT · run_verdict   [template]
+│ purpose     : Say whether this week's run is worth trusting, and recommend what to do about it
+│ sensitivity : aggregate
+│ routed to   : cloud
+│ reads       : PSI table, overlap with previous run, score concentration, flags in top K, sum of probabilities vs the field rate
+│ returns     : one paragraph, under 120 words
 ├─ SYSTEM ─────────────────────────────────────────────────────────────────
 │ You write a weekly one-paragraph verdict on whether a scoring run is
-│ worth trusting. You are allowed -- expected -- to say it is not. End
-│ with a recommendation for THIS week, not a general observation.
+│ worth trusting. You are allowed — expected — to say it is not. End with
+│ a concrete recommendation for THIS week, not a general observation.
 ├─ PROMPT ─────────────────────────────────────────────────────────────────
 │ Run of 2026-08-01. every feature is stable against training (max PSI 0.06, intent_score). Overlap of the top 30 with the previous run:
 │ 30/30. the model's top-30 shares only 11/30 accounts with a plain sort by contact count. Of the top 30, 7 carry no flags. The model's predicted
@@ -21,20 +23,23 @@ _Nothing here is a ranked call list, and no account carries a probability. The a
 │ 
 │ Write the manager's paragraph. End with one concrete recommendation for this week.
 ├─ RETURNS (worked example) ───────────────────────────────────────────────
-│ Run of 2026-08-01. Every feature is stable against training (max PSI 0.06); snapshot age is not — but that is how the batch was drawn, not drift. The top 30 shares 21 of 30 accounts with last week's list even though no underlying data changed, which is the model's own seed, not the market. Only 11 of the top 30 carry no flags at all. The model expects 19.7 conversions across 300 accounts (6.6%) against a field rate the business reports at 1–3%. Recommendation this week: run the exploit arm off sales_contacts, not off the score, and do not publish the probabilities.
+│ Run of 2026-08-01. Every feature is stable against training (max PSI 0.06); snapshot age is not — but that is how the batch was drawn, not drift. The top 30 shares 21 of 30 accounts with last week's list even though no underlying data changed, which is the model's own seed, not the market. Only 7 of the top 30 carry no flags at all. The model expects 19.7 conversions across 300 accounts (6.6%) against a field rate the business reports at 1–3%. Recommendation this week: run the exploit arm off sales_contacts, not off the score, and do not publish the probabilities.
 └──────────────────────────────────────────────────────────────────────────
 
 ## Experiment
 
 ┌──────────────────────────────────────────────────────────────────────────
-│ LLM CALL · experiment_card   (mode: template — the documented plug point)
-│ model   : claude-sonnet-5
-│ inputs  : arms: name, size, selection rule, hypothesis, matching variables, base rate, expected readout date
-│ returns : markdown, ~150 words: one hypothesis per arm, what would confirm it, what would refute it, and the readout date
+│ AGENT · experiment_card   [template]
+│ purpose     : Write the week's allocation as an experiment the manager can approve or refuse
+│ sensitivity : aggregate
+│ routed to   : cloud
+│ reads       : arms (name, size, selection rule), matching variables, base rate, readout date
+│ returns     : markdown, ~150 words
 ├─ SYSTEM ─────────────────────────────────────────────────────────────────
 │ You write experiment cards for an SDR manager who is not technical and
 │ is sceptical of being experimented on. Be concrete about what each arm
-│ is testing and what result would make us stop. Never oversell.
+│ is testing and what result would make us stop. Never oversell, and never
+│ promise a lift number we do not have.
 ├─ PROMPT ─────────────────────────────────────────────────────────────────
 │ This week's allocation splits 90 accounts into 3 matched arms
 │ (industry and company size). Base rate is 6.5% in training, 1-3% per the business.
@@ -46,9 +51,8 @@ _Nothing here is a ranked call list, and no account carries a probability. The a
 │ Write the experiment card the SDR manager reads before approving. For each arm state the
 │ hypothesis in one sentence, the result that would confirm it, and the result that would
 │ kill it. End with the readout date and one sentence on why the control arm exists.
-│ Do not promise a lift number -- we do not have one.
 ├─ RETURNS (worked example) ───────────────────────────────────────────────
-│ (no worked example for this one)
+│ (no worked example)
 └──────────────────────────────────────────────────────────────────────────
 
 ## Actions awaiting your approval
@@ -70,6 +74,6 @@ _Nothing here is a ranked call list, and no account carries a probability. The a
 
 | node | reason | unblocked_by |
 |---|---|---|
-| CONVERSATION_INTENT | the two CSVs carry no call transcripts | call recording with disclosure (two-party-consent states and GDPR make this a precondition) + Dialpad Ai Call Purpose / Custom Moments, or any ASR feeding the `conversation_intent` prompt in llm.py |
+| CONVERSATION_INTENT | the two CSVs carry no call transcripts | call recording with disclosure (two-party-consent states and GDPR make this a precondition) + Dialpad Ai Call Purpose / Custom Moments, or any ASR feeding the `conversation_intent` agent in llm.py |
 | CALIBRATE_VENDOR | needs CONVERSATION_INTENT, which has no transcripts to work from | the same recording capability; then no new data is required |
 | RECONCILE (third voice) | conversation intent is unavailable, so only model-vs-effort can be compared | CONVERSATION_INTENT |
