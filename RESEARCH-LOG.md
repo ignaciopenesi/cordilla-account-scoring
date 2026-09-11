@@ -244,3 +244,82 @@ CSVs.
 **Next: decide what actually ships, given that the model doesn't.**
 
 ---
+
+## Entry 3 — 2026-09-10 ~23:30 · Building the audit, and three things I got wrong while building it
+
+**Form: notebook, not scripts.** Two reasons. The audit's argument is cumulative — §2.2
+only lands because §0.4 established provenance first — and a notebook makes the order
+visible. And it renders on GitHub with outputs and figures intact, so a reviewer sees the
+evidence without installing anything. The cost is that a notebook is easier to skim than
+to interrogate, so every section ends with an explicit verdict rather than leaving the
+reader to infer one.
+
+**Structure.** 0 provenance → 1 what is in the box → 2 reported vs. real performance →
+3 every variable one at a time → 4 stability and serving robustness → 5 allocation impact
+→ 6 consolidated verdict. 102 cells, 11 figures, runs end to end in about three minutes.
+
+### What section 3 added that I did not have before
+
+Entry 2 had the headline. Going feature by feature produced three things it didn't.
+
+**Nothing survives multiple-testing correction.** Nine features, nine tests, 78 positives.
+The strongest is `sales_contacts_90d` at raw p = 0.0075, which lands at p_BH = 0.068.
+`trial_started` at 0.024 → 0.108. Everything else is at p > 0.4.
+
+I want to be careful how I say this, because the tempting version is wrong. "Fails a
+corrected test" is **not** "no effect" — it is "this dataset is too small to establish
+one." A real but modest effect looks exactly like this. So the claim I'll defend is that
+`sales_contacts` is the only column with a credible claim to signal, and that even it is
+not established by these 1200 rows alone.
+
+**Importance tracks cardinality.** Spearman(GBM importance, number of distinct values in
+the column) = **+0.78, p = 0.041**; against univariate AUC it is flat and
+non-significant. The clean demonstration is the substitution test: put a **pure uniform
+noise column** in `intent_score`'s slot, matched only on range and missingness rate, and
+it earns **75%** of the real column's importance across 20 refits. A continuous column
+gives 40 depth-2 trees more places to cut, so it accumulates impurity reduction whether
+or not it means anything.
+
+This is the finding I'd lead with for a non-technical audience, because it needs no
+statistics: *the model's "most important feature" is important because it has a lot of
+decimal places.*
+
+**Where the imputation spike shows up in the trees.** The model places 31 splits on
+`intent_score`, and **7 of them fall inside (24.0, 26.6]** — thresholds at 24.25, 24.3 and
+26.6. Only two real accounts in the file carry intent = 25.3; 482 imputed rows land there.
+Those seven splits exist to separate "the vendor had no record" from everyone else. That
+is the mechanism behind Entry 2's decomposition, and it is much more convincing than the
+AUC deltas on their own.
+
+### Three corrections I made to my own work
+
+**1. A methodology error I caught in my own code.** My first out-of-fold implementation
+averaged the prediction vectors from 10 repeated CV runs and then computed one AUC:
+**0.582**. That is a 10-model ensemble, and ensembling is not what would ship. Scoring
+each repeat separately and averaging the metrics gives **0.573 ± 0.024**. Both numbers
+support the same conclusion, but the first is a number a panel could take apart, and I
+would rather not hand them one. The notebook prints both and says which is honest.
+
+**2. I stated a direction backwards.** I had written that dropping the 101 censored rows
+moves out-of-fold AUC *down*. It moves it **up**, 0.573 → 0.575. The substantive point is
+unchanged and if anything cleaner: label repair moves the number by two thousandths,
+inside a ±0.024 spread, so censoring is not what is wrong with this model. But "it gets
+worse" was wrong and I had written it because it made a tidier story.
+
+**3. Numbers in prose drifting from numbers in output.** Rebuilding and re-executing the
+notebook several times left several markdown claims stale — Mantel-Haenszel odds ratios
+I'd written as 2.4–2.6 that recompute to 2.18–2.30, a Fisher p of 0.16 that is 0.119, five
+intent splits in the imputation bracket that are actually seven. I now re-read every
+markdown number against its cell's output after each execution. Tedious, and exactly the
+kind of thing that destroys credibility when a panel is reading along.
+
+### Still open, and I'd rather flag it than paper over it
+
+The blocking question from Entry 2 has not moved: **does `sales_contacts_90d` count the 90
+days before the snapshot, or the same 90 days in which conversion is measured?** If the
+windows overlap, the only significant feature in the dataset is leakage. I cannot resolve
+it from the files, and it is the first thing I would ask the data owner.
+
+**Next: an adversarial pass over the notebook before I build anything on top of it.**
+
+---
