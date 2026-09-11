@@ -1,0 +1,357 @@
+{
+  "protocol": "train = oldest labelled rows with closed window (n=799), test = newest 300; rates estimated per cut; no model fitted",
+  "bias": "upper bound: reps call accounts that already look better; a segment <= 0 despite that is one where calling does not help",
+  "cuts": {
+    "train": [
+      {
+        "segment": "trial",
+        "n_uncalled": 61,
+        "conv_uncalled": 4,
+        "rate_uncalled": 0.0656,
+        "n_called": 78,
+        "conv_called": 9,
+        "rate_called": 0.1154,
+        "uplift_pts": 5.0,
+        "ci95_lo": -4.4,
+        "ci95_hi": 14.4,
+        "fisher_p": 0.388,
+        "hours_per_called_account": 0.46,
+        "uplift_per_hour": 10.7
+      },
+      {
+        "segment": "vendor",
+        "n_uncalled": 153,
+        "conv_uncalled": 10,
+        "rate_uncalled": 0.0654,
+        "n_called": 206,
+        "conv_called": 15,
+        "rate_called": 0.0728,
+        "uplift_pts": 0.7,
+        "ci95_lo": -4.5,
+        "ci95_hi": 6.0,
+        "fisher_p": 0.837,
+        "hours_per_called_account": 0.46,
+        "uplift_per_hour": 1.6
+      },
+      {
+        "segment": "none",
+        "n_uncalled": 37,
+        "conv_uncalled": 2,
+        "rate_uncalled": 0.0541,
+        "n_called": 39,
+        "conv_called": 3,
+        "rate_called": 0.0769,
+        "uplift_pts": 2.3,
+        "ci95_lo": -8.8,
+        "ci95_hi": 13.4,
+        "fisher_p": 1.0,
+        "hours_per_called_account": 0.47,
+        "uplift_per_hour": 4.8
+      },
+      {
+        "segment": "mql",
+        "n_uncalled": 23,
+        "conv_uncalled": 0,
+        "rate_uncalled": 0.0,
+        "n_called": 49,
+        "conv_called": 0,
+        "rate_called": 0.0,
+        "uplift_pts": 0.0,
+        "ci95_lo": 0.0,
+        "ci95_hi": 0.0,
+        "fisher_p": 1.0,
+        "hours_per_called_account": 0.47,
+        "uplift_per_hour": 0.0
+      },
+      {
+        "segment": "web",
+        "n_uncalled": 44,
+        "conv_uncalled": 4,
+        "rate_uncalled": 0.0909,
+        "n_called": 50,
+        "conv_called": 0,
+        "rate_called": 0.0,
+        "uplift_pts": -9.1,
+        "ci95_lo": -17.6,
+        "ci95_hi": -0.6,
+        "fisher_p": 0.045,
+        "hours_per_called_account": 0.44,
+        "uplift_per_hour": -20.7
+      }
+    ],
+    "test": [
+      {
+        "segment": "trial",
+        "n_uncalled": 19,
+        "conv_uncalled": 0,
+        "rate_uncalled": 0.0,
+        "n_called": 34,
+        "conv_called": 8,
+        "rate_called": 0.2353,
+        "uplift_pts": 23.5,
+        "ci95_lo": 9.3,
+        "ci95_hi": 37.8,
+        "fisher_p": 0.04,
+        "hours_per_called_account": 0.44,
+        "uplift_per_hour": 53.3
+      },
+      {
+        "segment": "vendor",
+        "n_uncalled": 57,
+        "conv_uncalled": 2,
+        "rate_uncalled": 0.0351,
+        "n_called": 74,
+        "conv_called": 8,
+        "rate_called": 0.1081,
+        "uplift_pts": 7.3,
+        "ci95_lo": -1.2,
+        "ci95_hi": 15.8,
+        "fisher_p": 0.185,
+        "hours_per_called_account": 0.47,
+        "uplift_per_hour": 15.5
+      },
+      {
+        "segment": "none",
+        "n_uncalled": 14,
+        "conv_uncalled": 1,
+        "rate_uncalled": 0.0714,
+        "n_called": 10,
+        "conv_called": 0,
+        "rate_called": 0.0,
+        "uplift_pts": -7.1,
+        "ci95_lo": -20.6,
+        "ci95_hi": 6.3,
+        "fisher_p": 1.0,
+        "hours_per_called_account": 0.46,
+        "uplift_per_hour": -15.5
+      },
+      {
+        "segment": "mql",
+        "n_uncalled": 13,
+        "conv_uncalled": 0,
+        "rate_uncalled": 0.0,
+        "n_called": 20,
+        "conv_called": 0,
+        "rate_called": 0.0,
+        "uplift_pts": 0.0,
+        "ci95_lo": 0.0,
+        "ci95_hi": 0.0,
+        "fisher_p": 1.0,
+        "hours_per_called_account": 0.44,
+        "uplift_per_hour": 0.0
+      },
+      {
+        "segment": "web",
+        "n_uncalled": 14,
+        "conv_uncalled": 0,
+        "rate_uncalled": 0.0,
+        "n_called": 22,
+        "conv_called": 0,
+        "rate_called": 0.0,
+        "uplift_pts": 0.0,
+        "ci95_lo": 0.0,
+        "ci95_hi": 0.0,
+        "fisher_p": 1.0,
+        "hours_per_called_account": 0.44,
+        "uplift_per_hour": 0.0
+      }
+    ],
+    "all": [
+      {
+        "segment": "trial",
+        "n_uncalled": 80,
+        "conv_uncalled": 4,
+        "rate_uncalled": 0.05,
+        "n_called": 112,
+        "conv_called": 17,
+        "rate_called": 0.1518,
+        "uplift_pts": 10.2,
+        "ci95_lo": 2.0,
+        "ci95_hi": 18.4,
+        "fisher_p": 0.034,
+        "hours_per_called_account": 0.46,
+        "uplift_per_hour": 22.3
+      },
+      {
+        "segment": "vendor",
+        "n_uncalled": 210,
+        "conv_uncalled": 12,
+        "rate_uncalled": 0.0571,
+        "n_called": 280,
+        "conv_called": 23,
+        "rate_called": 0.0821,
+        "uplift_pts": 2.5,
+        "ci95_lo": -2.0,
+        "ci95_hi": 7.0,
+        "fisher_p": 0.376,
+        "hours_per_called_account": 0.46,
+        "uplift_per_hour": 5.4
+      },
+      {
+        "segment": "none",
+        "n_uncalled": 51,
+        "conv_uncalled": 3,
+        "rate_uncalled": 0.0588,
+        "n_called": 49,
+        "conv_called": 3,
+        "rate_called": 0.0612,
+        "uplift_pts": 0.2,
+        "ci95_lo": -9.1,
+        "ci95_hi": 9.6,
+        "fisher_p": 1.0,
+        "hours_per_called_account": 0.47,
+        "uplift_per_hour": 0.5
+      },
+      {
+        "segment": "mql",
+        "n_uncalled": 36,
+        "conv_uncalled": 0,
+        "rate_uncalled": 0.0,
+        "n_called": 69,
+        "conv_called": 0,
+        "rate_called": 0.0,
+        "uplift_pts": 0.0,
+        "ci95_lo": 0.0,
+        "ci95_hi": 0.0,
+        "fisher_p": 1.0,
+        "hours_per_called_account": 0.46,
+        "uplift_per_hour": 0.0
+      },
+      {
+        "segment": "web",
+        "n_uncalled": 58,
+        "conv_uncalled": 4,
+        "rate_uncalled": 0.069,
+        "n_called": 72,
+        "conv_called": 0,
+        "rate_called": 0.0,
+        "uplift_pts": -6.9,
+        "ci95_lo": -13.4,
+        "ci95_hi": -0.4,
+        "fisher_p": 0.037,
+        "hours_per_called_account": 0.44,
+        "uplift_per_hour": -15.7
+      }
+    ]
+  },
+  "order_by_uplift": {
+    "train": [
+      "trial",
+      "none",
+      "vendor",
+      "mql",
+      "web"
+    ],
+    "test": [
+      "trial",
+      "vendor",
+      "mql",
+      "web",
+      "none"
+    ],
+    "all": [
+      "trial",
+      "vendor",
+      "none",
+      "mql",
+      "web"
+    ]
+  },
+  "top_segment": "trial",
+  "top_segment_stable": true,
+  "positive_segments": [
+    "trial",
+    "vendor"
+  ],
+  "skip_segments": [
+    "mql",
+    "web"
+  ],
+  "unstable_segments": [
+    "none"
+  ],
+  "uplift_by_segment_train_test_all": {
+    "trial": [
+      5.0,
+      23.5,
+      10.2
+    ],
+    "vendor": [
+      0.7,
+      7.3,
+      2.5
+    ],
+    "none": [
+      2.3,
+      -7.1,
+      0.2
+    ],
+    "mql": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "web": [
+      -9.1,
+      0.0,
+      -6.9
+    ]
+  },
+  "dose": {
+    "all": {
+      "trial": {
+        "0": {
+          "n": 80,
+          "rate": 0.05
+        },
+        "1": {
+          "n": 31,
+          "rate": 0.1613
+        },
+        "2": {
+          "n": 33,
+          "rate": 0.1818
+        },
+        "3": {
+          "n": 33,
+          "rate": 0.1515
+        },
+        "4": {
+          "n": 15,
+          "rate": 0.0667
+        }
+      },
+      "vendor": {
+        "0": {
+          "n": 210,
+          "rate": 0.0571
+        },
+        "1": {
+          "n": 85,
+          "rate": 0.0941
+        },
+        "2": {
+          "n": 78,
+          "rate": 0.0641
+        },
+        "3": {
+          "n": 65,
+          "rate": 0.0615
+        },
+        "4": {
+          "n": 52,
+          "rate": 0.1154
+        },
+        "5": {
+          "n": 30,
+          "rate": 0.1333
+        }
+      }
+    }
+  },
+  "n_per_group_to_measure_unbiased": {
+    "5->15": 138,
+    "5->10": 432
+  },
+  "verdict": "top segment 'trial' on every cut; calling never helped ['mql', 'web'] on any cut; ['none'] unstable (small n) -- rank on the top and the skip set, treat the rest as neutral"
+}

@@ -1,0 +1,481 @@
+{
+  "test_n": 300,
+  "train_n": 799,
+  "test_base_rate": 0.0767,
+  "test_converters": 23,
+  "test_window": [
+    "2026-01-08",
+    "2026-05-03"
+  ],
+  "train_window": [
+    "2024-08-20",
+    "2026-01-07"
+  ],
+  "fits_performed": 0,
+  "by_K": {
+    "30": [
+      {
+        "policy": "model \u2014 the pickle scoring rows it was trained on (memory)",
+        "n": 30,
+        "converted": 10,
+        "precision": 0.3333,
+        "ci95": "[19%, 51%]",
+        "recall": 0.4348,
+        "lift": 4.35,
+        "contacts_sunk": 107,
+        "model_rank_median": 15
+      },
+      {
+        "policy": "model \u2014 out-of-fold (prediction)",
+        "n": 30,
+        "converted": 3,
+        "precision": 0.1,
+        "ci95": "[3%, 26%]",
+        "recall": 0.1304,
+        "lift": 1.3,
+        "contacts_sunk": 116,
+        "model_rank_median": 15
+      },
+      {
+        "policy": "continue alone (1\u20134 contacts: trial > vendor > none)",
+        "n": 30,
+        "converted": 7,
+        "precision": 0.2333,
+        "ci95": "[12%, 41%]",
+        "recall": 0.3043,
+        "lift": 3.04,
+        "contacts_sunk": 71,
+        "model_rank_median": 15
+      },
+      {
+        "policy": "first-call alone (untouched trial, then vendor)",
+        "n": 30,
+        "converted": 1,
+        "precision": 0.0333,
+        "ci95": "[1%, 17%]",
+        "recall": 0.0435,
+        "lift": 0.43,
+        "contacts_sunk": 0,
+        "model_rank_median": 15
+      },
+      {
+        "policy": "THE GRAPH \u2014 continue 5/6 + first-call 1/6, ask and skip excluded",
+        "n": 30,
+        "converted": 6,
+        "precision": 0.2,
+        "ci95": "[10%, 37%]",
+        "recall": 0.2609,
+        "lift": 2.61,
+        "contacts_sunk": 66,
+        "model_rank_median": 15
+      },
+      {
+        "policy": "continue \u222a model picks (half each) \u2014 does the model add anything?",
+        "n": 30,
+        "converted": 5,
+        "precision": 0.1667,
+        "ci95": "[7%, 34%]",
+        "recall": 0.2174,
+        "lift": 2.17,
+        "contacts_sunk": 105,
+        "model_rank_median": 15
+      },
+      {
+        "policy": "ask cohort, if called anyway (5+ contacts)",
+        "n": 23,
+        "converted": 4,
+        "precision": 0.1739,
+        "ci95": "[7%, 37%]",
+        "recall": 0.1739,
+        "lift": 2.27,
+        "contacts_sunk": 133,
+        "model_rank_median": 12
+      },
+      {
+        "policy": "random (mean of 200 draws)",
+        "n": 30,
+        "converted": 2.3,
+        "precision": 0.0778,
+        "ci95": "5\u201395%: [0%, 17%]",
+        "recall": 0.1015,
+        "lift": 1.02,
+        "contacts_sunk": 50,
+        "model_rank_median": null
+      },
+      {
+        "policy": "the team today \u2014 every account it chose to work",
+        "n": 183,
+        "converted": 20,
+        "precision": 0.1093,
+        "ci95": "[7%, 16%]",
+        "recall": 0.8696,
+        "lift": 1.43,
+        "contacts_sunk": 497,
+        "model_rank_median": null
+      },
+      {
+        "policy": "the graph WITH the conversation agent",
+        "n": null,
+        "converted": null,
+        "precision": null,
+        "ci95": "needs call transcripts on accounts with a known outcome \u2014 none exist; ROLLOUT phase 3",
+        "recall": null,
+        "lift": null,
+        "contacts_sunk": null,
+        "model_rank_median": null
+      }
+    ],
+    "60": [
+      {
+        "policy": "model \u2014 the pickle scoring rows it was trained on (memory)",
+        "n": 60,
+        "converted": 15,
+        "precision": 0.25,
+        "ci95": "[16%, 37%]",
+        "recall": 0.6522,
+        "lift": 3.26,
+        "contacts_sunk": 194,
+        "model_rank_median": 30
+      },
+      {
+        "policy": "model \u2014 out-of-fold (prediction)",
+        "n": 60,
+        "converted": 8,
+        "precision": 0.1333,
+        "ci95": "[7%, 24%]",
+        "recall": 0.3478,
+        "lift": 1.74,
+        "contacts_sunk": 193,
+        "model_rank_median": 30
+      },
+      {
+        "policy": "continue alone (1\u20134 contacts: trial > vendor > none)",
+        "n": 60,
+        "converted": 12,
+        "precision": 0.2,
+        "ci95": "[12%, 32%]",
+        "recall": 0.5217,
+        "lift": 2.61,
+        "contacts_sunk": 165,
+        "model_rank_median": 30
+      },
+      {
+        "policy": "first-call alone (untouched trial, then vendor)",
+        "n": 60,
+        "converted": 1,
+        "precision": 0.0167,
+        "ci95": "[0%, 9%]",
+        "recall": 0.0435,
+        "lift": 0.22,
+        "contacts_sunk": 0,
+        "model_rank_median": 30
+      },
+      {
+        "policy": "THE GRAPH \u2014 continue 5/6 + first-call 1/6, ask and skip excluded",
+        "n": 60,
+        "converted": 11,
+        "precision": 0.1833,
+        "ci95": "[11%, 30%]",
+        "recall": 0.4783,
+        "lift": 2.39,
+        "contacts_sunk": 135,
+        "model_rank_median": 30
+      },
+      {
+        "policy": "continue \u222a model picks (half each) \u2014 does the model add anything?",
+        "n": 60,
+        "converted": 10,
+        "precision": 0.1667,
+        "ci95": "[9%, 28%]",
+        "recall": 0.4348,
+        "lift": 2.17,
+        "contacts_sunk": 189,
+        "model_rank_median": 30
+      },
+      {
+        "policy": "ask cohort, if called anyway (5+ contacts)",
+        "n": 23,
+        "converted": 4,
+        "precision": 0.1739,
+        "ci95": "[7%, 37%]",
+        "recall": 0.1739,
+        "lift": 2.27,
+        "contacts_sunk": 133,
+        "model_rank_median": 12
+      },
+      {
+        "policy": "random (mean of 200 draws)",
+        "n": 60,
+        "converted": 4.6,
+        "precision": 0.0765,
+        "ci95": "5\u201395%: [3%, 13%]",
+        "recall": 0.1996,
+        "lift": 1.0,
+        "contacts_sunk": 99,
+        "model_rank_median": null
+      },
+      {
+        "policy": "the team today \u2014 every account it chose to work",
+        "n": 183,
+        "converted": 20,
+        "precision": 0.1093,
+        "ci95": "[7%, 16%]",
+        "recall": 0.8696,
+        "lift": 1.43,
+        "contacts_sunk": 497,
+        "model_rank_median": null
+      },
+      {
+        "policy": "the graph WITH the conversation agent",
+        "n": null,
+        "converted": null,
+        "precision": null,
+        "ci95": "needs call transcripts on accounts with a known outcome \u2014 none exist; ROLLOUT phase 3",
+        "recall": null,
+        "lift": null,
+        "contacts_sunk": null,
+        "model_rank_median": null
+      }
+    ]
+  },
+  "converters": [
+    {
+      "account_id": "ACC-00560",
+      "contacts": 5,
+      "trial": true,
+      "vendor_record": true,
+      "mql": 2,
+      "web": 0,
+      "model_rank_of_300": 4,
+      "mechanism": "ask (5+ contacts) \u2014 recoverable if the rep answers"
+    },
+    {
+      "account_id": "ACC-00054",
+      "contacts": 5,
+      "trial": false,
+      "vendor_record": true,
+      "mql": 2,
+      "web": 0,
+      "model_rank_of_300": 27,
+      "mechanism": "ask (5+ contacts) \u2014 recoverable if the rep answers"
+    },
+    {
+      "account_id": "ACC-00984",
+      "contacts": 5,
+      "trial": false,
+      "vendor_record": true,
+      "mql": 1,
+      "web": 5,
+      "model_rank_of_300": 37,
+      "mechanism": "ask (5+ contacts) \u2014 recoverable if the rep answers"
+    },
+    {
+      "account_id": "ACC-00731",
+      "contacts": 5,
+      "trial": false,
+      "vendor_record": true,
+      "mql": 1,
+      "web": 6,
+      "model_rank_of_300": 18,
+      "mechanism": "ask (5+ contacts) \u2014 recoverable if the rep answers"
+    },
+    {
+      "account_id": "ACC-01259",
+      "contacts": 4,
+      "trial": true,
+      "vendor_record": true,
+      "mql": 1,
+      "web": 0,
+      "model_rank_of_300": 33,
+      "mechanism": "continue segment 'trial', position 4 \u2014 in the top 40"
+    },
+    {
+      "account_id": "ACC-00807",
+      "contacts": 4,
+      "trial": false,
+      "vendor_record": true,
+      "mql": 0,
+      "web": 0,
+      "model_rank_of_300": 68,
+      "mechanism": "continue segment 'vendor', position 41 \u2014 below the cut"
+    },
+    {
+      "account_id": "ACC-01231",
+      "contacts": 4,
+      "trial": false,
+      "vendor_record": true,
+      "mql": 0,
+      "web": 4,
+      "model_rank_of_300": 71,
+      "mechanism": "continue segment 'vendor', position 43 \u2014 below the cut"
+    },
+    {
+      "account_id": "ACC-00064",
+      "contacts": 3,
+      "trial": true,
+      "vendor_record": true,
+      "mql": 0,
+      "web": 0,
+      "model_rank_of_300": 36,
+      "mechanism": "continue segment 'trial', position 5 \u2014 in the top 40"
+    },
+    {
+      "account_id": "ACC-00214",
+      "contacts": 3,
+      "trial": true,
+      "vendor_record": false,
+      "mql": 0,
+      "web": 3,
+      "model_rank_of_300": 249,
+      "mechanism": "continue segment 'trial', position 6 \u2014 in the top 40"
+    },
+    {
+      "account_id": "ACC-00372",
+      "contacts": 3,
+      "trial": false,
+      "vendor_record": true,
+      "mql": 3,
+      "web": 0,
+      "model_rank_of_300": 231,
+      "mechanism": "continue segment 'vendor', position 54 \u2014 below the cut"
+    },
+    {
+      "account_id": "ACC-00139",
+      "contacts": 3,
+      "trial": false,
+      "vendor_record": true,
+      "mql": 0,
+      "web": 7,
+      "model_rank_of_300": 119,
+      "mechanism": "continue segment 'vendor', position 49 \u2014 below the cut"
+    },
+    {
+      "account_id": "ACC-01072",
+      "contacts": 2,
+      "trial": false,
+      "vendor_record": true,
+      "mql": 2,
+      "web": 8,
+      "model_rank_of_300": 98,
+      "mechanism": "continue segment 'vendor', position 83 \u2014 below the cut"
+    },
+    {
+      "account_id": "ACC-00848",
+      "contacts": 2,
+      "trial": false,
+      "vendor_record": true,
+      "mql": 1,
+      "web": 4,
+      "model_rank_of_300": 228,
+      "mechanism": "continue segment 'vendor', position 79 \u2014 below the cut"
+    },
+    {
+      "account_id": "ACC-01143",
+      "contacts": 2,
+      "trial": true,
+      "vendor_record": true,
+      "mql": 2,
+      "web": 0,
+      "model_rank_of_300": 59,
+      "mechanism": "continue segment 'trial', position 22 \u2014 in the top 40"
+    },
+    {
+      "account_id": "ACC-01468",
+      "contacts": 2,
+      "trial": true,
+      "vendor_record": false,
+      "mql": 2,
+      "web": 0,
+      "model_rank_of_300": 99,
+      "mechanism": "continue segment 'trial', position 24 \u2014 in the top 40"
+    },
+    {
+      "account_id": "ACC-00103",
+      "contacts": 2,
+      "trial": true,
+      "vendor_record": true,
+      "mql": 1,
+      "web": 3,
+      "model_rank_of_300": 136,
+      "mechanism": "continue segment 'trial', position 14 \u2014 in the top 40"
+    },
+    {
+      "account_id": "ACC-00975",
+      "contacts": 1,
+      "trial": false,
+      "vendor_record": true,
+      "mql": 0,
+      "web": 6,
+      "model_rank_of_300": 167,
+      "mechanism": "continue segment 'vendor', position 101 \u2014 below the cut"
+    },
+    {
+      "account_id": "ACC-00235",
+      "contacts": 1,
+      "trial": true,
+      "vendor_record": true,
+      "mql": 0,
+      "web": 2,
+      "model_rank_of_300": 41,
+      "mechanism": "continue segment 'trial', position 26 \u2014 in the top 40"
+    },
+    {
+      "account_id": "ACC-00981",
+      "contacts": 1,
+      "trial": false,
+      "vendor_record": true,
+      "mql": 2,
+      "web": 0,
+      "model_rank_of_300": 152,
+      "mechanism": "continue segment 'vendor', position 103 \u2014 below the cut"
+    },
+    {
+      "account_id": "ACC-01357",
+      "contacts": 1,
+      "trial": true,
+      "vendor_record": true,
+      "mql": 5,
+      "web": 2,
+      "model_rank_of_300": 87,
+      "mechanism": "continue segment 'trial', position 33 \u2014 in the top 40"
+    },
+    {
+      "account_id": "ACC-00607",
+      "contacts": 0,
+      "trial": false,
+      "vendor_record": false,
+      "mql": 0,
+      "web": 0,
+      "model_rank_of_300": 294,
+      "mechanism": "0 contacts, no signal \u2014 control decides"
+    },
+    {
+      "account_id": "ACC-01313",
+      "contacts": 0,
+      "trial": false,
+      "vendor_record": true,
+      "mql": 0,
+      "web": 9,
+      "model_rank_of_300": 76,
+      "mechanism": "first-call, position 22"
+    },
+    {
+      "account_id": "ACC-01499",
+      "contacts": 0,
+      "trial": false,
+      "vendor_record": true,
+      "mql": 1,
+      "web": 0,
+      "model_rank_of_300": 288,
+      "mechanism": "first-call, position 76"
+    }
+  ],
+  "converter_summary": {
+    "continue top-40": 8,
+    "continue pool, below the cut": 8,
+    "ask (5+)": 4,
+    "first-call, reached (top 20)": 0,
+    "first-call, deep": 2,
+    "no signal / skip": 1
+  }
+}
