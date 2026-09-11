@@ -9,11 +9,22 @@ Take-home for the AI Transformation Analyst role at Dialpad. The short version:
 - **The nine columns contain no account-intrinsic signal.** The only two that carry any
   measure what Cordilla already did to the account. So the ask is not a better model —
   it is producing the data that is missing while the system runs. → `PROPOSAL.md`
-- **`serving/` is a stateful graph** that scores the 300 accounts, compares the score
-  against its baselines and against recorded-call intent, allocates effort in three
-  matched arms with a control, proposes CRM corrections, and writes one weekly verdict —
-  with one human approval before anything touches Salesforce.
+- **`serving/` is a stateful graph that runs end to end in four seconds.** It scores the
+  300, keeps the model as *one voice of three* and uses it only where it disagrees,
+  allocates effort into three matched arms with a control, proposes CRM corrections with
+  the rule that stops each defect recurring, and writes one weekly verdict — with a single
+  human approval before anything touches Salesforce. **Nodes whose inputs do not exist yet
+  are declared as bypassed, not stubbed:** 11 run, 2 are partial, 2 are bypassed, and each
+  bypass records what would unblock it. → `serving/README.md`
 - **How I worked, including where AI was wrong and what I changed** → `RESEARCH-LOG.md`
+
+```
+audit/01_model_audit.ipynb   110 cells, runs in ~4 min, committed with outputs
+serving/pipeline.py          python serving/pipeline.py   (~4s, no extra deps)
+serving/README.md            the graph, what runs today and what does not
+PROPOSAL.md                  ~1,250 words, the four areas
+RESEARCH-LOG.md              8 entries, kept as I went
+```
 
 Everything below is the original starter README, kept as provided.
 

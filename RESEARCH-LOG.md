@@ -709,3 +709,102 @@ the dataset is leakage, and there was never anything predictive here at all. I w
 it before the presentation if I could. I would ask it in the room if I can't.
 
 ---
+
+## Entry 8 — 2026-09-11 ~09:30–10:15 · Building serving/, and three corrections to my own design
+
+Before writing code I re-read what the packet actually asks for here, because it is the
+one deliverable where I was at risk of over-building:
+
+> *"A **rough, real** script… It needs to be real and **it needs to run**."* · *"A clearly
+> designed template with an obvious, documented spot where a real call would plug in… is
+> **judged the same as a live call**."* · *"**Write production-grade code in serving/** —
+> you don't need to."* · *"**Not a bigger build.**"*
+
+So: the bar on *code* is low and the bar on *design* is high. That resolved the tension I
+had been carrying — a 15-node graph is a bigger build if you construct all of it, and it
+is a legitimate design if you construct what today's data supports and **declare the
+rest**. Bypassed nodes print what they would produce and what unblocks them, and that
+declaration is itself the traceability the fourth section asks for.
+
+Result: 11 nodes run, 2 partial, 2 bypassed. `python serving/pipeline.py` takes four
+seconds and writes five artifacts. No new dependencies — `anthropic` is imported inside
+the live-call branch only, and I wrote the one markdown table by hand rather than pull in
+`tabulate`.
+
+### Three corrections to what I had designed yesterday
+
+**1. I was going to throw away the intent vendor. That was wrong, and the data says so.**
+I had concluded "drop the values, keep the flag" and drifted from there into treating the
+vendor as useless. Separating the two questions properly:
+
+| | result |
+|---|---|
+| Does **coverage** predict? | 8.22% vs 3.94%, Fisher **p = 0.003** — yes |
+| Does the **score** predict? | quintiles 8.3 / 7.0 / 9.7 / 7.0 / 9.1, Spearman **p = 0.42** — no |
+
+**The vendor tells you who is visible, not who wants to buy.** That is not a broken
+vendor, it is a vendor being read as something it isn't. So `CONVERSATION_INTENT` now
+*completes* it rather than replacing it, and splits the 300 into four quadrants that each
+get different treatment:
+
+| quadrant | n | what it enables |
+|---|---|---|
+| vendor record **+** a call happened | **103** | contrast the vendor against what the prospect said — the only way to find out if it is any good, and nobody at Cordilla can do that today |
+| no vendor record **+** a call happened | **67** | fill the gap **now**, with no new outreach |
+| vendor record, no call | **81** | a claim never contrasted against anything |
+| neither | **49** | blind — but only **10** are genuinely cold |
+
+And the number that made me rewrite the node: **197 of 481 logged contacts (41%) are with
+accounts the vendor never covered.** Those conversations already happen. The signal is
+being generated and discarded. That reframes the proposal from *"record calls and in 90
+days we'll see"* to *"the team is already producing what's missing and nobody captures it."*
+
+**2. My `VERDICT` node reported errors and stopped there.** It said "this run is
+indistinguishable from noise (p = 0.57)" and that was the whole output. A report without
+an action is exactly what the organisation already has, and it is how the last model died
+quietly. So every detector now emits a **typed finding** —
+`what · evidence · severity · owner · action · cost · expect` — and a new `PRESCRIBE` node
+ranks them by owner (`crm` / `vendor` / `pipeline` / `model` / `process`). The manager
+approves **actions**, not a document. Ten this run; one marked blocking.
+
+Every hygiene proposal now also carries **the rule that stops the defect recurring** — a
+validation rule so an account with activity cannot be saved as a Suspect, a labeling rule
+so a label is NULL rather than 0 before its window closes. A one-off cleanup is worth much
+less than the rule, and I had been proposing cleanups.
+
+**3. `CALIBRATE_VENDOR` did not exist in yesterday's design.** It fell out of the
+quadrants: on the 103 accounts where both a vendor record and a call exist, the vendor's
+claim is contrastable. That produces something Cordilla cannot produce today — evidence
+for the renewal conversation — and it costs nothing beyond the recording capability that
+was already proposed.
+
+### What I deliberately did not build
+
+Not LangGraph. It is outside the pinned dependencies, the panel is evaluating design
+rather than framework choice, and a typed dict with functions and one interrupt point *is*
+the same graph — readable in five minutes and extensible live, which matters more here
+than importing an orchestration library.
+
+Not a scheduler, retries, or persistence beyond one JSON file. "A rough script that runs
+is enough", and adding those would be the bigger build the packet warns against.
+
+Not an LLM call by default. `--llm template` renders the exact prompt and a worked example
+of the return; `--llm live` calls the API. The packet judges these the same, and the
+template has the advantage that a reviewer can read the prompt without a key.
+
+### The bug I hit and what it says
+
+`llm.draft(kind=...)` collided with a `{kind}` placeholder inside one of the prompt
+templates — the payload key shadowed the function's own parameter. Renamed it
+`disagreement_kind`. Small, but it is the kind of thing that would have failed silently
+if the template had happened to have a default.
+
+### What still is not real, stated plainly
+
+`CONVERSATION_INTENT` extraction, `CALIBRATE_VENDOR`, and `READOUT` do not run — no
+transcripts, no 90-day outcomes. Their contracts are written, their inputs are named, and
+the parts that *are* computable today (the quadrants, the contrastable set, the arm
+assignments) do run. **If the panel wants to see the system work end to end, that is the
+honest answer: it cannot yet, and here is precisely what is missing and what it costs.**
+
+---
