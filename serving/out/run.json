@@ -17,7 +17,7 @@
       "evidence": "102 of 300 scoring accounts have a snapshot over 180 days old; 218 are over 90 days, and every feature is a 90-day window",
       "severity": "high",
       "owner": "crm",
-      "action": "Refresh before assigning. No account over 180 days enters an arm without a refreshed snapshot.",
+      "action": "Flag it on the row, do not block it \u2014 working hypothesis: still actionable. READOUT compares stale vs fresh conversion within each arm; if stale loses, the flag becomes a filter.",
       "cost": "enrichment refresh on ~1/3 of the batch",
       "expect": "reps stop calling a description of a company from two quarters ago",
       "source": "VALIDATE"
@@ -33,51 +33,41 @@
       "source": "SCORE"
     },
     {
-      "what": "Conversations that would fill the vendor's coverage gap already happen, and are not captured",
-      "evidence": "197 of 481 contacts (41%) are with accounts that have no vendor record; 67 such accounts have had at least one call. Vendor COVERAGE predicts conversion (8.22% vs 3.94%, p=0.003) but its SCORE does not (quintiles flat, p=0.42)",
-      "severity": "high",
-      "owner": "process",
-      "action": "Record sales calls with per-call disclosure and transcript-only storage, and extract intent per the contract in llm.py. Start with the fill_gap quadrant -- it needs no new outreach, only capture of calls that already happen.",
-      "cost": "recording + transcription on existing calls; no new rep time",
-      "expect": "the 40% of the base the vendor cannot see gets a first-hand intent signal",
-      "source": "CONVERSATION_INTENT"
-    },
-    {
-      "what": "The intent vendor overstates on accounts we can check",
-      "evidence": "of 12 accounts with both a vendor score and a call, 1 are scored high by the vendor and read low from the conversation (overall agreement 50%). \u26a0 synthetic demo data \u2014 the METHOD is the deliverable, not this number",
-      "severity": "medium",
-      "owner": "vendor",
-      "action": "Run this table monthly on real calls and take it into the renewal. Pay for coverage, which predicts (p=0.003); stop paying for the score, which does not (p=0.42).",
-      "cost": "free once calls are recorded",
-      "expect": "the renewal is negotiated on evidence instead of the vendor's claim",
-      "source": "CALIBRATE_VENDOR"
-    },
-    {
-      "what": "The model ranks accounts that declined ABOVE accounts that are ready to buy",
-      "evidence": "on accounts with a transcript, mean score is 6.9% for those that said no vs 5.5% for those that said yes \u2014 inverted. The cause is contact count (3.2 vs 2.0), the model's strongest feature. \u26a0 synthetic demo transcripts; the mechanism is audit \u00a73.5, which is not",
+      "what": "The model's dashboard number is memory, not prediction",
+      "evidence": "on 1099 labelled rows, the model's top-90 converts at 31.1% when it scores rows it was trained on and 6.7% when it scores rows it never saw (out-of-fold) \u2014 against a 7.1% base and 7.3% for a random list (mean of 200). The graph's worklist converts at 12.2% with 213 contacts already sunk vs 486 for the old contact sort at the same rate",
       "severity": "high",
       "owner": "model",
-      "action": "Never rank on this score. Where a conversation exists, it overrides; where it does not, use the explore arm rather than the score. Breaking the loop requires a signal that is not a function of our own past effort.",
-      "cost": "0 \u2014 it is the policy this pipeline already implements",
-      "expect": "effort stops concentrating on accounts that are expensive because they have already been expensive",
-      "source": "VALUE"
+      "action": "Never show an in-sample rate to anyone. Every number about this model that reaches a manager comes from out-of-fold or forward-in-time scoring, and says which.",
+      "cost": "0 \u2014 the OOF scores exist; it is a rule about which column to read",
+      "expect": "the VP sees 6.7%, not 31%, and asks the right question",
+      "source": "PROVE"
     },
     {
-      "what": "The conversation layer changes decisions the score alone would get wrong",
-      "evidence": "on 20 accounts with a transcript: 2 rescued (bottom-quartile score, prospect stated budget or timeline), 5 released (24 contacts going into accounts that said no). Extraction measured at 100% on ready_to_act against known ground truth. \u26a0 synthetic demo transcripts \u2014 the mechanism is the finding, not the count",
+      "what": "Conversions per hour cannot be estimated from this data at all \u2014 only randomised",
+      "evidence": "the same yield curve says 'call more' read as a rate (5 contacts converts at 13.6% vs 6.5% base) and 'never call twice' read as a cost (14 contacts per conversion at 1 vs 37 at 5), both on cells of 50+ accounts. Contact count is confounded with the intent the rep already observed, so every observational estimate of hours-ROI is uninterpretable",
       "severity": "high",
       "owner": "process",
-      "action": "Extend recording to the 67 accounts in the fill-gap quadrant first: they already receive calls, so this needs no new rep time. Measure the same table against real outcomes at day 90.",
-      "cost": "recording and transcription on calls that already happen",
-      "expect": "the same 35% decision-change rate across the 170 accounts that have had a call, not just 20",
+      "action": "Do not compute or report conversions-per-hour from historical CRM data, in any cut. The arms in BUDGET are the measuring instrument, not a side experiment: randomised assignment is the only thing that makes the denominator readable.",
+      "cost": "0 \u2014 it is a decision not to publish a number that is already being computed",
+      "expect": "the team stops justifying effort with a statistic that rises because effort was spent, which is the mechanism that killed the previous scoring effort",
       "source": "VALUE"
     },
     {
-      "what": "account_type does not mean what it says",
-      "evidence": "341 of 402 training 'Suspects' and 86 of 101 scoring ones have an MQL, trial or contact; conversion is identical across the three types (chi2 p = 0.84)",
+      "what": "At today's allocation the primary metric never becomes readable",
+      "evidence": "detecting a 50% relative lift at the 3% field rate needs 2,515 accounts per arm. At 15 per arm per weekly cycle that is 168 weeks (3.2 years) \u2014 longer than the previous scoring effort survived before it lost credibility",
+      "severity": "high",
+      "owner": "process",
+      "action": "Assign the whole batch, not a third of it: 97 accounts per arm per cycle (291 of the 300) makes the readout land in two quarters. If the manager will not commit that volume, say so now and report only the weekly bets \u2014 do not promise a lift number that the design cannot deliver.",
+      "cost": "no new rep hours \u2014 the same accounts are being worked, they are being recorded as assigned rather than left out of the experiment",
+      "expect": "the north star becomes reachable within the horizon anyone will wait, instead of being quoted as a plan nobody can hold you to",
+      "source": "VALUE"
+    },
+    {
+      "what": "account_type carries no information \u2014 and if 'Suspect' means 'no engagement', it is wrong on 85% of rows",
+      "evidence": "the brief lists the three values and does not define them; the usual funnel reading (Suspect = no engagement yet) is OUR hypothesis. Under it, 341 of 402 training 'Suspects' and 86 of 101 scoring ones are mislabelled \u2014 they have an MQL, a trial or a contact. Under ANY reading the field is empty: conversion is identical across the three types (chi2 p = 0.84), model importance 0.003",
       "severity": "high",
       "owner": "crm",
-      "action": "Bulk-reclassify the 86 scoring accounts, and add a validation rule so an account with activity cannot be saved as Suspect.",
+      "action": "First, one question to the CRM owner: what is 'Suspect' supposed to mean? If 'no engagement': bulk-reclassify the 86 scoring accounts and add a validation rule. If something else: document it, because today the field predicts nothing.",
       "cost": "one bulk update + one validation rule",
       "expect": "the VP stops seeing 'Suspects' near the top of a list and losing trust in it",
       "source": "HYGIENE"
@@ -121,340 +111,1330 @@
       "cost": "the notebook, ~4 minutes",
       "expect": "the next model cannot die quietly the way this one did",
       "source": "VERDICT"
-    },
-    {
-      "what": "One cycle of 30 accounts per arm cannot resolve a realistic difference",
-      "evidence": "simulated at the brief's 1-3% field rate with NO true difference between arms, the observed spread is 3.3% and every confidence interval overlaps every other. Detecting a 50% relative lift at this base rate needs roughly 1,500 accounts per arm",
-      "severity": "high",
-      "owner": "process",
-      "action": "Run the arms continuously and read cumulatively, not once. Commit to the cycle for at least two quarters before drawing a conclusion, and say so up front so nobody reads cycle 1 as an answer.",
-      "cost": "patience, and saying this to the VP before the first readout rather than after",
-      "expect": "nobody kills or ships the approach on a number that cannot support either",
-      "source": "READOUT"
     }
   ],
   "bypassed": [
     {
-      "node": "CONVERSATION_INTENT (coverage)",
-      "reason": "only 20 of 170 accounts with a logged call have a transcript, and those transcripts are synthetic",
-      "unblocked_by": "recording every call; then coverage equals the fill_gap + calibrate quadrants above",
-      "would_produce": "intent for all 170 accounts with a logged call, not 20",
-      "still_computed": "intent extracted for 20 accounts"
+      "node": "READOUT",
+      "reason": "90-day outcomes for the accounts assigned today do not exist yet",
+      "unblocked_by": "one cycle of the arms above, with outcomes written back per account",
+      "would_produce": "conversions per logged contact by arm with confidence intervals; the same broken out by conversation intent level (testing whether intent from calls predicts better than any CRM column); and the epsilon-greedy update -- the winning arm grows, exploration never goes to zero",
+      "still_computed": "the arms are assigned and recorded: {'continue': 45, 'first-call': 15, 'control': 30}"
     }
   ],
   "artifacts": {
-    "intents": {
-      "ACC-00109": {
-        "ready_to_act": true,
-        "ready_because": "budget_approved",
-        "evidence_quote": "Board approved the spend. We want to be in production by Q4",
-        "next_step_agreed": true,
-        "objections": [
-          "We've been told yes before and it didn't hold up"
-        ],
-        "intent_level": "A",
-        "confidence": 0.95,
-        "next_step": "Schedule a meeting in the next couple of weeks"
-      },
-      "ACC-00160": {
-        "ready_to_act": true,
-        "ready_because": "budget_approved",
-        "evidence_quote": "We've got budget approved for this fiscal year, it came through in June.",
-        "next_step_agreed": true,
-        "objections": [
-          "Proof, mostly. We've been told yes before and it didn't hold up."
-        ],
-        "intent_level": "B",
-        "confidence": 0.9,
-        "next_step": "Schedule a working session with the ops lead in the next couple of weeks"
-      },
-      "ACC-00270": {
-        "ready_to_act": false,
-        "ready_because": "neither",
-        "evidence_quote": "We're building the business case. Nothing's approved yet but my director asked me to get numbers together for the planning cycle.",
-        "next_step_agreed": true,
-        "objections": [
-          "Need proof to ensure approval holds up"
-        ],
-        "intent_level": "C",
-        "confidence": 1,
-        "next_step": "Schedule a working session with the ops lead in the next couple of weeks"
-      },
-      "ACC-00272": {
-        "ready_to_act": false,
-        "ready_because": "neither",
-        "evidence_quote": "It's on the roadmap for sometime next year maybe. Not this quarter.",
-        "next_step_agreed": false,
-        "objections": [
-          "Proof, mostly. We've been told yes before and it didn't hold up.",
-          "I wouldn't expect much movement."
-        ],
-        "intent_level": "C",
-        "confidence": 1
-      },
-      "ACC-00275": {
-        "ready_to_act": true,
-        "ready_because": "budget_approved",
-        "evidence_quote": "We've got budget approved for this fiscal year, it came through in June.",
-        "next_step_agreed": true,
-        "objections": [
-          "Proof, mostly. We've been told yes before and it didn't hold up.",
-          "We're just deciding between you and two others."
-        ],
-        "intent_level": "B",
-        "confidence": 1,
-        "next_step": "Scheduling a meeting in the next couple of weeks"
-      },
-      "ACC-00313": {
-        "ready_to_act": false,
-        "ready_because": "neither",
-        "evidence_quote": "It's on the roadmap for sometime next year maybe. Not this quarter.",
-        "next_step_agreed": false,
-        "objections": [
-          "Need proof to proceed; previous commitments didn't hold up"
-        ],
-        "intent_level": "D",
-        "confidence": 1
-      },
-      "ACC-00369": {
-        "ready_to_act": false,
-        "ready_because": "neither",
-        "evidence_quote": "I'd need to justify this internally. If you can help me with an ROI story I can take it to my VP next month.",
-        "next_step_agreed": false,
-        "objections": [
-          "Proof, mostly. We've been told yes before and it didn't hold up.",
-          "I'd need to justify this internally. If you can help me with an ROI story I can take it to my VP next month."
-        ],
-        "intent_level": "C",
-        "confidence": 0.9
-      },
-      "ACC-00414": {
-        "ready_to_act": false,
-        "ready_because": "neither",
-        "evidence_quote": "We're not interested.",
-        "next_step_agreed": false,
-        "objections": [
-          "Need proof to commit",
-          "Previous assurances didn't hold up"
-        ],
-        "intent_level": "F",
-        "confidence": 1
-      },
-      "ACC-00481": {
-        "ready_to_act": false,
-        "ready_because": "neither",
-        "evidence_quote": "",
-        "next_step_agreed": false,
-        "objections": [
-          "Proof, mostly. We've been told yes before and it didn't hold up.",
-          "I'm not the right person for this, you'd want to talk to whoever owns ops.",
-          "You can, but I wouldn't expect much movement."
-        ],
-        "intent_level": "E",
-        "confidence": 0.9
-      },
-      "ACC-00561": {
-        "ready_to_act": true,
-        "ready_because": "budget_approved",
-        "evidence_quote": "There's money allocated.",
-        "next_step_agreed": true,
-        "objections": [
-          "Comparing three vendors and needs to see the multi-region piece work before committing"
-        ],
-        "intent_level": "B",
-        "confidence": 1,
-        "next_step": "Schedule a meeting in the next couple of weeks"
-      },
-      "ACC-00602": {
-        "ready_to_act": true,
-        "ready_because": "budget_approved",
-        "evidence_quote": "Board approved the spend. We want to be in production by Q4",
-        "next_step_agreed": true,
-        "objections": [
-          "Proof, mostly. We've been told yes before and it didn't hold up"
-        ],
-        "intent_level": "A",
-        "confidence": 1,
-        "next_step": "find time in the next couple of weeks"
-      },
-      "ACC-00730": {
-        "ready_to_act": false,
-        "ready_because": "neither",
-        "evidence_quote": "Let's find time in the next couple of weeks.",
-        "next_step_agreed": true,
-        "objections": [
-          "We're building the business case. Nothing's approved yet",
-          "Proof, mostly. We've been told yes before and it didn't hold up"
-        ],
-        "intent_level": "C",
-        "confidence": 1,
-        "next_step": "find time in the next couple of weeks"
-      },
-      "ACC-00806": {
-        "ready_to_act": false,
-        "ready_because": "neither",
-        "evidence_quote": "We just renewed with our current vendor for three years. Please take us off your list.",
-        "next_step_agreed": false,
-        "objections": [
-          "Proof, mostly. We've been told yes before and it didn't hold up.",
-          "I wouldn't expect much movement."
-        ],
-        "intent_level": "F",
-        "confidence": 1
-      },
-      "ACC-00915": {
-        "ready_to_act": false,
-        "ready_because": "neither",
-        "evidence_quote": "You can, but I wouldn't expect much movement.",
-        "next_step_agreed": false,
-        "objections": [
-          "Proof, mostly. We've been told yes before and it didn't hold up.",
-          "I wouldn't expect much movement."
-        ],
-        "intent_level": "D",
-        "confidence": 1
-      },
-      "ACC-00935": {
-        "ready_to_act": false,
-        "ready_because": "neither",
-        "evidence_quote": "Nothing's driving this right now, I'm keeping an eye on the space.",
-        "next_step_agreed": false,
-        "objections": [
-          "Need proof to move forward",
-          "Previous commitments didn't hold up",
-          "No immediate movement expected"
-        ],
-        "intent_level": "D",
-        "confidence": 0.85
-      },
-      "ACC-00972": {
-        "ready_to_act": false,
-        "ready_because": "neither",
-        "evidence_quote": "We looked at this category two years ago and decided to build internally. That's still where we are.",
-        "next_step_agreed": false,
-        "objections": [
-          "Proof, mostly. We've been told yes before and it didn't hold up",
-          "I wouldn't expect much movement"
-        ],
-        "intent_level": "D",
-        "confidence": 1
-      },
-      "ACC-01128": {
-        "ready_to_act": true,
-        "ready_because": "budget_approved",
-        "evidence_quote": "We signed off on the budget last week and we need this live before the fiscal year closes in November.",
-        "next_step_agreed": true,
-        "objections": [
-          "Proof, mostly. We've been told yes before and it didn't hold up."
-        ],
-        "intent_level": "A",
-        "confidence": 1,
-        "next_step": "Schedule a working session with the ops lead in the next couple of weeks."
-      },
-      "ACC-01145": {
-        "ready_to_act": true,
-        "ready_because": "budget_approved",
-        "evidence_quote": "There's money allocated.",
-        "next_step_agreed": true,
-        "objections": [
-          "I'm comparing three vendors and I need to see the multi-region piece work before I commit."
-        ],
-        "intent_level": "B",
-        "confidence": 1,
-        "next_step": "Let's find time in the next couple of weeks."
-      },
-      "ACC-01282": {
-        "ready_to_act": true,
-        "ready_because": "budget_approved",
-        "evidence_quote": "We signed off on the budget last week and we need this live before the fiscal year closes in November.",
-        "next_step_agreed": true,
-        "objections": [
-          "We've been told yes before and it didn't hold up"
-        ],
-        "intent_level": "A",
-        "confidence": 1,
-        "next_step": "Schedule a working session with the ops lead in the next couple of weeks"
-      },
-      "ACC-01414": {
-        "ready_to_act": false,
-        "ready_because": "neither",
-        "evidence_quote": "You can, but I wouldn't expect much movement.",
-        "next_step_agreed": false,
-        "objections": [
-          "Proof, mostly. We've been told yes before and it didn't hold up."
-        ],
-        "intent_level": "D",
-        "confidence": 1
-      }
-    },
-    "intent_extractor": "qwen3:14b",
-    "intent_metrics": {
-      "n_extracted": 20,
-      "ready_to_act_exact": 1.0,
-      "ready_to_act_false_cold": 0,
-      "ready_to_act_false_hot": 0,
-      "next_step_exact": 1.0,
-      "intent_level_exact": 0.8,
-      "intent_level_within_one": 1.0,
-      "hot_vs_cold_correct": 0.95,
-      "mean_confidence": 0.975
-    },
     "sum_p": 19.66090293475255,
     "mean_p": 0.06553634311584183,
-    "top30_overlap_model_vs_rule": 11,
     "clean_in_top30": 7,
-    "intent_quadrants": {
-      "calibrate_vendor (vendor record + a call happened)": 103,
-      "fill_the_gap (no vendor record + a call happened)": 67,
-      "unverified (vendor record, no call)": 81,
-      "blind (no vendor record, no call)": 49
-    },
-    "vendor_calibration": {
-      "n": 12,
-      "agreement": 0.5,
-      "table": {
-        "high": {
-          "high": 4,
-          "low": 5
-        },
-        "low": {
-          "high": 1,
-          "low": 2
-        }
-      }
-    },
-    "value": [
+    "variable_scorecard": [
       {
-        "outcome": "RESCUED  model said skip, prospect said buy",
-        "accounts": 2,
-        "contacts": 5,
-        "what it buys": "opportunities the ranking would have dropped"
+        "variable": "sales_contacts_90d",
+        "auc_alone": 0.546,
+        "missing": "0%",
+        "note": "effort, not intent -- but the only column with a stable interaction",
+        "used_in_ranking": "yes: bands 0 / 1-4 / 5+"
       },
       {
-        "outcome": "RELEASED effort in, prospect said no",
-        "accounts": 5,
-        "contacts": 24,
-        "what it buys": "24 contacts redirectable this quarter"
+        "variable": "trial_started",
+        "auc_alone": 0.529,
+        "missing": "0%",
+        "note": "the strongest interaction: 5% untouched -> 15% with 1-4 contacts",
+        "used_in_ranking": "yes: defines the top segment"
       },
       {
-        "outcome": "CONFIRMED everyone agrees",
-        "accounts": 6,
-        "contacts": 11,
-        "what it buys": "nothing \u2014 agreement changes no decision"
+        "variable": "trial_active_users",
+        "auc_alone": 0.505,
+        "missing": "0%",
+        "note": "0-user trials convert like live ones; the field is ambiguous",
+        "used_in_ranking": "no"
+      },
+      {
+        "variable": "mql_count_90d",
+        "auc_alone": 0.515,
+        "missing": "0%",
+        "note": "MQL-only accounts: 0 of 105 converted; adding MQL>0 to a rule made it worse",
+        "used_in_ranking": "only to define skip"
+      },
+      {
+        "variable": "web_touchpoints_90d",
+        "auc_alone": 0.548,
+        "missing": "0%",
+        "note": "web-only with 1-4 contacts: 0 of 72; 0 may mean 'not measured'",
+        "used_in_ranking": "only to define skip; ranks untouched (AUC 0.61)"
+      },
+      {
+        "variable": "intent_score (value)",
+        "auc_alone": 0.518,
+        "missing": "\u2014",
+        "note": "flat by quintile among covered: 9.0 / 5.3 / 12.8 / 7.6 / 9.8",
+        "used_in_ranking": "no"
+      },
+      {
+        "variable": "intent_score (present)",
+        "auc_alone": 0.556,
+        "missing": "\u2014",
+        "note": "coverage separates: ~8% vs ~4%; with 1-4 contacts and no trial, 8.3% vs 2.7%",
+        "used_in_ranking": "yes: defines the vendor segment"
+      },
+      {
+        "variable": "employee_count",
+        "auc_alone": 0.496,
+        "missing": "0%",
+        "note": "no separation",
+        "used_in_ranking": "no"
+      },
+      {
+        "variable": "account_type",
+        "auc_alone": null,
+        "missing": "0%",
+        "note": "the three types convert identically (chi2 p=0.84); 'Suspect' is our hypothesis, unverified by the brief (rates 5.5%-9.1%)",
+        "used_in_ranking": "no"
+      },
+      {
+        "variable": "industry",
+        "auc_alone": null,
+        "missing": "0%",
+        "note": "range 5.5%-8.5%, not usable (rates 5.5%-8.5%)",
+        "used_in_ranking": "no"
+      },
+      {
+        "variable": "model score",
+        "auc_alone": 0.576,
+        "missing": "\u2014",
+        "note": "out-of-fold AUC 0.58; adds nothing on top of the rules, tested three ways",
+        "used_in_ranking": "no -- one voice in RECONCILE"
       }
     ],
-    "score_inversion": {
-      "mean_score_said_no": 0.06949358602661045,
-      "mean_score_said_yes": 0.05483162072638578,
-      "mean_contacts_said_no": 3.1666666666666665,
-      "mean_contacts_said_yes": 2.0
+    "hygiene_batch_note": "\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 AGENT \u00b7 hygiene_batch   [template]\n\u2502 purpose     : Turn a detected CRM defect into an approval note with evidence and a preventive rule\n\u2502 sensitivity : account_ids\n\u2502 routed to   : local\n\u2502 reads       : defect, detection rule, affected count, examples, proposed correction\n\u2502 returns     : markdown, ~100 words\n\u251c\u2500 SYSTEM \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 You write CRM correction proposals for approval in bulk. State the\n\u2502 evidence before the fix. Always include the rule that prevents the\n\u2502 defect from coming back \u2014 a one-off cleanup is worth much less than the\n\u2502 rule.\n\u251c\u2500 PROMPT \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 Defect: columns that carry no information are in the model\n\u2502 Detected by: a column enters the ranking only if it separates converters on held-out rows and means what it says\n\u2502 Affected records: 8 of 11 columns excluded\n\u2502 Examples: intent_score value, mql_count_90d, account_type\n\u2502 Proposed correction: report them on the row; give them no weight\n\u2502 \n\u2502 Write the approval note. Lead with the evidence, then the correction, then the preventive\n\u2502 rule. Say plainly what happens if this is not fixed.\n\u251c\u2500 RETURNS (worked example) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 **account_type is stale \u2014 86 records.** A 'Suspect' is defined as an account that fits the profile but has shown no engagement. These 86 have an MQL, a trial or a logged sales contact (e.g. ACC-00095, ACC-00228, ACC-00284), and in training this group converts at the same rate as Prospects (chi2 p = 0.84). Proposed: reclassify to Prospect in bulk. Preventive rule: a validation rule so an account with activity cannot be saved as Suspect. Left alone, the field keeps disagreeing with itself and nobody can explain why a 'Suspect' is near the top of a list.\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
+    "rank": {
+      "positive_segments": [
+        "trial",
+        "vendor"
+      ],
+      "skip_segments": [
+        "mql",
+        "web"
+      ],
+      "actions": {
+        "continue": 105,
+        "first-call": 88,
+        "skip": 74,
+        "ask": 23,
+        "neutral": 10
+      },
+      "uplift_verdict": "top segment 'trial' on every cut; calling never helped ['mql', 'web'] on any cut; ['none'] unstable (small n) -- rank on the top and the skip set, treat the rest as neutral"
+    },
+    "top30_overlap_model_vs_rule": 11,
+    "model_vs_graph_outcomes": {
+      "team_today_rate": 0.0828,
+      "team_today_ci": "[6%, 11%]",
+      "team_today_k": 55,
+      "team_today_n": 664,
+      "n_clean_rows": 1099,
+      "base_rate": 0.071,
+      "K": 90,
+      "rows": [
+        {
+          "policy": "model \u2014 in-sample (what a dashboard shows)",
+          "n": 90,
+          "converted": 28,
+          "rate": 0.3111,
+          "ci95": "[22%, 41%]",
+          "lift": 4.38,
+          "recall": 0.359,
+          "hours_per_converter": 0.6,
+          "contacts_already_sunk": 295,
+          "rep_hours_sunk": 59.0
+        },
+        {
+          "policy": "model \u2014 out-of-fold (what it actually knows)",
+          "n": 90,
+          "converted": 6,
+          "rate": 0.0667,
+          "ci95": "[3%, 14%]",
+          "lift": 0.94,
+          "recall": 0.0769,
+          "hours_per_converter": 3.0,
+          "contacts_already_sunk": 304,
+          "rep_hours_sunk": 60.8
+        },
+        {
+          "policy": "graph continue (1-4 contacts: trial > vendor > none)",
+          "n": 90,
+          "converted": 14,
+          "rate": 0.1556,
+          "ci95": "[9%, 24%]",
+          "lift": 2.19,
+          "recall": 0.1795,
+          "hours_per_converter": 1.3,
+          "contacts_already_sunk": 234,
+          "rep_hours_sunk": 46.8
+        },
+        {
+          "policy": "graph first-call (untouched trial, then vendor)",
+          "n": 90,
+          "converted": 4,
+          "rate": 0.0444,
+          "ci95": "[2%, 11%]",
+          "lift": 0.63,
+          "recall": 0.0513,
+          "hours_per_converter": 4.5,
+          "contacts_already_sunk": 0,
+          "rep_hours_sunk": 0.0
+        },
+        {
+          "policy": "graph worklist (continue 75 + first-call 15)",
+          "n": 90,
+          "converted": 11,
+          "rate": 0.1222,
+          "ci95": "[7%, 21%]",
+          "lift": 1.72,
+          "recall": 0.141,
+          "hours_per_converter": 1.6,
+          "contacts_already_sunk": 213,
+          "rep_hours_sunk": 42.6
+        },
+        {
+          "policy": "old exploit (ORDER BY contacts, all)",
+          "n": 90,
+          "converted": 12,
+          "rate": 0.1333,
+          "ci95": "[8%, 22%]",
+          "lift": 1.88,
+          "recall": 0.1538,
+          "hours_per_converter": 1.5,
+          "contacts_already_sunk": 486,
+          "rep_hours_sunk": 97.2
+        },
+        {
+          "policy": "ask cohort, if called anyway (5+ contacts)",
+          "n": 82,
+          "converted": 12,
+          "rate": 0.1463,
+          "ci95": "[9%, 24%]",
+          "lift": 2.06,
+          "recall": 0.1538,
+          "hours_per_converter": 1.4,
+          "contacts_already_sunk": 454,
+          "rep_hours_sunk": 90.8
+        },
+        {
+          "policy": "random (mean of 200 draws)",
+          "n": 90,
+          "converted": 6.6,
+          "rate": 0.073,
+          "ci95": "5\u201395%: [3%, 11%]",
+          "lift": 1.03,
+          "recall": 0.0842,
+          "hours_per_converter": 2.7,
+          "contacts_already_sunk": 146,
+          "rep_hours_sunk": 29.2
+        }
+      ],
+      "note": "observational \u2014 every policy is judged on accounts someone already chose to work this way"
+    },
+    "uplift": {
+      "protocol": "train = oldest labelled rows with closed window (n=799), test = newest 300; rates estimated per cut; no model fitted",
+      "bias": "upper bound: reps call accounts that already look better; a segment <= 0 despite that is one where calling does not help",
+      "cuts": {
+        "train": [
+          {
+            "segment": "trial",
+            "n_uncalled": 61,
+            "conv_uncalled": 4,
+            "rate_uncalled": 0.0656,
+            "n_called": 78,
+            "conv_called": 9,
+            "rate_called": 0.1154,
+            "uplift_pts": 5.0,
+            "ci95_lo": -4.4,
+            "ci95_hi": 14.4,
+            "fisher_p": 0.388,
+            "hours_per_called_account": 0.46,
+            "uplift_per_hour": 10.7
+          },
+          {
+            "segment": "vendor",
+            "n_uncalled": 153,
+            "conv_uncalled": 10,
+            "rate_uncalled": 0.0654,
+            "n_called": 206,
+            "conv_called": 15,
+            "rate_called": 0.0728,
+            "uplift_pts": 0.7,
+            "ci95_lo": -4.5,
+            "ci95_hi": 6.0,
+            "fisher_p": 0.837,
+            "hours_per_called_account": 0.46,
+            "uplift_per_hour": 1.6
+          },
+          {
+            "segment": "none",
+            "n_uncalled": 37,
+            "conv_uncalled": 2,
+            "rate_uncalled": 0.0541,
+            "n_called": 39,
+            "conv_called": 3,
+            "rate_called": 0.0769,
+            "uplift_pts": 2.3,
+            "ci95_lo": -8.8,
+            "ci95_hi": 13.4,
+            "fisher_p": 1.0,
+            "hours_per_called_account": 0.47,
+            "uplift_per_hour": 4.8
+          },
+          {
+            "segment": "mql",
+            "n_uncalled": 23,
+            "conv_uncalled": 0,
+            "rate_uncalled": 0.0,
+            "n_called": 49,
+            "conv_called": 0,
+            "rate_called": 0.0,
+            "uplift_pts": 0.0,
+            "ci95_lo": 0.0,
+            "ci95_hi": 0.0,
+            "fisher_p": 1.0,
+            "hours_per_called_account": 0.47,
+            "uplift_per_hour": 0.0
+          },
+          {
+            "segment": "web",
+            "n_uncalled": 44,
+            "conv_uncalled": 4,
+            "rate_uncalled": 0.0909,
+            "n_called": 50,
+            "conv_called": 0,
+            "rate_called": 0.0,
+            "uplift_pts": -9.1,
+            "ci95_lo": -17.6,
+            "ci95_hi": -0.6,
+            "fisher_p": 0.045,
+            "hours_per_called_account": 0.44,
+            "uplift_per_hour": -20.7
+          }
+        ],
+        "test": [
+          {
+            "segment": "trial",
+            "n_uncalled": 19,
+            "conv_uncalled": 0,
+            "rate_uncalled": 0.0,
+            "n_called": 34,
+            "conv_called": 8,
+            "rate_called": 0.2353,
+            "uplift_pts": 23.5,
+            "ci95_lo": 9.3,
+            "ci95_hi": 37.8,
+            "fisher_p": 0.04,
+            "hours_per_called_account": 0.44,
+            "uplift_per_hour": 53.3
+          },
+          {
+            "segment": "vendor",
+            "n_uncalled": 57,
+            "conv_uncalled": 2,
+            "rate_uncalled": 0.0351,
+            "n_called": 74,
+            "conv_called": 8,
+            "rate_called": 0.1081,
+            "uplift_pts": 7.3,
+            "ci95_lo": -1.2,
+            "ci95_hi": 15.8,
+            "fisher_p": 0.185,
+            "hours_per_called_account": 0.47,
+            "uplift_per_hour": 15.5
+          },
+          {
+            "segment": "none",
+            "n_uncalled": 14,
+            "conv_uncalled": 1,
+            "rate_uncalled": 0.0714,
+            "n_called": 10,
+            "conv_called": 0,
+            "rate_called": 0.0,
+            "uplift_pts": -7.1,
+            "ci95_lo": -20.6,
+            "ci95_hi": 6.3,
+            "fisher_p": 1.0,
+            "hours_per_called_account": 0.46,
+            "uplift_per_hour": -15.5
+          },
+          {
+            "segment": "mql",
+            "n_uncalled": 13,
+            "conv_uncalled": 0,
+            "rate_uncalled": 0.0,
+            "n_called": 20,
+            "conv_called": 0,
+            "rate_called": 0.0,
+            "uplift_pts": 0.0,
+            "ci95_lo": 0.0,
+            "ci95_hi": 0.0,
+            "fisher_p": 1.0,
+            "hours_per_called_account": 0.44,
+            "uplift_per_hour": 0.0
+          },
+          {
+            "segment": "web",
+            "n_uncalled": 14,
+            "conv_uncalled": 0,
+            "rate_uncalled": 0.0,
+            "n_called": 22,
+            "conv_called": 0,
+            "rate_called": 0.0,
+            "uplift_pts": 0.0,
+            "ci95_lo": 0.0,
+            "ci95_hi": 0.0,
+            "fisher_p": 1.0,
+            "hours_per_called_account": 0.44,
+            "uplift_per_hour": 0.0
+          }
+        ],
+        "all": [
+          {
+            "segment": "trial",
+            "n_uncalled": 80,
+            "conv_uncalled": 4,
+            "rate_uncalled": 0.05,
+            "n_called": 112,
+            "conv_called": 17,
+            "rate_called": 0.1518,
+            "uplift_pts": 10.2,
+            "ci95_lo": 2.0,
+            "ci95_hi": 18.4,
+            "fisher_p": 0.034,
+            "hours_per_called_account": 0.46,
+            "uplift_per_hour": 22.3
+          },
+          {
+            "segment": "vendor",
+            "n_uncalled": 210,
+            "conv_uncalled": 12,
+            "rate_uncalled": 0.0571,
+            "n_called": 280,
+            "conv_called": 23,
+            "rate_called": 0.0821,
+            "uplift_pts": 2.5,
+            "ci95_lo": -2.0,
+            "ci95_hi": 7.0,
+            "fisher_p": 0.376,
+            "hours_per_called_account": 0.46,
+            "uplift_per_hour": 5.4
+          },
+          {
+            "segment": "none",
+            "n_uncalled": 51,
+            "conv_uncalled": 3,
+            "rate_uncalled": 0.0588,
+            "n_called": 49,
+            "conv_called": 3,
+            "rate_called": 0.0612,
+            "uplift_pts": 0.2,
+            "ci95_lo": -9.1,
+            "ci95_hi": 9.6,
+            "fisher_p": 1.0,
+            "hours_per_called_account": 0.47,
+            "uplift_per_hour": 0.5
+          },
+          {
+            "segment": "mql",
+            "n_uncalled": 36,
+            "conv_uncalled": 0,
+            "rate_uncalled": 0.0,
+            "n_called": 69,
+            "conv_called": 0,
+            "rate_called": 0.0,
+            "uplift_pts": 0.0,
+            "ci95_lo": 0.0,
+            "ci95_hi": 0.0,
+            "fisher_p": 1.0,
+            "hours_per_called_account": 0.46,
+            "uplift_per_hour": 0.0
+          },
+          {
+            "segment": "web",
+            "n_uncalled": 58,
+            "conv_uncalled": 4,
+            "rate_uncalled": 0.069,
+            "n_called": 72,
+            "conv_called": 0,
+            "rate_called": 0.0,
+            "uplift_pts": -6.9,
+            "ci95_lo": -13.4,
+            "ci95_hi": -0.4,
+            "fisher_p": 0.037,
+            "hours_per_called_account": 0.44,
+            "uplift_per_hour": -15.7
+          }
+        ]
+      },
+      "order_by_uplift": {
+        "train": [
+          "trial",
+          "none",
+          "vendor",
+          "mql",
+          "web"
+        ],
+        "test": [
+          "trial",
+          "vendor",
+          "mql",
+          "web",
+          "none"
+        ],
+        "all": [
+          "trial",
+          "vendor",
+          "none",
+          "mql",
+          "web"
+        ]
+      },
+      "top_segment": "trial",
+      "top_segment_stable": true,
+      "positive_segments": [
+        "trial",
+        "vendor"
+      ],
+      "skip_segments": [
+        "mql",
+        "web"
+      ],
+      "unstable_segments": [
+        "none"
+      ],
+      "uplift_by_segment_train_test_all": {
+        "trial": [
+          5.0,
+          23.5,
+          10.2
+        ],
+        "vendor": [
+          0.7,
+          7.3,
+          2.5
+        ],
+        "none": [
+          2.3,
+          -7.1,
+          0.2
+        ],
+        "mql": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "web": [
+          -9.1,
+          0.0,
+          -6.9
+        ]
+      },
+      "dose": {
+        "all": {
+          "trial": {
+            "0": {
+              "n": 80,
+              "rate": 0.05
+            },
+            "1": {
+              "n": 31,
+              "rate": 0.1613
+            },
+            "2": {
+              "n": 33,
+              "rate": 0.1818
+            },
+            "3": {
+              "n": 33,
+              "rate": 0.1515
+            },
+            "4": {
+              "n": 15,
+              "rate": 0.0667
+            }
+          },
+          "vendor": {
+            "0": {
+              "n": 210,
+              "rate": 0.0571
+            },
+            "1": {
+              "n": 85,
+              "rate": 0.0941
+            },
+            "2": {
+              "n": 78,
+              "rate": 0.0641
+            },
+            "3": {
+              "n": 65,
+              "rate": 0.0615
+            },
+            "4": {
+              "n": 52,
+              "rate": 0.1154
+            },
+            "5": {
+              "n": 30,
+              "rate": 0.1333
+            }
+          }
+        }
+      },
+      "n_per_group_to_measure_unbiased": {
+        "5->15": 138,
+        "5->10": 432
+      },
+      "verdict": "top segment 'trial' on every cut; calling never helped ['mql', 'web'] on any cut; ['none'] unstable (small n) -- rank on the top and the skip set, treat the rest as neutral"
+    },
+    "heldout": {
+      "test_n": 300,
+      "train_n": 799,
+      "test_base_rate": 0.0767,
+      "test_converters": 23,
+      "test_window": [
+        "2026-01-08",
+        "2026-05-03"
+      ],
+      "train_window": [
+        "2024-08-20",
+        "2026-01-07"
+      ],
+      "fits_performed": 0,
+      "by_K": {
+        "30": [
+          {
+            "policy": "model \u2014 the pickle scoring rows it was trained on (memory)",
+            "n": 30,
+            "converted": 10,
+            "precision": 0.3333,
+            "ci95": "[19%, 51%]",
+            "recall": 0.4348,
+            "lift": 4.35,
+            "contacts_sunk": 107,
+            "model_rank_median": 15
+          },
+          {
+            "policy": "model \u2014 out-of-fold (prediction)",
+            "n": 30,
+            "converted": 3,
+            "precision": 0.1,
+            "ci95": "[3%, 26%]",
+            "recall": 0.1304,
+            "lift": 1.3,
+            "contacts_sunk": 116,
+            "model_rank_median": 15
+          },
+          {
+            "policy": "continue alone (1\u20134 contacts: trial > vendor > none)",
+            "n": 30,
+            "converted": 7,
+            "precision": 0.2333,
+            "ci95": "[12%, 41%]",
+            "recall": 0.3043,
+            "lift": 3.04,
+            "contacts_sunk": 71,
+            "model_rank_median": 15
+          },
+          {
+            "policy": "first-call alone (untouched trial, then vendor)",
+            "n": 30,
+            "converted": 1,
+            "precision": 0.0333,
+            "ci95": "[1%, 17%]",
+            "recall": 0.0435,
+            "lift": 0.43,
+            "contacts_sunk": 0,
+            "model_rank_median": 15
+          },
+          {
+            "policy": "THE GRAPH \u2014 continue 5/6 + first-call 1/6, ask and skip excluded",
+            "n": 30,
+            "converted": 6,
+            "precision": 0.2,
+            "ci95": "[10%, 37%]",
+            "recall": 0.2609,
+            "lift": 2.61,
+            "contacts_sunk": 66,
+            "model_rank_median": 15
+          },
+          {
+            "policy": "continue \u222a model picks (half each) \u2014 does the model add anything?",
+            "n": 30,
+            "converted": 5,
+            "precision": 0.1667,
+            "ci95": "[7%, 34%]",
+            "recall": 0.2174,
+            "lift": 2.17,
+            "contacts_sunk": 105,
+            "model_rank_median": 15
+          },
+          {
+            "policy": "ask cohort, if called anyway (5+ contacts)",
+            "n": 23,
+            "converted": 4,
+            "precision": 0.1739,
+            "ci95": "[7%, 37%]",
+            "recall": 0.1739,
+            "lift": 2.27,
+            "contacts_sunk": 133,
+            "model_rank_median": 12
+          },
+          {
+            "policy": "random (mean of 200 draws)",
+            "n": 30,
+            "converted": 2.3,
+            "precision": 0.0778,
+            "ci95": "5\u201395%: [0%, 17%]",
+            "recall": 0.1015,
+            "lift": 1.02,
+            "contacts_sunk": 50,
+            "model_rank_median": null
+          },
+          {
+            "policy": "the team today \u2014 every account it chose to work",
+            "n": 183,
+            "converted": 20,
+            "precision": 0.1093,
+            "ci95": "[7%, 16%]",
+            "recall": 0.8696,
+            "lift": 1.43,
+            "contacts_sunk": 497,
+            "model_rank_median": null
+          },
+          {
+            "policy": "the graph WITH the conversation agent",
+            "n": null,
+            "converted": null,
+            "precision": null,
+            "ci95": "needs call transcripts on accounts with a known outcome \u2014 none exist; ROLLOUT phase 3",
+            "recall": null,
+            "lift": null,
+            "contacts_sunk": null,
+            "model_rank_median": null
+          }
+        ],
+        "60": [
+          {
+            "policy": "model \u2014 the pickle scoring rows it was trained on (memory)",
+            "n": 60,
+            "converted": 15,
+            "precision": 0.25,
+            "ci95": "[16%, 37%]",
+            "recall": 0.6522,
+            "lift": 3.26,
+            "contacts_sunk": 194,
+            "model_rank_median": 30
+          },
+          {
+            "policy": "model \u2014 out-of-fold (prediction)",
+            "n": 60,
+            "converted": 8,
+            "precision": 0.1333,
+            "ci95": "[7%, 24%]",
+            "recall": 0.3478,
+            "lift": 1.74,
+            "contacts_sunk": 193,
+            "model_rank_median": 30
+          },
+          {
+            "policy": "continue alone (1\u20134 contacts: trial > vendor > none)",
+            "n": 60,
+            "converted": 12,
+            "precision": 0.2,
+            "ci95": "[12%, 32%]",
+            "recall": 0.5217,
+            "lift": 2.61,
+            "contacts_sunk": 165,
+            "model_rank_median": 30
+          },
+          {
+            "policy": "first-call alone (untouched trial, then vendor)",
+            "n": 60,
+            "converted": 1,
+            "precision": 0.0167,
+            "ci95": "[0%, 9%]",
+            "recall": 0.0435,
+            "lift": 0.22,
+            "contacts_sunk": 0,
+            "model_rank_median": 30
+          },
+          {
+            "policy": "THE GRAPH \u2014 continue 5/6 + first-call 1/6, ask and skip excluded",
+            "n": 60,
+            "converted": 11,
+            "precision": 0.1833,
+            "ci95": "[11%, 30%]",
+            "recall": 0.4783,
+            "lift": 2.39,
+            "contacts_sunk": 135,
+            "model_rank_median": 30
+          },
+          {
+            "policy": "continue \u222a model picks (half each) \u2014 does the model add anything?",
+            "n": 60,
+            "converted": 10,
+            "precision": 0.1667,
+            "ci95": "[9%, 28%]",
+            "recall": 0.4348,
+            "lift": 2.17,
+            "contacts_sunk": 189,
+            "model_rank_median": 30
+          },
+          {
+            "policy": "ask cohort, if called anyway (5+ contacts)",
+            "n": 23,
+            "converted": 4,
+            "precision": 0.1739,
+            "ci95": "[7%, 37%]",
+            "recall": 0.1739,
+            "lift": 2.27,
+            "contacts_sunk": 133,
+            "model_rank_median": 12
+          },
+          {
+            "policy": "random (mean of 200 draws)",
+            "n": 60,
+            "converted": 4.6,
+            "precision": 0.0765,
+            "ci95": "5\u201395%: [3%, 13%]",
+            "recall": 0.1996,
+            "lift": 1.0,
+            "contacts_sunk": 99,
+            "model_rank_median": null
+          },
+          {
+            "policy": "the team today \u2014 every account it chose to work",
+            "n": 183,
+            "converted": 20,
+            "precision": 0.1093,
+            "ci95": "[7%, 16%]",
+            "recall": 0.8696,
+            "lift": 1.43,
+            "contacts_sunk": 497,
+            "model_rank_median": null
+          },
+          {
+            "policy": "the graph WITH the conversation agent",
+            "n": null,
+            "converted": null,
+            "precision": null,
+            "ci95": "needs call transcripts on accounts with a known outcome \u2014 none exist; ROLLOUT phase 3",
+            "recall": null,
+            "lift": null,
+            "contacts_sunk": null,
+            "model_rank_median": null
+          }
+        ]
+      },
+      "converters": [
+        {
+          "account_id": "ACC-00560",
+          "contacts": 5,
+          "trial": true,
+          "vendor_record": true,
+          "mql": 2,
+          "web": 0,
+          "model_rank_of_300": 4,
+          "mechanism": "ask (5+ contacts) \u2014 recoverable if the rep answers"
+        },
+        {
+          "account_id": "ACC-00054",
+          "contacts": 5,
+          "trial": false,
+          "vendor_record": true,
+          "mql": 2,
+          "web": 0,
+          "model_rank_of_300": 27,
+          "mechanism": "ask (5+ contacts) \u2014 recoverable if the rep answers"
+        },
+        {
+          "account_id": "ACC-00984",
+          "contacts": 5,
+          "trial": false,
+          "vendor_record": true,
+          "mql": 1,
+          "web": 5,
+          "model_rank_of_300": 37,
+          "mechanism": "ask (5+ contacts) \u2014 recoverable if the rep answers"
+        },
+        {
+          "account_id": "ACC-00731",
+          "contacts": 5,
+          "trial": false,
+          "vendor_record": true,
+          "mql": 1,
+          "web": 6,
+          "model_rank_of_300": 18,
+          "mechanism": "ask (5+ contacts) \u2014 recoverable if the rep answers"
+        },
+        {
+          "account_id": "ACC-01259",
+          "contacts": 4,
+          "trial": true,
+          "vendor_record": true,
+          "mql": 1,
+          "web": 0,
+          "model_rank_of_300": 33,
+          "mechanism": "continue segment 'trial', position 4 \u2014 in the top 40"
+        },
+        {
+          "account_id": "ACC-00807",
+          "contacts": 4,
+          "trial": false,
+          "vendor_record": true,
+          "mql": 0,
+          "web": 0,
+          "model_rank_of_300": 68,
+          "mechanism": "continue segment 'vendor', position 41 \u2014 below the cut"
+        },
+        {
+          "account_id": "ACC-01231",
+          "contacts": 4,
+          "trial": false,
+          "vendor_record": true,
+          "mql": 0,
+          "web": 4,
+          "model_rank_of_300": 71,
+          "mechanism": "continue segment 'vendor', position 43 \u2014 below the cut"
+        },
+        {
+          "account_id": "ACC-00064",
+          "contacts": 3,
+          "trial": true,
+          "vendor_record": true,
+          "mql": 0,
+          "web": 0,
+          "model_rank_of_300": 36,
+          "mechanism": "continue segment 'trial', position 5 \u2014 in the top 40"
+        },
+        {
+          "account_id": "ACC-00214",
+          "contacts": 3,
+          "trial": true,
+          "vendor_record": false,
+          "mql": 0,
+          "web": 3,
+          "model_rank_of_300": 249,
+          "mechanism": "continue segment 'trial', position 6 \u2014 in the top 40"
+        },
+        {
+          "account_id": "ACC-00372",
+          "contacts": 3,
+          "trial": false,
+          "vendor_record": true,
+          "mql": 3,
+          "web": 0,
+          "model_rank_of_300": 231,
+          "mechanism": "continue segment 'vendor', position 54 \u2014 below the cut"
+        },
+        {
+          "account_id": "ACC-00139",
+          "contacts": 3,
+          "trial": false,
+          "vendor_record": true,
+          "mql": 0,
+          "web": 7,
+          "model_rank_of_300": 119,
+          "mechanism": "continue segment 'vendor', position 49 \u2014 below the cut"
+        },
+        {
+          "account_id": "ACC-01072",
+          "contacts": 2,
+          "trial": false,
+          "vendor_record": true,
+          "mql": 2,
+          "web": 8,
+          "model_rank_of_300": 98,
+          "mechanism": "continue segment 'vendor', position 83 \u2014 below the cut"
+        },
+        {
+          "account_id": "ACC-00848",
+          "contacts": 2,
+          "trial": false,
+          "vendor_record": true,
+          "mql": 1,
+          "web": 4,
+          "model_rank_of_300": 228,
+          "mechanism": "continue segment 'vendor', position 79 \u2014 below the cut"
+        },
+        {
+          "account_id": "ACC-01143",
+          "contacts": 2,
+          "trial": true,
+          "vendor_record": true,
+          "mql": 2,
+          "web": 0,
+          "model_rank_of_300": 59,
+          "mechanism": "continue segment 'trial', position 22 \u2014 in the top 40"
+        },
+        {
+          "account_id": "ACC-01468",
+          "contacts": 2,
+          "trial": true,
+          "vendor_record": false,
+          "mql": 2,
+          "web": 0,
+          "model_rank_of_300": 99,
+          "mechanism": "continue segment 'trial', position 24 \u2014 in the top 40"
+        },
+        {
+          "account_id": "ACC-00103",
+          "contacts": 2,
+          "trial": true,
+          "vendor_record": true,
+          "mql": 1,
+          "web": 3,
+          "model_rank_of_300": 136,
+          "mechanism": "continue segment 'trial', position 14 \u2014 in the top 40"
+        },
+        {
+          "account_id": "ACC-00975",
+          "contacts": 1,
+          "trial": false,
+          "vendor_record": true,
+          "mql": 0,
+          "web": 6,
+          "model_rank_of_300": 167,
+          "mechanism": "continue segment 'vendor', position 101 \u2014 below the cut"
+        },
+        {
+          "account_id": "ACC-00235",
+          "contacts": 1,
+          "trial": true,
+          "vendor_record": true,
+          "mql": 0,
+          "web": 2,
+          "model_rank_of_300": 41,
+          "mechanism": "continue segment 'trial', position 26 \u2014 in the top 40"
+        },
+        {
+          "account_id": "ACC-00981",
+          "contacts": 1,
+          "trial": false,
+          "vendor_record": true,
+          "mql": 2,
+          "web": 0,
+          "model_rank_of_300": 152,
+          "mechanism": "continue segment 'vendor', position 103 \u2014 below the cut"
+        },
+        {
+          "account_id": "ACC-01357",
+          "contacts": 1,
+          "trial": true,
+          "vendor_record": true,
+          "mql": 5,
+          "web": 2,
+          "model_rank_of_300": 87,
+          "mechanism": "continue segment 'trial', position 33 \u2014 in the top 40"
+        },
+        {
+          "account_id": "ACC-00607",
+          "contacts": 0,
+          "trial": false,
+          "vendor_record": false,
+          "mql": 0,
+          "web": 0,
+          "model_rank_of_300": 294,
+          "mechanism": "0 contacts, no signal \u2014 control decides"
+        },
+        {
+          "account_id": "ACC-01313",
+          "contacts": 0,
+          "trial": false,
+          "vendor_record": true,
+          "mql": 0,
+          "web": 9,
+          "model_rank_of_300": 76,
+          "mechanism": "first-call, position 22"
+        },
+        {
+          "account_id": "ACC-01499",
+          "contacts": 0,
+          "trial": false,
+          "vendor_record": true,
+          "mql": 1,
+          "web": 0,
+          "model_rank_of_300": 288,
+          "mechanism": "first-call, position 76"
+        }
+      ],
+      "converter_summary": {
+        "continue top-40": 8,
+        "continue pool, below the cut": 8,
+        "ask (5+)": 4,
+        "first-call, reached (top 20)": 0,
+        "first-call, deep": 2,
+        "no signal / skip": 1
+      }
+    },
+    "example_question": "\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 AGENT \u00b7 disagreement_question   [template]\n\u2502 purpose     : Ask a rep what they know that the data cannot show\n\u2502 sensitivity : account_ids\n\u2502 routed to   : cloud\n\u2502 reads       : account_id, disagreement type, score, contacts logged, flags\n\u2502 returns     : one question, under 40 words\n\u251c\u2500 SYSTEM \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 You write short questions to a sales rep. The rep is busy and has been\n\u2502 burned by a scoring tool before. Ask about what they know that the data\n\u2502 cannot show. Never tell them who to call. Never imply they were wrong.\n\u251c\u2500 PROMPT \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 Account ACC-01282. The model scores it 4.0% (5th percentile).\n\u2502 The team has logged 3 contacts in 90 days. Flags: <Flags(allows_duplicate_labels=True)>.\n\u2502 Disagreement type: rep insists, model low.\n\u2502 \n\u2502 Write one question to the rep, under 40 words, that they can answer in two minutes, about\n\u2502 what they know that the data does not show. It must not read as a performance check.\n\u251c\u2500 RETURNS (worked example) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 ACC-00453 \u2014 the model ranks this in the bottom quartile, but the team has logged 4 contacts in 90 days. What are you seeing there that the data isn't showing?\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
+    "hours_economics": {
+      "contacts_per_conversion": 24.6,
+      "rep_hours_per_conversion": 4.9,
+      "minutes_per_contact_assumed": 12,
+      "batch_contacts": 481,
+      "batch_concentration": {
+        "accounts_ge_4_contacts": 52,
+        "contacts_they_hold": 260,
+        "share_of_batch_effort": 0.541
+      },
+      "recoverable_stock_contacts": 789,
+      "yield_curve": [
+        {
+          "contacts": 0,
+          "accounts": 487,
+          "conversions": 23,
+          "conv rate": "4.7%",
+          "contacts per conversion": "n/a"
+        },
+        {
+          "contacts": 1,
+          "accounts": 188,
+          "conversions": 13,
+          "conv rate": "6.9%",
+          "contacts per conversion": "14"
+        },
+        {
+          "contacts": 2,
+          "accounts": 176,
+          "conversions": 11,
+          "conv rate": "6.2%",
+          "contacts per conversion": "32"
+        },
+        {
+          "contacts": 3,
+          "accounts": 159,
+          "conversions": 9,
+          "conv rate": "5.7%",
+          "contacts per conversion": "53"
+        },
+        {
+          "contacts": 4,
+          "accounts": 100,
+          "conversions": 10,
+          "conv rate": "10.0%",
+          "contacts per conversion": "40"
+        },
+        {
+          "contacts": 5,
+          "accounts": 59,
+          "conversions": 8,
+          "conv rate": "13.6%",
+          "contacts per conversion": "37"
+        },
+        {
+          "contacts": 6,
+          "accounts": 18,
+          "conversions": 1,
+          "conv rate": "5.6%",
+          "contacts per conversion": "108"
+        },
+        {
+          "contacts": 7,
+          "accounts": 10,
+          "conversions": 2,
+          "conv rate": "20.0%",
+          "contacts per conversion": "35"
+        }
+      ]
+    },
+    "bets": [
+      {
+        "bet": "redirected hours convert better than the hours they replaced",
+        "claim": "conversions per 100 contacts is higher in explore than in control",
+        "settles": "not before 2,515 accounts per arm (168 weeks at 15/arm, 26 cycles at 97/arm)",
+        "falsified_if": "the cumulative interval for explore sits below control once the arms are powered \u2014 at which point the system is reallocating hours to worse places",
+        "note": "THIS is the one that proves the system works. Nothing before it does."
+      }
+    ],
+    "guardrails": [
+      {
+        "guardrail": "rep acceptance of the worklist",
+        "must_not": "fall below 65%",
+        "why": "adoption is what killed the previous effort, and it fails before any metric moves"
+      },
+      {
+        "guardrail": "contacts logged against accounts that stated a decline",
+        "must_not": "rise",
+        "why": "the release must actually take effect, not just be recommended"
+      },
+      {
+        "guardrail": "conversion of stale vs fresh accounts within each arm",
+        "must_not": "diverge \u2014 stale converting materially below fresh",
+        "why": "the working hypothesis is that a two-quarter-old description is still actionable; this is where it gets tested, and if it fails the flag becomes a filter"
+      },
+      {
+        "guardrail": "never-contacted accounts entering an arm each cycle",
+        "must_not": "fall to zero",
+        "why": "exploration going to zero is how the system stops producing unbiased data"
+      }
+    ],
+    "metric_spec": {
+      "north_star": {
+        "metric": "conversions per 100 logged contacts, by arm, cumulative",
+        "unit": "conversions / 100 contacts (\u00d7 12 min = rep-hours)",
+        "n_per_arm_for_50pct_lift": {
+          "at_3%_field_rate": 2515,
+          "at_6.5%_training_rate": 1106
+        },
+        "weeks_at_current_allocation": 168,
+        "accounts_per_arm_for_two_quarter_readout": 97,
+        "readable_today": false
+      },
+      "weekly_headline": {
+        "metric": "rep-hours held pending a question (ask) and not spent where calling never helped (skip)",
+        "status": "observable today, on the row -- a saving, not yet a result",
+        "decays_by_design": "the recoverable stock is 789 contacts and is spent once; a falling number here is the system working, not failing"
+      },
+      "proxy_validity": {
+        "check": "at each 90-day readout, does the weekly headline still track the north star?",
+        "rule": "if redirected hours stop predicting conversions per 100 contacts, the weekly metric is retired \u2014 in the same report, not quietly",
+        "why": "nobody ever wrote up why the last scores stopped matching the field. This is that writeup, scheduled in advance."
+      },
+      "guardrails": [
+        {
+          "guardrail": "rep acceptance of the worklist",
+          "must_not": "fall below 65%",
+          "why": "adoption is what killed the previous effort, and it fails before any metric moves"
+        },
+        {
+          "guardrail": "contacts logged against accounts that stated a decline",
+          "must_not": "rise",
+          "why": "the release must actually take effect, not just be recommended"
+        },
+        {
+          "guardrail": "conversion of stale vs fresh accounts within each arm",
+          "must_not": "diverge \u2014 stale converting materially below fresh",
+          "why": "the working hypothesis is that a two-quarter-old description is still actionable; this is where it gets tested, and if it fails the flag becomes a filter"
+        },
+        {
+          "guardrail": "never-contacted accounts entering an arm each cycle",
+          "must_not": "fall to zero",
+          "why": "exploration going to zero is how the system stops producing unbiased data"
+        }
+      ],
+      "kill_switch": "if the explore arm's cumulative rate sits below control's once both pass 2,515 accounts, the reallocation is wrong and the system stops directing hours."
     },
     "arms": {
-      "exploit": 30,
-      "explore": 30,
+      "continue": 45,
+      "first-call": 15,
       "control": 30
     },
-    "experiment_card": "\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 AGENT \u00b7 experiment_card   [template]\n\u2502 purpose     : Write the week's allocation as an experiment the manager can approve or refuse\n\u2502 sensitivity : aggregate\n\u2502 routed to   : cloud\n\u2502 reads       : arms (name, size, selection rule), matching variables, base rate, readout date\n\u2502 returns     : markdown, ~150 words\n\u251c\u2500 SYSTEM \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 You write experiment cards for an SDR manager who is not technical and\n\u2502 is sceptical of being experimented on. Be concrete about what each arm\n\u2502 is testing and what result would make us stop. Never oversell, and never\n\u2502 promise a lift number we do not have.\n\u251c\u2500 PROMPT \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 This week's allocation splits 90 accounts into 3 matched arms\n\u2502 (industry and company size). Base rate is 6.5% in training, 1-3% per the business.\n\u2502 \n\u2502 - **exploit** (30 accounts): highest logged contact count \u2014 the rule that beats the model out-of-sample\n\u2502 - **explore** (30 accounts): never contacted but carrying a signal (trial, MQL or web activity)\n\u2502 - **control** (30 accounts): the rep picks \u2014 this is what would happen without the system\n\u2502 \n\u2502 Write the experiment card the SDR manager reads before approving. For each arm state the\n\u2502 hypothesis in one sentence, the result that would confirm it, and the result that would\n\u2502 kill it. End with the readout date and one sentence on why the control arm exists.\n\u251c\u2500 RETURNS (worked example) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 (no worked example)\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
+    "cohorts": {
+      "ask": 23,
+      "observe": 13,
+      "skip": 74
+    },
+    "ask": 23,
+    "arm_sizes_requested": {
+      "continue": 45,
+      "first-call": 15,
+      "control": 30
+    },
+    "continue_tiers": {
+      "1-4 contacts \u00b7 trial": 18,
+      "1-4 contacts \u00b7 vendor": 27,
+      "1-4 contacts \u00b7 none": 0
+    },
+    "model_vs_us": {
+      "top30_fates": {
+        "pool \u2014 not drawn this cycle": 9,
+        "ask, don't call \u2014 5+ contacts, no result, no voice": 9,
+        "exploit \u2014 called": 9,
+        "explore \u2014 never contacted, has signal": 2,
+        "control \u2014 rep's pick": 1
+      },
+      "called_as_is": 9,
+      "called_but_stale": 4,
+      "top9": [
+        {
+          "rank": 1,
+          "account_id": "ACC-01491",
+          "p": 0.2094,
+          "contacts": 5,
+          "age_days": 290,
+          "flags": "stale 180, over invested",
+          "fate": "ask, don't call \u2014 5+ contacts, no result, no voice"
+        },
+        {
+          "rank": 2,
+          "account_id": "ACC-00371",
+          "p": 0.2045,
+          "contacts": 2,
+          "age_days": 256,
+          "flags": "stale 180",
+          "fate": "exploit \u2014 called"
+        },
+        {
+          "rank": 3,
+          "account_id": "ACC-01064",
+          "p": 0.1869,
+          "contacts": 5,
+          "age_days": 94,
+          "flags": "over invested",
+          "fate": "ask, don't call \u2014 5+ contacts, no result, no voice"
+        },
+        {
+          "rank": 4,
+          "account_id": "ACC-01283",
+          "p": 0.1757,
+          "contacts": 4,
+          "age_days": 122,
+          "flags": "\u2014",
+          "fate": "exploit \u2014 called"
+        },
+        {
+          "rank": 5,
+          "account_id": "ACC-01111",
+          "p": 0.1527,
+          "contacts": 3,
+          "age_days": 109,
+          "flags": "\u2014",
+          "fate": "exploit \u2014 called"
+        },
+        {
+          "rank": 6,
+          "account_id": "ACC-00400",
+          "p": 0.1522,
+          "contacts": 4,
+          "age_days": 86,
+          "flags": "\u2014",
+          "fate": "exploit \u2014 called"
+        },
+        {
+          "rank": 7,
+          "account_id": "ACC-00122",
+          "p": 0.1482,
+          "contacts": 6,
+          "age_days": 38,
+          "flags": "no vendor record, over invested",
+          "fate": "pool \u2014 not drawn this cycle"
+        },
+        {
+          "rank": 8,
+          "account_id": "ACC-00646",
+          "p": 0.1482,
+          "contacts": 6,
+          "age_days": 272,
+          "flags": "no vendor record, stale 180, over invested",
+          "fate": "pool \u2014 not drawn this cycle"
+        },
+        {
+          "rank": 9,
+          "account_id": "ACC-00657",
+          "p": 0.1438,
+          "contacts": 0,
+          "age_days": 305,
+          "flags": "stale 180, never touched",
+          "fate": "control \u2014 rep's pick"
+        }
+      ]
+    },
+    "experiment_card": "\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 AGENT \u00b7 experiment_card   [template]\n\u2502 purpose     : Write the week's allocation as an experiment the manager can approve or refuse\n\u2502 sensitivity : aggregate\n\u2502 routed to   : cloud\n\u2502 reads       : arms (name, size, selection rule), matching variables, base rate, readout date\n\u2502 returns     : markdown, ~150 words\n\u251c\u2500 SYSTEM \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 You write experiment cards for an SDR manager who is not technical and\n\u2502 is sceptical of being experimented on. Be concrete about what each arm\n\u2502 is testing and what result would make us stop. Never oversell, and never\n\u2502 promise a lift number we do not have.\n\u251c\u2500 PROMPT \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 This week's allocation splits 90 accounts into 3 matched arms\n\u2502 (intent segment and contact band). Base rate is 6.5% in training, 1-3% per the business.\n\u2502 \n\u2502 - **continue** (45 accounts): 1\u20134 logged contacts, trial > vendor record > no signal, most contacts first\n\u2502 - **first-call** (15 accounts): never contacted, trial first (half called, half observed \u2014 that is how the +10 gets measured for real), then vendor record\n\u2502 - **control** (30 accounts): the rep picks \u2014 what would happen without the system\n\u2502 - **ask** (23, not an arm): 5+ contacts, no result \u2014 the rep gets a question\n\u2502 - **observe** (13, not an arm): the other half of the untouched trials, deliberately not called\n\u2502 - **skip** (74, not an arm): web-only or MQL-only \u2014 calling never helped on any cut\n\u2502 \n\u2502 Write the experiment card the SDR manager reads before approving. For each arm state the\n\u2502 hypothesis in one sentence, the result that would confirm it, and the result that would\n\u2502 kill it. End with the readout date and one sentence on why the control arm exists.\n\u251c\u2500 RETURNS (worked example) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 **This week: 90 accounts \u2014 continue 45, first-call 15, control 30 \u2014 plus a holdout nobody calls.**\n\u2502 \n\u2502 **continue (45)** \u2014 Hypothesis: the best information we hold \u2014 a prospect who stated readiness, then 1\u20134 logged contacts with a trial, then with a vendor record, then by count \u2014 beats the model's score. Confirms: converts at or above control. Kills: converts below control once both arms pass 2,500 accounts.\n\u2502 \n\u2502 **first-call (15)** \u2014 Hypothesis: the first call on an untouched trial account is where an hour changes most (+10 pts on history, an upper bound). Half are called, half observed. Confirms: called converts above observed. Kills: no difference at 138 per group.\n\u2502 \n\u2502 **control (30)** \u2014 The rep picks. This is what happens without the system, and it is the only reason either arm above can be read.\n\u2502 \n\u2502 **ask** \u2014 5+ contacts, no result, no conversation on file. The rep gets one question, not a call: what do you know that the data does not? Their answer decides whether the account rests or returns.\n\u2502 \n\u2502 **holdout** \u2014 Prospects who said no after 4+ contacts and agreed to no next step. Nobody calls them. If they convert anyway, the extractor misread them.\n\u2502 \n\u2502 First readout 2026-10-30. It will be noisy \u2014 30 per arm cannot resolve a realistic difference \u2014 and it accumulates. The control arm exists because Cordilla has never had one, which is why nobody could write up how the last scoring effort died.\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
     "hygiene_suspects": "\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 AGENT \u00b7 hygiene_batch   [template]\n\u2502 purpose     : Turn a detected CRM defect into an approval note with evidence and a preventive rule\n\u2502 sensitivity : account_ids\n\u2502 routed to   : local\n\u2502 reads       : defect, detection rule, affected count, examples, proposed correction\n\u2502 returns     : markdown, ~100 words\n\u251c\u2500 SYSTEM \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 You write CRM correction proposals for approval in bulk. State the\n\u2502 evidence before the fix. Always include the rule that prevents the\n\u2502 defect from coming back \u2014 a one-off cleanup is worth much less than the\n\u2502 rule.\n\u251c\u2500 PROMPT \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 Defect: account_type is stale\n\u2502 Detected by: Suspect with an MQL, a trial, or a logged sales contact\n\u2502 Affected records: 86 in the scoring batch, 341 in training history\n\u2502 Examples: ACC-00160, ACC-00275, ACC-00989\n\u2502 Proposed correction: reclassify to Prospect\n\u2502 \n\u2502 Write the approval note. Lead with the evidence, then the correction, then the preventive\n\u2502 rule. Say plainly what happens if this is not fixed.\n\u251c\u2500 RETURNS (worked example) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u2502 **account_type is stale \u2014 86 records.** A 'Suspect' is defined as an account that fits the profile but has shown no engagement. These 86 have an MQL, a trial or a logged sales contact (e.g. ACC-00095, ACC-00228, ACC-00284), and in training this group converts at the same rate as Prospects (chi2 p = 0.84). Proposed: reclassify to Prospect in bulk. Preventive rule: a validation rule so an account with activity cannot be saved as Suspect. Left alone, the field keeps disagreeing with itself and nobody can explain why a 'Suspect' is near the top of a list.\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
     "psi": {
       "employee_count": 0.04224818016323447,
@@ -483,17 +1463,17 @@
         "evidence": "102 of 300 scoring accounts have a snapshot over 180 days old; 218 are over 90 days, and every feature is a 90-day window",
         "severity": "high",
         "owner": "crm",
-        "action": "Refresh before assigning. No account over 180 days enters an arm without a refreshed snapshot.",
+        "action": "Flag it on the row, do not block it \u2014 working hypothesis: still actionable. READOUT compares stale vs fresh conversion within each arm; if stale loses, the flag becomes a filter.",
         "cost": "enrichment refresh on ~1/3 of the batch",
         "expect": "reps stop calling a description of a company from two quarters ago",
         "source": "VALIDATE"
       },
       {
-        "what": "account_type does not mean what it says",
-        "evidence": "341 of 402 training 'Suspects' and 86 of 101 scoring ones have an MQL, trial or contact; conversion is identical across the three types (chi2 p = 0.84)",
+        "what": "account_type carries no information \u2014 and if 'Suspect' means 'no engagement', it is wrong on 85% of rows",
+        "evidence": "the brief lists the three values and does not define them; the usual funnel reading (Suspect = no engagement yet) is OUR hypothesis. Under it, 341 of 402 training 'Suspects' and 86 of 101 scoring ones are mislabelled \u2014 they have an MQL, a trial or a contact. Under ANY reading the field is empty: conversion is identical across the three types (chi2 p = 0.84), model importance 0.003",
         "severity": "high",
         "owner": "crm",
-        "action": "Bulk-reclassify the 86 scoring accounts, and add a validation rule so an account with activity cannot be saved as Suspect.",
+        "action": "First, one question to the CRM owner: what is 'Suspect' supposed to mean? If 'no engagement': bulk-reclassify the 86 scoring accounts and add a validation rule. If something else: document it, because today the field predicts nothing.",
         "cost": "one bulk update + one validation rule",
         "expect": "the VP stops seeing 'Suspects' near the top of a list and losing trust in it",
         "source": "HYGIENE"
@@ -509,14 +1489,14 @@
         "source": "SCORE"
       },
       {
-        "what": "The model ranks accounts that declined ABOVE accounts that are ready to buy",
-        "evidence": "on accounts with a transcript, mean score is 6.9% for those that said no vs 5.5% for those that said yes \u2014 inverted. The cause is contact count (3.2 vs 2.0), the model's strongest feature. \u26a0 synthetic demo transcripts; the mechanism is audit \u00a73.5, which is not",
+        "what": "The model's dashboard number is memory, not prediction",
+        "evidence": "on 1099 labelled rows, the model's top-90 converts at 31.1% when it scores rows it was trained on and 6.7% when it scores rows it never saw (out-of-fold) \u2014 against a 7.1% base and 7.3% for a random list (mean of 200). The graph's worklist converts at 12.2% with 213 contacts already sunk vs 486 for the old contact sort at the same rate",
         "severity": "high",
         "owner": "model",
-        "action": "Never rank on this score. Where a conversation exists, it overrides; where it does not, use the explore arm rather than the score. Breaking the loop requires a signal that is not a function of our own past effort.",
-        "cost": "0 \u2014 it is the policy this pipeline already implements",
-        "expect": "effort stops concentrating on accounts that are expensive because they have already been expensive",
-        "source": "VALUE"
+        "action": "Never show an in-sample rate to anyone. Every number about this model that reaches a manager comes from out-of-fold or forward-in-time scoring, and says which.",
+        "cost": "0 \u2014 the OOF scores exist; it is a rule about which column to read",
+        "expect": "the VP sees 6.7%, not 31%, and asks the right question",
+        "source": "PROVE"
       },
       {
         "what": "The model's ranking has never been validated out of sample in production",
@@ -539,23 +1519,23 @@
         "source": "VALIDATE"
       },
       {
-        "what": "Conversations that would fill the vendor's coverage gap already happen, and are not captured",
-        "evidence": "197 of 481 contacts (41%) are with accounts that have no vendor record; 67 such accounts have had at least one call. Vendor COVERAGE predicts conversion (8.22% vs 3.94%, p=0.003) but its SCORE does not (quintiles flat, p=0.42)",
+        "what": "Conversions per hour cannot be estimated from this data at all \u2014 only randomised",
+        "evidence": "the same yield curve says 'call more' read as a rate (5 contacts converts at 13.6% vs 6.5% base) and 'never call twice' read as a cost (14 contacts per conversion at 1 vs 37 at 5), both on cells of 50+ accounts. Contact count is confounded with the intent the rep already observed, so every observational estimate of hours-ROI is uninterpretable",
         "severity": "high",
         "owner": "process",
-        "action": "Record sales calls with per-call disclosure and transcript-only storage, and extract intent per the contract in llm.py. Start with the fill_gap quadrant -- it needs no new outreach, only capture of calls that already happen.",
-        "cost": "recording + transcription on existing calls; no new rep time",
-        "expect": "the 40% of the base the vendor cannot see gets a first-hand intent signal",
-        "source": "CONVERSATION_INTENT"
+        "action": "Do not compute or report conversions-per-hour from historical CRM data, in any cut. The arms in BUDGET are the measuring instrument, not a side experiment: randomised assignment is the only thing that makes the denominator readable.",
+        "cost": "0 \u2014 it is a decision not to publish a number that is already being computed",
+        "expect": "the team stops justifying effort with a statistic that rises because effort was spent, which is the mechanism that killed the previous scoring effort",
+        "source": "VALUE"
       },
       {
-        "what": "The conversation layer changes decisions the score alone would get wrong",
-        "evidence": "on 20 accounts with a transcript: 2 rescued (bottom-quartile score, prospect stated budget or timeline), 5 released (24 contacts going into accounts that said no). Extraction measured at 100% on ready_to_act against known ground truth. \u26a0 synthetic demo transcripts \u2014 the mechanism is the finding, not the count",
+        "what": "At today's allocation the primary metric never becomes readable",
+        "evidence": "detecting a 50% relative lift at the 3% field rate needs 2,515 accounts per arm. At 15 per arm per weekly cycle that is 168 weeks (3.2 years) \u2014 longer than the previous scoring effort survived before it lost credibility",
         "severity": "high",
         "owner": "process",
-        "action": "Extend recording to the 67 accounts in the fill-gap quadrant first: they already receive calls, so this needs no new rep time. Measure the same table against real outcomes at day 90.",
-        "cost": "recording and transcription on calls that already happen",
-        "expect": "the same 35% decision-change rate across the 170 accounts that have had a call, not just 20",
+        "action": "Assign the whole batch, not a third of it: 97 accounts per arm per cycle (291 of the 300) makes the readout land in two quarters. If the manager will not commit that volume, say so now and report only the weekly bets \u2014 do not promise a lift number that the design cannot deliver.",
+        "cost": "no new rep hours \u2014 the same accounts are being worked, they are being recorded as assigned rather than left out of the experiment",
+        "expect": "the north star becomes reachable within the horizon anyone will wait, instead of being quoted as a plan nobody can hold you to",
         "source": "VALUE"
       },
       {
@@ -569,16 +1549,6 @@
         "source": "HYGIENE"
       },
       {
-        "what": "The intent vendor overstates on accounts we can check",
-        "evidence": "of 12 accounts with both a vendor score and a call, 1 are scored high by the vendor and read low from the conversation (overall agreement 50%). \u26a0 synthetic demo data \u2014 the METHOD is the deliverable, not this number",
-        "severity": "medium",
-        "owner": "vendor",
-        "action": "Run this table monthly on real calls and take it into the renewal. Pay for coverage, which predicts (p=0.003); stop paying for the score, which does not (p=0.42).",
-        "cost": "free once calls are recorded",
-        "expect": "the renewal is negotiated on evidence instead of the vendor's claim",
-        "source": "CALIBRATE_VENDOR"
-      },
-      {
         "what": "web_touchpoints_90d cannot distinguish 'no visits' from 'not measured'",
         "evidence": "103 scoring accounts show 0; in training, 0 converts at 7.4% vs 4.5% for 1-3 (Fisher p = 0.119 \u2014 directional, not established)",
         "severity": "medium",
@@ -589,39 +1559,99 @@
         "source": "HYGIENE"
       }
     ],
-    "readout": [
-      {
-        "arm": "control",
-        "accounts": 30,
-        "conversions": 1,
-        "rate": 0.03333333333333333,
-        "95% CI": "[0.6%, 16.7%]"
-      },
-      {
-        "arm": "exploit",
-        "accounts": 30,
-        "conversions": 2,
-        "rate": 0.06666666666666667,
-        "95% CI": "[1.8%, 21.3%]"
-      },
-      {
-        "arm": "explore",
-        "accounts": 30,
-        "conversions": 1,
-        "rate": 0.03333333333333333,
-        "95% CI": "[0.6%, 16.7%]"
-      }
-    ]
+    "scorecard": {
+      "rows": [
+        {
+          "policy": "model alone \u2014 the dashboard the VP asked for",
+          "list": "top 90 by score",
+          "hist": [
+            0.0667,
+            "[3%, 14%]",
+            6
+          ],
+          "memory": 0.3111,
+          "prosp": [
+            null,
+            ""
+          ],
+          "refuses_h": 0.0,
+          "role": "baseline"
+        },
+        {
+          "policy": "random \u2014 no system",
+          "list": "90 at random",
+          "hist": [
+            0.073,
+            "5\u201395%: [3%, 11%]",
+            6.6
+          ],
+          "prosp": [
+            null,
+            ""
+          ],
+          "refuses_h": 0.0,
+          "role": "baseline"
+        },
+        {
+          "policy": "the team today \u2014 rep's own picks",
+          "list": "accounts the team chose to work",
+          "hist": [
+            0.0828,
+            "[6%, 11%]",
+            55
+          ],
+          "prosp": [
+            null,
+            ""
+          ],
+          "refuses_h": 0.0,
+          "role": "baseline \u00b7 control arm"
+        },
+        {
+          "policy": "THE GRAPH \u2014 its worklist",
+          "list": "continue 45 + first-call 15 \u00b7 ask, observe and skip tracked, not called",
+          "hist": [
+            0.1222,
+            "[7%, 21%]",
+            11
+          ],
+          "prosp": [
+            null,
+            ""
+          ],
+          "refuses_h": 51.4,
+          "role": "system"
+        },
+        {
+          "policy": "the graph \u2014 confident picks only",
+          "list": "continue alone",
+          "hist": [
+            0.1556,
+            "[9%, 24%]",
+            14
+          ],
+          "prosp": [
+            null,
+            ""
+          ],
+          "refuses_h": null,
+          "role": "system \u00b7 no exploration"
+        }
+      ],
+      "ask_contacts": 133,
+      "skip_contacts": 124,
+      "prospective_available": false,
+      "prospective_simulated": false
+    }
   },
   "approvals": {
-    "approved_at_reference_date": "2026-08-01",
-    "approved_by": "SDR manager (simulated)",
+    "status": "PENDING",
     "arms": {
-      "exploit": 30,
-      "explore": 30,
+      "continue": 45,
+      "first-call": 15,
       "control": 30
     },
-    "actions": 12,
-    "hygiene_batches": 1
+    "actions": 11,
+    "hygiene_batches": 2
   }
 }
