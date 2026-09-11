@@ -9,9 +9,15 @@ Take-home for the AI Transformation Analyst role at Dialpad. The short version:
 - **The nine columns contain no account-intrinsic signal.** The only two that carry any
   measure what Cordilla already did to the account. So the ask is not a better model —
   it is producing the data that is missing while the system runs. → `PROPOSAL.md`
+proposal/conversation_layer/ the conversation agent — designed, measured, deliberately not wired
+audit/uplift.py              uplift by intent segment, leak-free, with its bias named → audit/uplift.json
+audit/heldout_comparison.py  300 held-out accounts: model · continue · the graph · random, recall@K
+audit/variable_scorecard.py  every column alone, and the ranking keys tried and rejected
+audit/oof_predictions.npy    out-of-fold scores for the 1,200 training rows (provenance in the .md beside it)
+ROLLOUT.md                   phased implementation plan, and the three loops that learn from results
 - **`serving/` is a stateful graph that runs end to end in four seconds.** It scores the
   300, keeps the model as *one voice of three* and uses it only where it disagrees,
-  allocates effort into three matched arms with a control, proposes CRM corrections with
+  ranks every account by where the next hour changes most (uplift by intent segment, estimated on older rows), cuts at the budget into three arms with a control, proposes CRM corrections with
   the rule that stops each defect recurring, and writes one weekly verdict — with a single
   human approval before anything touches Salesforce. **Nodes whose inputs do not exist yet
   are declared as bypassed, not stubbed:** 11 run, 2 are partial, 2 are bypassed, and each
@@ -20,7 +26,9 @@ Take-home for the AI Transformation Analyst role at Dialpad. The short version:
 
 ```
 audit/01_model_audit.ipynb   110 cells, runs in ~4 min, committed with outputs
-serving/pipeline.py          python serving/pipeline.py          (11 of 15 nodes, ~4s)
+serving/pipeline.py          python serving/pipeline.py          (14 of 15 nodes, ~4s)
+                             python serving/pipeline.py --demo --cycles 4 --reset-cycles
+                                                                 (the READOUT→BUDGET loop, four simulated cycles)
                              python serving/pipeline.py --demo   (all 15, synthetic inputs)
 serving/README.md            the graph, what runs today and what does not
 PROPOSAL.md                  ~1,250 words, the four areas
